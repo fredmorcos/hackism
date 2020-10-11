@@ -34,6 +34,7 @@ pub enum Err {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Tok {
   NumAddr(Pos, u16),
+  NameAddr(Pos, Vec<u8>),
 }
 
 impl Tok {
@@ -73,6 +74,10 @@ impl<R: Read> Iterator for Lex<R> {
       ($c:expr, $msg:expr) => {
         Some(Err(Err::Unexpected(self.pos, $c, $msg)))
       };
+    }
+
+    fn is_ascii_symbol(c: u8) -> bool {
+      c == b'_' || c == b'.' || c == b'$' || c == b':'
     }
 
     let c1 = if let Some(la) = self.la.take() {
@@ -146,6 +151,21 @@ impl<R: Read> Iterator for Lex<R> {
 
           addr.push(c);
         }
+      } else if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
+        let mut addr = vec![c2];
+
+        loop {
+          let c = next!({
+            return Some(Ok(Tok::NameAddr(pos, addr)));
+          });
+          self.pos.inc(c);
+
+          if c.is_ascii_whitespace() {
+            return Some(Ok(Tok::NameAddr(pos, addr)));
+          }
+
+          addr.push(c);
+        }
       } else {
         unexpected!(c2, MSG)
       }
@@ -204,6 +224,24 @@ mod tests {
     assert_next!(lex, Tok::NumAddr(Pos::new(3, 5), 8192));
     assert_next!(lex, Tok::NumAddr(Pos::new(5, 1), 123));
     assert_next!(lex, Tok::NumAddr(Pos::new(9, 5), 556));
+    assert_eq!(lex.next(), None);
+  }
+
+  #[test]
+  fn name_address() {
+    let mut lex = lex!("name_address");
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))))
+    );
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::NameAddr(Pos::new(5, 1), Vec::from(&b"BAR"[..]))))
+    );
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"BAZ"[..]))))
+    );
     assert_eq!(lex.next(), None);
   }
 }

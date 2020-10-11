@@ -5,10 +5,13 @@ use std::io;
 
 use crate::inst::Inst;
 use crate::lex::{self, Lex, Tok};
+use crate::pos::Pos;
+use crate::st::ST;
 
 pub struct Parse<R: Read> {
   lex: Lex<R>,
   la: Option<Tok>,
+  st: ST,
 }
 
 impl<R: Read> Parse<R> {
@@ -16,6 +19,7 @@ impl<R: Read> Parse<R> {
     Self {
       lex: Lex::new(bytes),
       la: Option::default(),
+      st: ST::default(),
     }
   }
 }
@@ -23,6 +27,7 @@ impl<R: Read> Parse<R> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Err {
   Lex(lex::Err),
+  Range(Pos, Vec<u8>, &'static str),
 }
 
 impl<R: Read> Iterator for Parse<R> {
@@ -47,6 +52,17 @@ impl<R: Read> Iterator for Parse<R> {
 
     match t1 {
       Tok::NumAddr(pos, addr) => Some(Ok(Inst::NumAddr(pos, addr))),
+      Tok::NameAddr(pos, addr) => {
+        if let Some(addr) = self.st.get(&addr) {
+          Some(Ok(Inst::NameAddr(pos, addr)))
+        } else {
+          Some(Err(Err::Range(
+            pos,
+            addr,
+            "label address would be out of range",
+          )))
+        }
+      }
     }
   }
 }
@@ -98,6 +114,15 @@ mod tests {
     assert_next!(parse, Inst::NumAddr(Pos::new(3, 5), 8192));
     assert_next!(parse, Inst::NumAddr(Pos::new(5, 1), 123));
     assert_next!(parse, Inst::NumAddr(Pos::new(9, 5), 556));
+    assert_eq!(parse.next(), None);
+  }
+
+  #[test]
+  fn name_address() {
+    let mut parse = parse!("name_address");
+    assert_eq!(parse.next(), Some(Ok(Inst::NameAddr(Pos::new(3, 5), 16))));
+    assert_eq!(parse.next(), Some(Ok(Inst::NameAddr(Pos::new(5, 1), 17))));
+    assert_eq!(parse.next(), Some(Ok(Inst::NameAddr(Pos::new(9, 5), 18))));
     assert_eq!(parse.next(), None);
   }
 }

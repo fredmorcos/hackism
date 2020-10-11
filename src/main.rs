@@ -4,6 +4,7 @@ mod inst;
 mod lex;
 mod parse;
 mod pos;
+mod st;
 
 use std::fs::File;
 use std::io::BufWriter;
