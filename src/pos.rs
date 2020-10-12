@@ -1,5 +1,7 @@
 #![warn(clippy::all)]
 
+use std::fmt;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Pos {
   line: usize,
@@ -20,6 +22,12 @@ impl Pos {
 impl Default for Pos {
   fn default() -> Self {
     Self { line: 1, col: 0 }
+  }
+}
+
+impl fmt::Display for Pos {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}:{}", self.line, self.col)
   }
 }
 

@@ -1,6 +1,7 @@
 #![warn(clippy::all)]
 
 use io::{Bytes, Read};
+use std::fmt;
 use std::io;
 
 use crate::inst::Inst;
@@ -24,10 +25,29 @@ impl<R: Read> Parse<R> {
   }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum Err {
   Lex(lex::Err),
   Range(Pos, Vec<u8>, &'static str),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::Lex(e) => write!(f, "Lexing error: {}", e),
+      Err::Range(pos, addr, msg) => write!(
+        f,
+        "Value out of range: address {:?} at {}: {}",
+        addr, pos, msg
+      ),
+    }
+  }
+}
+
+impl fmt::Debug for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    (self as &dyn fmt::Display).fmt(f)
+  }
 }
 
 impl<R: Read> Iterator for Parse<R> {

@@ -1,6 +1,7 @@
 #![warn(clippy::all)]
 
 use io::{Bytes, Read};
+use std::fmt;
 use std::io;
 
 use atoi::FromRadix10Checked;
@@ -23,12 +24,35 @@ impl<R: Read> Lex<R> {
   }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum Err {
   IO(Pos, io::ErrorKind),
   EOF(Pos, &'static str),
   Unexpected(Pos, u8, &'static str),
   Range(Pos, Vec<u8>, &'static str),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::IO(pos, e) => write!(f, "IO error at {}: {}", pos, io::Error::from(*e)),
+      Err::EOF(pos, msg) => write!(f, "Unexpected end of file at {}: {}", pos, msg),
+      Err::Unexpected(pos, c, msg) => {
+        write!(f, "Unexpected character {} at {}: {}", c, pos, msg)
+      }
+      Err::Range(pos, addr, msg) => write!(
+        f,
+        "Value out of range: address {:?} at {}: {}",
+        addr, pos, msg
+      ),
+    }
+  }
+}
+
+impl fmt::Debug for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    (self as &dyn fmt::Display).fmt(f)
+  }
 }
 
 #[derive(Debug, PartialEq, Eq)]

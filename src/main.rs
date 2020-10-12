@@ -6,6 +6,7 @@ mod parse;
 mod pos;
 mod st;
 
+use std::fmt;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
@@ -32,11 +33,25 @@ struct HasOptions {
   files: Vec<PathBuf>,
 }
 
-#[derive(Debug, From)]
+#[derive(From)]
 enum Err {
   IO(io::Error),
-  Logger(log::SetLoggerError),
   Parse(parse::Err),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::IO(e) => write!(f, "IO error: {}", e),
+      Err::Parse(e) => write!(f, "Parsing error: {}", e),
+    }
+  }
+}
+
+impl fmt::Debug for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    (self as &dyn fmt::Display).fmt(f)
+  }
 }
 
 fn encode(val: u16) -> [u8; 16] {
@@ -71,9 +86,14 @@ fn main() -> Result<(), Err> {
     _ => log::LevelFilter::Trace,
   };
 
-  env_logger::Builder::new()
+  let log_res = env_logger::Builder::new()
     .filter_level(log_level)
-    .try_init()?;
+    .try_init();
+
+  match log_res {
+    Ok(_) => {}
+    Err(e) => eprintln!("Error initializing logger: {}", e),
+  }
 
   info!("Informational output enabled");
   debug!("Debug output enabled");
