@@ -59,6 +59,7 @@ impl fmt::Debug for Err {
 pub enum Tok {
   NumAddr(Pos, u16),
   NameAddr(Pos, Vec<u8>),
+  RegAddr(Pos, u16),
 }
 
 impl Tok {
@@ -178,14 +179,44 @@ impl<R: Read> Iterator for Lex<R> {
       } else if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
         let mut addr = vec![c2];
 
+        fn regaddr(name: &[u8]) -> Option<u16> {
+          match name {
+            b"R0" => Some(0),
+            b"R1" => Some(1),
+            b"R2" => Some(2),
+            b"R3" => Some(3),
+            b"R4" => Some(4),
+            b"R5" => Some(5),
+            b"R6" => Some(6),
+            b"R7" => Some(7),
+            b"R8" => Some(8),
+            b"R9" => Some(9),
+            b"R10" => Some(10),
+            b"R11" => Some(11),
+            b"R12" => Some(12),
+            b"R13" => Some(13),
+            b"R14" => Some(14),
+            b"R15" => Some(15),
+            _ => None,
+          }
+        }
+
         loop {
           let c = next!({
-            return Some(Ok(Tok::NameAddr(pos, addr)));
+            if let Some(reg) = regaddr(&addr) {
+              return Some(Ok(Tok::RegAddr(pos, reg)));
+            } else {
+              return Some(Ok(Tok::NameAddr(pos, addr)));
+            }
           });
           self.pos.inc(c);
 
           if c.is_ascii_whitespace() {
-            return Some(Ok(Tok::NameAddr(pos, addr)));
+            if let Some(reg) = regaddr(&addr) {
+              return Some(Ok(Tok::RegAddr(pos, reg)));
+            } else {
+              return Some(Ok(Tok::NameAddr(pos, addr)));
+            }
           }
 
           addr.push(c);
@@ -266,6 +297,15 @@ mod tests {
       lex.next(),
       Some(Ok(Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"BAZ"[..]))))
     );
+    assert_eq!(lex.next(), None);
+  }
+
+  #[test]
+  fn reg_address() {
+    let mut lex = lex!("reg_address");
+    assert_eq!(lex.next(), Some(Ok(Tok::RegAddr(Pos::new(3, 5), 0))));
+    assert_eq!(lex.next(), Some(Ok(Tok::RegAddr(Pos::new(5, 1), 15))));
+    assert_eq!(lex.next(), Some(Ok(Tok::RegAddr(Pos::new(9, 5), 7))));
     assert_eq!(lex.next(), None);
   }
 }

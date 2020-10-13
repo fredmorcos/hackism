@@ -6,6 +6,7 @@ use crate::pos::Pos;
 pub enum Inst {
   NumAddr(Pos, u16),
   NameAddr(Pos, u16),
+  RegAddr(Pos, u16),
 }
 
 impl Inst {
@@ -13,6 +14,7 @@ impl Inst {
     match self {
       Inst::NumAddr(_, val) => *val,
       Inst::NameAddr(_, val) => *val,
+      Inst::RegAddr(_, val) => *val,
     }
   }
 }
@@ -35,5 +37,12 @@ mod tests {
     assert_eq!(Inst::NameAddr(Pos::new(0, 0), 16).encode(), 16);
     assert_eq!(Inst::NameAddr(Pos::new(0, 0), 17).encode(), 17);
     assert_eq!(Inst::NameAddr(Pos::new(0, 0), 18).encode(), 18);
+  }
+
+  #[test]
+  fn reg_address() {
+    assert_eq!(Inst::RegAddr(Pos::new(0, 0), 0).encode(), 0);
+    assert_eq!(Inst::RegAddr(Pos::new(0, 0), 15).encode(), 15);
+    assert_eq!(Inst::RegAddr(Pos::new(0, 0), 7).encode(), 7);
   }
 }
