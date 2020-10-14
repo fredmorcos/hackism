@@ -32,13 +32,6 @@ mod tests {
   fn name_address() {
     assert_eq!(Inst::Addr(Pos::new(0, 0), 16).encode(), 16);
     assert_eq!(Inst::Addr(Pos::new(0, 0), 17).encode(), 17);
-    assert_eq!(Inst::Addr(Pos::new(0, 0), 18).encode(), 18);
-  }
-
-  #[test]
-  fn reg_address() {
-    assert_eq!(Inst::Addr(Pos::new(0, 0), 0).encode(), 0);
-    assert_eq!(Inst::Addr(Pos::new(0, 0), 15).encode(), 15);
-    assert_eq!(Inst::Addr(Pos::new(0, 0), 7).encode(), 7);
+    assert_eq!(Inst::Addr(Pos::new(0, 0), 2).encode(), 2);
   }
 }

@@ -71,9 +71,7 @@ impl<R: Read> Iterator for Parse<R> {
     };
 
     match t1 {
-      Tok::NumAddr(pos, addr) | Tok::RegAddr(pos, addr) => {
-        Some(Ok(Inst::Addr(pos, addr)))
-      }
+      Tok::NumAddr(pos, addr) => Some(Ok(Inst::Addr(pos, addr))),
       Tok::NameAddr(pos, addr) => {
         if let Some(addr) = self.st.get(&addr) {
           Some(Ok(Inst::Addr(pos, addr)))
@@ -144,16 +142,7 @@ mod tests {
     let mut parse = parse!("name_address");
     assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(3, 5), 16))));
     assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(5, 1), 17))));
-    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(9, 5), 18))));
-    assert_eq!(parse.next(), None);
-  }
-
-  #[test]
-  fn reg_address() {
-    let mut parse = parse!("reg_address");
-    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(3, 5), 0))));
-    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(5, 1), 15))));
-    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(9, 5), 7))));
+    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(9, 5), 2))));
     assert_eq!(parse.next(), None);
   }
 }
