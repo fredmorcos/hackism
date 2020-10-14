@@ -71,10 +71,12 @@ impl<R: Read> Iterator for Parse<R> {
     };
 
     match t1 {
-      Tok::NumAddr(pos, addr) => Some(Ok(Inst::NumAddr(pos, addr))),
+      Tok::NumAddr(pos, addr) | Tok::RegAddr(pos, addr) => {
+        Some(Ok(Inst::Addr(pos, addr)))
+      }
       Tok::NameAddr(pos, addr) => {
         if let Some(addr) = self.st.get(&addr) {
-          Some(Ok(Inst::NameAddr(pos, addr)))
+          Some(Ok(Inst::Addr(pos, addr)))
         } else {
           Some(Err(Err::Range(
             pos,
@@ -83,7 +85,6 @@ impl<R: Read> Iterator for Parse<R> {
           )))
         }
       }
-      Tok::RegAddr(pos, addr) => Some(Ok(Inst::RegAddr(pos, addr))),
     }
   }
 }
@@ -132,27 +133,27 @@ mod tests {
   #[test]
   fn num_address() {
     let mut parse = parse!("num_address");
-    assert_next!(parse, Inst::NumAddr(Pos::new(3, 5), 8192));
-    assert_next!(parse, Inst::NumAddr(Pos::new(5, 1), 123));
-    assert_next!(parse, Inst::NumAddr(Pos::new(9, 5), 556));
+    assert_next!(parse, Inst::Addr(Pos::new(3, 5), 8192));
+    assert_next!(parse, Inst::Addr(Pos::new(5, 1), 123));
+    assert_next!(parse, Inst::Addr(Pos::new(9, 5), 556));
     assert_eq!(parse.next(), None);
   }
 
   #[test]
   fn name_address() {
     let mut parse = parse!("name_address");
-    assert_eq!(parse.next(), Some(Ok(Inst::NameAddr(Pos::new(3, 5), 16))));
-    assert_eq!(parse.next(), Some(Ok(Inst::NameAddr(Pos::new(5, 1), 17))));
-    assert_eq!(parse.next(), Some(Ok(Inst::NameAddr(Pos::new(9, 5), 18))));
+    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(3, 5), 16))));
+    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(5, 1), 17))));
+    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(9, 5), 18))));
     assert_eq!(parse.next(), None);
   }
 
   #[test]
   fn reg_address() {
     let mut parse = parse!("reg_address");
-    assert_eq!(parse.next(), Some(Ok(Inst::RegAddr(Pos::new(3, 5), 0))));
-    assert_eq!(parse.next(), Some(Ok(Inst::RegAddr(Pos::new(5, 1), 15))));
-    assert_eq!(parse.next(), Some(Ok(Inst::RegAddr(Pos::new(9, 5), 7))));
+    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(3, 5), 0))));
+    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(5, 1), 15))));
+    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(9, 5), 7))));
     assert_eq!(parse.next(), None);
   }
 }
