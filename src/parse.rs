@@ -1,44 +1,94 @@
 #![warn(clippy::all)]
 
 use io::{Bytes, Read};
+use std::collections::HashMap as Map;
 use std::fmt;
 use std::io;
 
-use crate::inst::Inst;
 use crate::lex::{self, Lex, Tok};
 use crate::pos::Pos;
-use crate::st::ST;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Stmt {
+  Addr(Pos, u16),
+  UnresolvedAddr(Pos, Vec<u8>),
+}
+
+fn is_predefined_symbol(s: &[u8]) -> Option<u16> {
+  match s {
+    b"SP" => Some(0),
+    b"LCL" => Some(1),
+    b"ARG" => Some(2),
+    b"THIS" => Some(3),
+    b"THAT" => Some(4),
+    b"R0" => Some(0),
+    b"R1" => Some(1),
+    b"R2" => Some(2),
+    b"R3" => Some(3),
+    b"R4" => Some(4),
+    b"R5" => Some(5),
+    b"R6" => Some(6),
+    b"R7" => Some(7),
+    b"R8" => Some(8),
+    b"R9" => Some(9),
+    b"R10" => Some(10),
+    b"R11" => Some(11),
+    b"R12" => Some(12),
+    b"R13" => Some(13),
+    b"R14" => Some(14),
+    b"R15" => Some(15),
+    b"SCREEN" => Some(16384),
+    b"KBD" => Some(24576),
+    _ => None,
+  }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct SymInfo {
+  pub pos: Pos,
+  pub addr: u16,
+}
+
+impl SymInfo {
+  pub fn new(pos: Pos, addr: u16) -> Self {
+    Self { pos, addr }
+  }
+}
 
 pub struct Parse<R: Read> {
   lex: Lex<R>,
-  la: Option<Tok>,
-  st: ST,
+  st: Map<Vec<u8>, SymInfo>,
+  idx: u16,
 }
 
 impl<R: Read> Parse<R> {
   pub fn new(bytes: Bytes<R>) -> Self {
     Self {
       lex: Lex::new(bytes),
-      la: Option::default(),
-      st: ST::default(),
+      st: Map::new(),
+      idx: 0,
     }
+  }
+
+  pub fn symtable(self) -> Map<Vec<u8>, SymInfo> {
+    self.st
   }
 }
 
 #[derive(PartialEq, Eq)]
 pub enum Err {
   Lex(lex::Err),
-  Range(Pos, Vec<u8>, &'static str),
+  Label(Pos, Vec<u8>, SymInfo),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Err::Lex(e) => write!(f, "Lexing error: {}", e),
-      Err::Range(pos, addr, msg) => write!(
+      Err::Label(pos, name, orig) => write!(
         f,
-        "Value out of range: address {:?} at {}: {}",
-        addr, pos, msg
+        "Label {:?} at {} already defined at {} with address {}",
+        name, pos, orig.pos, orig.addr,
       ),
     }
   }
@@ -51,7 +101,7 @@ impl fmt::Debug for Err {
 }
 
 impl<R: Read> Iterator for Parse<R> {
-  type Item = Result<Inst, Err>;
+  type Item = Result<Stmt, Err>;
 
   fn next(&mut self) -> Option<Self::Item> {
     macro_rules! next {
@@ -64,23 +114,26 @@ impl<R: Read> Iterator for Parse<R> {
       };
     }
 
-    let t1 = if let Some(la) = self.la.take() {
-      la
-    } else {
-      next!({ return None })
-    };
-
-    match t1 {
-      Tok::NumAddr(pos, addr) => Some(Ok(Inst::Addr(pos, addr))),
-      Tok::NameAddr(pos, addr) => {
-        if let Some(addr) = self.st.get(&addr) {
-          Some(Ok(Inst::Addr(pos, addr)))
+    match next!({ return None }) {
+      Tok::NumAddr(pos, addr) => {
+        self.idx += 1;
+        Some(Ok(Stmt::Addr(pos, addr)))
+      }
+      Tok::NameAddr(pos, name) => {
+        self.idx += 1;
+        if let Some(addr) = is_predefined_symbol(&name) {
+          Some(Ok(Stmt::Addr(pos, addr)))
+        } else if let Some(info) = self.st.get(&name) {
+          Some(Ok(Stmt::Addr(pos, info.addr)))
         } else {
-          Some(Err(Err::Range(
-            pos,
-            addr,
-            "label address would be out of range",
-          )))
+          Some(Ok(Stmt::UnresolvedAddr(pos, name)))
+        }
+      }
+      Tok::Label(pos, label) => {
+        if let Some(old) = self.st.insert(label.clone(), SymInfo::new(pos, self.idx)) {
+          Some(Err(Err::Label(pos, label, old)))
+        } else {
+          self.next()
         }
       }
     }
@@ -93,8 +146,8 @@ mod tests {
 
   use crate::pos::Pos;
 
-  use super::Inst;
   use super::Parse;
+  use super::Stmt;
 
   macro_rules! parse {
     ($f:expr) => {
@@ -131,18 +184,51 @@ mod tests {
   #[test]
   fn num_address() {
     let mut parse = parse!("num_address");
-    assert_next!(parse, Inst::Addr(Pos::new(3, 5), 8192));
-    assert_next!(parse, Inst::Addr(Pos::new(5, 1), 123));
-    assert_next!(parse, Inst::Addr(Pos::new(9, 5), 556));
+    assert_next!(parse, Stmt::Addr(Pos::new(3, 5), 8192));
+    assert_next!(parse, Stmt::Addr(Pos::new(5, 1), 123));
+    assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 556));
     assert_eq!(parse.next(), None);
   }
 
   #[test]
   fn name_address() {
     let mut parse = parse!("name_address");
-    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(3, 5), 16))));
-    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(5, 1), 17))));
-    assert_eq!(parse.next(), Some(Ok(Inst::Addr(Pos::new(9, 5), 2))));
+    assert_eq!(
+      parse.next(),
+      Some(Ok(Stmt::UnresolvedAddr(
+        Pos::new(3, 5),
+        Vec::from(&b"FOO"[..])
+      )))
+    );
+    assert_eq!(
+      parse.next(),
+      Some(Ok(Stmt::UnresolvedAddr(
+        Pos::new(5, 1),
+        Vec::from(&b"BAR"[..])
+      )))
+    );
+    assert_eq!(parse.next(), Some(Ok(Stmt::Addr(Pos::new(9, 5), 2))),);
+    assert_eq!(parse.next(), None);
+  }
+
+  #[test]
+  fn labels() {
+    let mut parse = parse!("labels");
+    assert_eq!(
+      parse.next(),
+      Some(Ok(Stmt::UnresolvedAddr(
+        Pos::new(3, 5),
+        Vec::from(&b"FOO"[..])
+      )))
+    );
+    assert_eq!(parse.next(), Some(Ok(Stmt::Addr(Pos::new(9, 5), 1))));
+    assert_eq!(
+      parse.next(),
+      Some(Ok(Stmt::UnresolvedAddr(
+        Pos::new(11, 1),
+        Vec::from(&b"BAR"[..])
+      )))
+    );
     assert_eq!(parse.next(), None);
   }
 }

@@ -1,10 +1,9 @@
 #![warn(clippy::all)]
 
-mod inst;
+mod gen;
 mod lex;
 mod parse;
 mod pos;
-mod st;
 
 use std::fmt;
 use std::fs::File;
@@ -14,6 +13,7 @@ use std::io::{self, BufReader, Read};
 use std::{iter::Iterator, path::PathBuf};
 
 use derive_more::From;
+use gen::Gen;
 use log::{debug, info, trace};
 use parse::Parse;
 use structopt::StructOpt;
@@ -116,10 +116,18 @@ fn main() -> Result<(), Err> {
     let mut writer = BufWriter::new(output);
     info!("Writing to file {}", output_filename.display());
 
-    for inst in Parse::new(reader.bytes()) {
-      let inst = inst?;
-      debug!("Instruction {:#?}", inst);
-      let inst = inst.encode();
+    let mut parse = Parse::new(reader.bytes());
+    let mut stmts = Vec::new();
+    for stmt in &mut parse {
+      let stmt = stmt?;
+      debug!("Instruction {:#?}", stmt);
+      stmts.push(stmt);
+    }
+
+    let mut gen = Gen::default();
+    let mut st = parse.symtable();
+    for stmt in stmts {
+      let inst = gen.encode(stmt, &mut st);
       if opt.text {
         writer.write_all(&encode(inst))?;
         writer.write_all(&[b'\n'])?;

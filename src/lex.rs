@@ -59,6 +59,7 @@ impl fmt::Debug for Err {
 pub enum Tok {
   NumAddr(Pos, u16),
   NameAddr(Pos, Vec<u8>),
+  Label(Pos, Vec<u8>),
 }
 
 impl Tok {
@@ -193,6 +194,33 @@ impl<R: Read> Iterator for Lex<R> {
       } else {
         unexpected!(c2, MSG)
       }
+    } else if c1 == b'(' {
+      static MSG: &str = "a label (cannot start with a digit)";
+
+      let pos = self.pos;
+      let c2 = next!({ return eof!(MSG) });
+      self.pos.inc(c2);
+
+      if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
+        let mut label = vec![c2];
+
+        loop {
+          let c = next!({ return eof!(MSG) });
+          self.pos.inc(c);
+
+          if c == b')' {
+            return Some(Ok(Tok::Label(pos, label)));
+          }
+
+          if !c.is_ascii_alphabetic() && !is_ascii_symbol(c) {
+            return unexpected!(c, MSG);
+          }
+
+          label.push(c);
+        }
+      } else {
+        unexpected!(c2, MSG)
+      }
     } else {
       Some(Err(Err::Unknown(self.pos, c1)))
     }
@@ -265,6 +293,32 @@ mod tests {
     assert_eq!(
       lex.next(),
       Some(Ok(Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"R2"[..]))))
+    );
+    assert_eq!(lex.next(), None);
+  }
+
+  #[test]
+  fn labels() {
+    let mut lex = lex!("labels");
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))))
+    );
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::Label(Pos::new(5, 1), Vec::from(&b"LABEL"[..]))))
+    );
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"LABEL"[..]))))
+    );
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::NameAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..]))))
+    );
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::Label(Pos::new(13, 1), Vec::from(&b"BAR"[..]))))
     );
     assert_eq!(lex.next(), None);
   }
