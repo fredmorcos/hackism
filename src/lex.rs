@@ -1,6 +1,7 @@
 #![warn(clippy::all)]
 
 use io::{Bytes, Read};
+use std::convert::TryFrom;
 use std::fmt;
 use std::io;
 
@@ -56,10 +57,159 @@ impl fmt::Debug for Err {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum Dest {
+  M,
+  D,
+  MD,
+  A,
+  AM,
+  AD,
+  AMD,
+}
+
+impl fmt::Display for Dest {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Dest::M => write!(f, "M"),
+      Dest::D => write!(f, "D"),
+      Dest::MD => write!(f, "MD"),
+      Dest::A => write!(f, "A"),
+      Dest::AM => write!(f, "AM"),
+      Dest::AD => write!(f, "AD"),
+      Dest::AMD => write!(f, "AMD"),
+    }
+  }
+}
+
+impl TryFrom<&[u8]> for Dest {
+  type Error = ();
+
+  fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
+    match v {
+      b"M" => Ok(Dest::M),
+      b"D" => Ok(Dest::D),
+      b"MD" => Ok(Dest::MD),
+      b"A" => Ok(Dest::A),
+      b"AM" => Ok(Dest::AM),
+      b"AD" => Ok(Dest::AD),
+      b"AMD" => Ok(Dest::AMD),
+      _ => Err(()),
+    }
+  }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Comp {
+  Zero,
+  One,
+  Neg1,
+  D,
+  A,
+  NotD,
+  NotA,
+  NegD,
+  NegA,
+  DPlus1,
+  APlus1,
+  DMinus1,
+  AMinus1,
+  DPlusA,
+  DMinusA,
+  AMinusD,
+  DAndA,
+  DOrA,
+  M,
+  NotM,
+  NegM,
+  MPlus1,
+  MMinus1,
+  DPlusM,
+  DMinusM,
+  MMinusD,
+  DAndM,
+  DOrM,
+}
+
+impl fmt::Display for Comp {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Comp::Zero => write!(f, "0"),
+      Comp::One => write!(f, "1"),
+      Comp::Neg1 => write!(f, "-1"),
+      Comp::D => write!(f, "D"),
+      Comp::A => write!(f, "A"),
+      Comp::NotD => write!(f, "!D"),
+      Comp::NotA => write!(f, "!A"),
+      Comp::NegD => write!(f, "-D"),
+      Comp::NegA => write!(f, "-A"),
+      Comp::DPlus1 => write!(f, "D+1"),
+      Comp::APlus1 => write!(f, "A+1"),
+      Comp::DMinus1 => write!(f, "D-1"),
+      Comp::AMinus1 => write!(f, "A-1"),
+      Comp::DPlusA => write!(f, "D+A"),
+      Comp::DMinusA => write!(f, "D-A"),
+      Comp::AMinusD => write!(f, "A-D"),
+      Comp::DAndA => write!(f, "D&A"),
+      Comp::DOrA => write!(f, "D|A"),
+      Comp::M => write!(f, "M"),
+      Comp::NotM => write!(f, "!M"),
+      Comp::NegM => write!(f, "-M"),
+      Comp::MPlus1 => write!(f, "M+1"),
+      Comp::MMinus1 => write!(f, "M-1"),
+      Comp::DPlusM => write!(f, "D+M"),
+      Comp::DMinusM => write!(f, "D-M"),
+      Comp::MMinusD => write!(f, "M-D"),
+      Comp::DAndM => write!(f, "D&M"),
+      Comp::DOrM => write!(f, "D|M"),
+    }
+  }
+}
+
+impl TryFrom<&[u8]> for Comp {
+  type Error = ();
+
+  fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
+    match v {
+      b"0" => Ok(Comp::Zero),
+      b"1" => Ok(Comp::One),
+      b"-1" => Ok(Comp::Neg1),
+      b"D" => Ok(Comp::D),
+      b"A" => Ok(Comp::A),
+      b"!D" => Ok(Comp::NotD),
+      b"!A" => Ok(Comp::NotA),
+      b"-D" => Ok(Comp::NegD),
+      b"-A" => Ok(Comp::NegA),
+      b"D+1" => Ok(Comp::DPlus1),
+      b"A+1" => Ok(Comp::APlus1),
+      b"D-1" => Ok(Comp::DMinus1),
+      b"A-1" => Ok(Comp::AMinus1),
+      b"D+A" => Ok(Comp::DPlusA),
+      b"D-A" => Ok(Comp::DMinusA),
+      b"A-D" => Ok(Comp::AMinusD),
+      b"D&A" => Ok(Comp::DAndA),
+      b"D|A" => Ok(Comp::DOrA),
+      b"M" => Ok(Comp::M),
+      b"!M" => Ok(Comp::NotM),
+      b"-M" => Ok(Comp::NegM),
+      b"M+1" => Ok(Comp::MPlus1),
+      b"M-1" => Ok(Comp::MMinus1),
+      b"D+M" => Ok(Comp::DPlusM),
+      b"D-M" => Ok(Comp::DMinusM),
+      b"M-D" => Ok(Comp::MMinusD),
+      b"D&M" => Ok(Comp::DAndM),
+      b"D|M" => Ok(Comp::DOrM),
+      _ => Err(()),
+    }
+  }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Tok {
   NumAddr(Pos, u16),
   NameAddr(Pos, Vec<u8>),
   Label(Pos, Vec<u8>),
+  Dest(Pos, Dest),
+  Comp(Pos, Comp),
 }
 
 impl Tok {
@@ -222,7 +372,38 @@ impl<R: Read> Iterator for Lex<R> {
         unexpected!(c2, MSG)
       }
     } else {
-      Some(Err(Err::Unknown(self.pos, c1)))
+      static MSG: &str = "a destination (M, D, MD, A, AM, AD or AMD) \
+                          or a computation (0, 1, -1, D, A, !D, !A, -D, \
+                          -A, D+1, A+1, D-1, A-1, D+A, D-A, A-D, D&A, D|A, \
+                          M, !M, -M, M+1, M-1, D+M, D-M, M-D, D&M or D|M)";
+
+      let pos = self.pos;
+      let mut dest_or_comp = vec![c1];
+
+      loop {
+        let c = next!({
+          return if let Ok(dest) = Dest::try_from(dest_or_comp.as_slice()) {
+            Some(Ok(Tok::Dest(pos, dest)))
+          } else if Comp::try_from(dest_or_comp.as_slice()).is_ok() {
+            eof!("a destination (M, D, MD, A, AM, AD or AMD) followed by an = sign")
+          } else {
+            eof!(MSG)
+          };
+        });
+        self.pos.inc(c);
+
+        if c == b'=' {
+          if let Ok(dest) = Dest::try_from(dest_or_comp.as_slice()) {
+            return Some(Ok(Tok::Dest(pos, dest)));
+          }
+        } else if c == b';' || c.is_ascii_whitespace() {
+          if let Ok(comp) = Comp::try_from(dest_or_comp.as_slice()) {
+            return Some(Ok(Tok::Comp(pos, comp)));
+          }
+        }
+
+        dest_or_comp.push(c);
+      }
     }
   }
 }
@@ -233,6 +414,8 @@ mod tests {
 
   use crate::pos::Pos;
 
+  use super::Comp;
+  use super::Dest;
   use super::Lex;
   use super::Tok;
 
@@ -319,6 +502,24 @@ mod tests {
     assert_eq!(
       lex.next(),
       Some(Ok(Tok::Label(Pos::new(13, 1), Vec::from(&b"BAR"[..]))))
+    );
+    assert_eq!(lex.next(), None);
+  }
+
+  #[test]
+  fn assignments() {
+    let mut lex = lex!("assignments");
+    assert_eq!(lex.next(), Some(Ok(Tok::Dest(Pos::new(1, 1), Dest::A))));
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::Comp(Pos::new(1, 3), Comp::MMinus1)))
+    );
+    assert_eq!(lex.next(), Some(Ok(Tok::Dest(Pos::new(2, 1), Dest::AM))));
+    assert_eq!(lex.next(), Some(Ok(Tok::Comp(Pos::new(2, 4), Comp::DOrA))));
+    assert_eq!(lex.next(), Some(Ok(Tok::Dest(Pos::new(3, 1), Dest::AMD))));
+    assert_eq!(
+      lex.next(),
+      Some(Ok(Tok::Comp(Pos::new(3, 5), Comp::APlus1)))
     );
     assert_eq!(lex.next(), None);
   }

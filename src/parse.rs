@@ -5,13 +5,14 @@ use std::collections::HashMap as Map;
 use std::fmt;
 use std::io;
 
-use crate::lex::{self, Lex, Tok};
+use crate::lex::{self, Comp, Dest, Lex, Tok};
 use crate::pos::Pos;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
   Addr(Pos, u16),
   UnresolvedAddr(Pos, Vec<u8>),
+  Assign(Pos, Dest, Pos, Comp),
 }
 
 fn is_predefined_symbol(s: &[u8]) -> Option<u16> {
@@ -79,6 +80,8 @@ impl<R: Read> Parse<R> {
 pub enum Err {
   Lex(lex::Err),
   Label(Pos, Vec<u8>, SymInfo),
+  Dest(Pos, Dest),
+  Comp(Pos, Comp),
 }
 
 impl fmt::Display for Err {
@@ -89,6 +92,16 @@ impl fmt::Display for Err {
         f,
         "Label {:?} at {} already defined at {} with address {}",
         name, pos, orig.pos, orig.addr,
+      ),
+      Err::Dest(pos, dest) => write!(
+        f,
+        "destination {} at {} must be followed by a computation",
+        dest, pos
+      ),
+      Err::Comp(pos, comp) => write!(
+        f,
+        "computation {} at {} must be followed by a jump",
+        comp, pos
       ),
     }
   }
@@ -136,6 +149,15 @@ impl<R: Read> Iterator for Parse<R> {
           self.next()
         }
       }
+      Tok::Dest(dest_pos, dest) => match next!({
+        return Some(Err(Err::Dest(dest_pos, dest)));
+      }) {
+        Tok::Comp(comp_pos, comp) => {
+          Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)))
+        }
+        _ => Some(Err(Err::Dest(dest_pos, dest))),
+      },
+      Tok::Comp(_, _) => todo!(),
     }
   }
 }
@@ -144,6 +166,8 @@ impl<R: Read> Iterator for Parse<R> {
 mod tests {
   use std::io::{BufReader, Read};
 
+  use crate::lex::Comp;
+  use crate::lex::Dest;
   use crate::pos::Pos;
 
   use super::Parse;
@@ -227,6 +251,39 @@ mod tests {
       Some(Ok(Stmt::UnresolvedAddr(
         Pos::new(11, 1),
         Vec::from(&b"BAR"[..])
+      )))
+    );
+    assert_eq!(parse.next(), None);
+  }
+
+  #[test]
+  fn assignments() {
+    let mut parse = parse!("assignments");
+    assert_eq!(
+      parse.next(),
+      Some(Ok(Stmt::Assign(
+        Pos::new(1, 1),
+        Dest::A,
+        Pos::new(1, 3),
+        Comp::MMinus1
+      )))
+    );
+    assert_eq!(
+      parse.next(),
+      Some(Ok(Stmt::Assign(
+        Pos::new(2, 1),
+        Dest::AM,
+        Pos::new(2, 4),
+        Comp::DOrA,
+      )))
+    );
+    assert_eq!(
+      parse.next(),
+      Some(Ok(Stmt::Assign(
+        Pos::new(3, 1),
+        Dest::AMD,
+        Pos::new(3, 5),
+        Comp::APlus1,
       )))
     );
     assert_eq!(parse.next(), None);
