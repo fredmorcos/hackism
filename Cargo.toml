@@ -1,6 +1,6 @@
 [package]
 name = "has"
-description = "A Hack Assembler"
+description = "Assembler for the Hack machine"
 version = "0.1.0"
 authors = ["Fred Morcos <fm@fredmorcos.com>"]
 edition = "2018"
