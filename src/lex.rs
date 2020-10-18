@@ -465,62 +465,32 @@ mod tests {
   #[test]
   fn name_address() {
     let mut lex = lex!("name_address");
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))))
-    );
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::NameAddr(Pos::new(5, 1), Vec::from(&b"BAR"[..]))))
-    );
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"R2"[..]))))
-    );
+    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(5, 1), Vec::from(&b"BAR"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"R2"[..])));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn labels() {
     let mut lex = lex!("labels");
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))))
-    );
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::Label(Pos::new(5, 1), Vec::from(&b"LABEL"[..]))))
-    );
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"LABEL"[..]))))
-    );
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::NameAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..]))))
-    );
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::Label(Pos::new(13, 1), Vec::from(&b"BAR"[..]))))
-    );
+    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..])));
+    assert_next!(lex, Tok::Label(Pos::new(5, 1), Vec::from(&b"LABEL"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"LABEL"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..])));
+    assert_next!(lex, Tok::Label(Pos::new(13, 1), Vec::from(&b"BAR"[..])));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn assignments() {
     let mut lex = lex!("assignments");
-    assert_eq!(lex.next(), Some(Ok(Tok::Dest(Pos::new(1, 1), Dest::A))));
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::Comp(Pos::new(1, 3), Comp::MMinus1)))
-    );
-    assert_eq!(lex.next(), Some(Ok(Tok::Dest(Pos::new(2, 1), Dest::AM))));
-    assert_eq!(lex.next(), Some(Ok(Tok::Comp(Pos::new(2, 4), Comp::DOrA))));
-    assert_eq!(lex.next(), Some(Ok(Tok::Dest(Pos::new(3, 1), Dest::AMD))));
-    assert_eq!(
-      lex.next(),
-      Some(Ok(Tok::Comp(Pos::new(3, 5), Comp::APlus1)))
-    );
+    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
+    assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
+    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
+    assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
+    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
+    assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
     assert_eq!(lex.next(), None);
   }
 }

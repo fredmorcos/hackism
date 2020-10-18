@@ -217,41 +217,29 @@ mod tests {
   #[test]
   fn name_address() {
     let mut parse = parse!("name_address");
-    assert_eq!(
-      parse.next(),
-      Some(Ok(Stmt::UnresolvedAddr(
-        Pos::new(3, 5),
-        Vec::from(&b"FOO"[..])
-      )))
+    assert_next!(
+      parse,
+      Stmt::UnresolvedAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))
     );
-    assert_eq!(
-      parse.next(),
-      Some(Ok(Stmt::UnresolvedAddr(
-        Pos::new(5, 1),
-        Vec::from(&b"BAR"[..])
-      )))
+    assert_next!(
+      parse,
+      Stmt::UnresolvedAddr(Pos::new(5, 1), Vec::from(&b"BAR"[..]))
     );
-    assert_eq!(parse.next(), Some(Ok(Stmt::Addr(Pos::new(9, 5), 2))),);
+    assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 2));
     assert_eq!(parse.next(), None);
   }
 
   #[test]
   fn labels() {
     let mut parse = parse!("labels");
-    assert_eq!(
-      parse.next(),
-      Some(Ok(Stmt::UnresolvedAddr(
-        Pos::new(3, 5),
-        Vec::from(&b"FOO"[..])
-      )))
+    assert_next!(
+      parse,
+      Stmt::UnresolvedAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))
     );
-    assert_eq!(parse.next(), Some(Ok(Stmt::Addr(Pos::new(9, 5), 1))));
-    assert_eq!(
-      parse.next(),
-      Some(Ok(Stmt::UnresolvedAddr(
-        Pos::new(11, 1),
-        Vec::from(&b"BAR"[..])
-      )))
+    assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 1));
+    assert_next!(
+      parse,
+      Stmt::UnresolvedAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..]))
     );
     assert_eq!(parse.next(), None);
   }
@@ -259,32 +247,17 @@ mod tests {
   #[test]
   fn assignments() {
     let mut parse = parse!("assignments");
-    assert_eq!(
-      parse.next(),
-      Some(Ok(Stmt::Assign(
-        Pos::new(1, 1),
-        Dest::A,
-        Pos::new(1, 3),
-        Comp::MMinus1
-      )))
+    assert_next!(
+      parse,
+      Stmt::Assign(Pos::new(1, 1), Dest::A, Pos::new(1, 3), Comp::MMinus1)
     );
-    assert_eq!(
-      parse.next(),
-      Some(Ok(Stmt::Assign(
-        Pos::new(2, 1),
-        Dest::AM,
-        Pos::new(2, 4),
-        Comp::DOrA,
-      )))
+    assert_next!(
+      parse,
+      Stmt::Assign(Pos::new(2, 1), Dest::AM, Pos::new(2, 4), Comp::DOrA,)
     );
-    assert_eq!(
-      parse.next(),
-      Some(Ok(Stmt::Assign(
-        Pos::new(3, 1),
-        Dest::AMD,
-        Pos::new(3, 5),
-        Comp::APlus1,
-      )))
+    assert_next!(
+      parse,
+      Stmt::Assign(Pos::new(3, 1), Dest::AMD, Pos::new(3, 5), Comp::APlus1,)
     );
     assert_eq!(parse.next(), None);
   }
