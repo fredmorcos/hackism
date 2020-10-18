@@ -204,12 +204,55 @@ impl TryFrom<&[u8]> for Comp {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum Jump {
+  JGT,
+  JEQ,
+  JGE,
+  JLT,
+  JNE,
+  JLE,
+  JMP,
+}
+
+impl fmt::Display for Jump {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Jump::JGT => write!(f, "JGT"),
+      Jump::JEQ => write!(f, "JEQ"),
+      Jump::JGE => write!(f, "JGE"),
+      Jump::JLT => write!(f, "JLT"),
+      Jump::JNE => write!(f, "JNE"),
+      Jump::JLE => write!(f, "JLE"),
+      Jump::JMP => write!(f, "JMP"),
+    }
+  }
+}
+
+impl TryFrom<&[u8]> for Jump {
+  type Error = ();
+
+  fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
+    match v {
+      b"JGT" => Ok(Jump::JGT),
+      b"JEQ" => Ok(Jump::JEQ),
+      b"JGE" => Ok(Jump::JGE),
+      b"JLT" => Ok(Jump::JLT),
+      b"JNE" => Ok(Jump::JNE),
+      b"JLE" => Ok(Jump::JLE),
+      b"JMP" => Ok(Jump::JMP),
+      _ => Err(()),
+    }
+  }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Tok {
   NumAddr(Pos, u16),
   NameAddr(Pos, Vec<u8>),
   Label(Pos, Vec<u8>),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
+  Jump(Pos, Jump),
 }
 
 impl Tok {
@@ -378,13 +421,15 @@ impl<R: Read> Iterator for Lex<R> {
                           M, !M, -M, M+1, M-1, D+M, D-M, M-D, D&M or D|M)";
 
       let pos = self.pos;
-      let mut dest_or_comp = vec![c1];
+      let mut tok = vec![c1];
 
       loop {
         let c = next!({
-          return if let Ok(dest) = Dest::try_from(dest_or_comp.as_slice()) {
+          return if let Ok(dest) = Dest::try_from(tok.as_slice()) {
             Some(Ok(Tok::Dest(pos, dest)))
-          } else if Comp::try_from(dest_or_comp.as_slice()).is_ok() {
+          } else if let Ok(jump) = Jump::try_from(tok.as_slice()) {
+            Some(Ok(Tok::Jump(pos, jump)))
+          } else if Comp::try_from(tok.as_slice()).is_ok() {
             eof!("a destination (M, D, MD, A, AM, AD or AMD) followed by an = sign")
           } else {
             eof!(MSG)
@@ -393,16 +438,18 @@ impl<R: Read> Iterator for Lex<R> {
         self.pos.inc(c);
 
         if c == b'=' {
-          if let Ok(dest) = Dest::try_from(dest_or_comp.as_slice()) {
+          if let Ok(dest) = Dest::try_from(tok.as_slice()) {
             return Some(Ok(Tok::Dest(pos, dest)));
           }
         } else if c == b';' || c.is_ascii_whitespace() {
-          if let Ok(comp) = Comp::try_from(dest_or_comp.as_slice()) {
+          if let Ok(jump) = Jump::try_from(tok.as_slice()) {
+            return Some(Ok(Tok::Jump(pos, jump)));
+          } else if let Ok(comp) = Comp::try_from(tok.as_slice()) {
             return Some(Ok(Tok::Comp(pos, comp)));
           }
         }
 
-        dest_or_comp.push(c);
+        tok.push(c);
       }
     }
   }
@@ -416,6 +463,7 @@ mod tests {
 
   use super::Comp;
   use super::Dest;
+  use super::Jump;
   use super::Lex;
   use super::Tok;
 
@@ -491,6 +539,33 @@ mod tests {
     assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
     assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
     assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
+    assert_eq!(lex.next(), None);
+  }
+
+  #[test]
+  fn branches() {
+    let mut lex = lex!("branches");
+    assert_next!(lex, Tok::Comp(Pos::new(1, 1), Comp::MMinus1));
+    assert_next!(lex, Tok::Jump(Pos::new(1, 5), Jump::JEQ));
+    assert_next!(lex, Tok::Comp(Pos::new(2, 1), Comp::DOrA));
+    assert_next!(lex, Tok::Jump(Pos::new(2, 5), Jump::JNE));
+    assert_next!(lex, Tok::Comp(Pos::new(3, 1), Comp::APlus1));
+    assert_next!(lex, Tok::Jump(Pos::new(3, 5), Jump::JMP));
+    assert_eq!(lex.next(), None);
+  }
+
+  #[test]
+  fn instructions() {
+    let mut lex = lex!("instructions");
+    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
+    assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
+    assert_next!(lex, Tok::Jump(Pos::new(1, 7), Jump::JEQ));
+    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
+    assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
+    assert_next!(lex, Tok::Jump(Pos::new(2, 8), Jump::JNE));
+    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
+    assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
+    assert_next!(lex, Tok::Jump(Pos::new(3, 9), Jump::JMP));
     assert_eq!(lex.next(), None);
   }
 }

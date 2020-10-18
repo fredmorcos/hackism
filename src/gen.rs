@@ -2,6 +2,7 @@ use std::collections::HashMap as Map;
 
 use crate::lex::Comp;
 use crate::lex::Dest;
+use crate::lex::Jump;
 use crate::parse::Stmt;
 use crate::parse::SymInfo;
 
@@ -61,6 +62,18 @@ impl Gen {
     }
   }
 
+  fn encode_jump(jump: Jump) -> u16 {
+    match jump {
+      Jump::JGT => 1,
+      Jump::JEQ => 2,
+      Jump::JGE => 3,
+      Jump::JLT => 4,
+      Jump::JNE => 5,
+      Jump::JLE => 6,
+      Jump::JMP => 7,
+    }
+  }
+
   pub fn encode(&mut self, stmt: Stmt, st: &mut Map<Vec<u8>, SymInfo>) -> u16 {
     match stmt {
       Stmt::Addr(_, addr) => addr,
@@ -75,6 +88,15 @@ impl Gen {
       }
       Stmt::Assign(_, dest, _, comp) => {
         (0b111 << 13) | (Gen::encode_comp(comp) << 6) | (Gen::encode_dest(dest) << 3)
+      }
+      Stmt::Branch(_, comp, _, jump) => {
+        (0b111 << 13) | (Gen::encode_comp(comp) << 6) | Gen::encode_jump(jump)
+      }
+      Stmt::Inst(_, dest, _, comp, _, jump) => {
+        (0b111 << 13)
+          | (Gen::encode_comp(comp) << 6)
+          | (Gen::encode_dest(dest) << 3)
+          | Gen::encode_jump(jump)
       }
     }
   }

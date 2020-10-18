@@ -1,0 +1,3 @@
+A=M-1;JEQ
+AM=D|A;JNE
+AMD=A+1;JMP

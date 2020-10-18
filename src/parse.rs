@@ -2,10 +2,9 @@
 
 use io::{Bytes, Read};
 use std::collections::HashMap as Map;
-use std::fmt;
-use std::io;
+use std::{fmt, io};
 
-use crate::lex::{self, Comp, Dest, Lex, Tok};
+use crate::lex::{self, Comp, Dest, Jump, Lex, Tok};
 use crate::pos::Pos;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -13,6 +12,8 @@ pub enum Stmt {
   Addr(Pos, u16),
   UnresolvedAddr(Pos, Vec<u8>),
   Assign(Pos, Dest, Pos, Comp),
+  Branch(Pos, Comp, Pos, Jump),
+  Inst(Pos, Dest, Pos, Comp, Pos, Jump),
 }
 
 fn is_predefined_symbol(s: &[u8]) -> Option<u16> {
@@ -59,6 +60,7 @@ impl SymInfo {
 pub struct Parse<R: Read> {
   lex: Lex<R>,
   st: Map<Vec<u8>, SymInfo>,
+  la: Option<Tok>,
   idx: u16,
 }
 
@@ -67,6 +69,7 @@ impl<R: Read> Parse<R> {
     Self {
       lex: Lex::new(bytes),
       st: Map::new(),
+      la: Option::default(),
       idx: 0,
     }
   }
@@ -82,6 +85,7 @@ pub enum Err {
   Label(Pos, Vec<u8>, SymInfo),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
+  Jump(Pos, Jump),
 }
 
 impl fmt::Display for Err {
@@ -102,6 +106,11 @@ impl fmt::Display for Err {
         f,
         "computation {} at {} must be followed by a jump",
         comp, pos
+      ),
+      Err::Jump(pos, jump) => write!(
+        f,
+        "jump {} at {} must be preceded by a computation",
+        jump, pos
       ),
     }
   }
@@ -127,7 +136,13 @@ impl<R: Read> Iterator for Parse<R> {
       };
     }
 
-    match next!({ return None }) {
+    let t1 = if let Some(la) = self.la.take() {
+      la
+    } else {
+      next!({ return None })
+    };
+
+    match t1 {
       Tok::NumAddr(pos, addr) => {
         self.idx += 1;
         Some(Ok(Stmt::Addr(pos, addr)))
@@ -149,15 +164,37 @@ impl<R: Read> Iterator for Parse<R> {
           self.next()
         }
       }
-      Tok::Dest(dest_pos, dest) => match next!({
-        return Some(Err(Err::Dest(dest_pos, dest)));
-      }) {
-        Tok::Comp(comp_pos, comp) => {
-          Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)))
+      Tok::Dest(dest_pos, dest) => {
+        self.idx += 1;
+        match next!({
+          return Some(Err(Err::Dest(dest_pos, dest)));
+        }) {
+          Tok::Comp(comp_pos, comp) => match next!({
+            return Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)));
+          }) {
+            Tok::Jump(jump_pos, jump) => Some(Ok(Stmt::Inst(
+              dest_pos, dest, comp_pos, comp, jump_pos, jump,
+            ))),
+            la => {
+              self.la = Some(la);
+              Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)))
+            }
+          },
+          _ => Some(Err(Err::Dest(dest_pos, dest))),
         }
-        _ => Some(Err(Err::Dest(dest_pos, dest))),
-      },
-      Tok::Comp(_, _) => todo!(),
+      }
+      Tok::Comp(comp_pos, comp) => {
+        self.idx += 1;
+        match next!({
+          return Some(Err(Err::Comp(comp_pos, comp)));
+        }) {
+          Tok::Jump(jump_pos, jump) => {
+            Some(Ok(Stmt::Branch(comp_pos, comp, jump_pos, jump)))
+          }
+          _ => Some(Err(Err::Comp(comp_pos, comp))),
+        }
+      }
+      Tok::Jump(pos, jump) => Some(Err(Err::Jump(pos, jump))),
     }
   }
 }
@@ -168,6 +205,7 @@ mod tests {
 
   use crate::lex::Comp;
   use crate::lex::Dest;
+  use crate::lex::Jump;
   use crate::pos::Pos;
 
   use super::Parse;
@@ -258,6 +296,63 @@ mod tests {
     assert_next!(
       parse,
       Stmt::Assign(Pos::new(3, 1), Dest::AMD, Pos::new(3, 5), Comp::APlus1,)
+    );
+    assert_eq!(parse.next(), None);
+  }
+
+  #[test]
+  fn branches() {
+    let mut parse = parse!("branches");
+    assert_next!(
+      parse,
+      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Pos::new(1, 5), Jump::JEQ)
+    );
+    assert_next!(
+      parse,
+      Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Pos::new(2, 5), Jump::JNE)
+    );
+    assert_next!(
+      parse,
+      Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Pos::new(3, 5), Jump::JMP)
+    );
+    assert_eq!(parse.next(), None);
+  }
+
+  #[test]
+  fn instructions() {
+    let mut parse = parse!("instructions");
+    assert_next!(
+      parse,
+      Stmt::Inst(
+        Pos::new(1, 1),
+        Dest::A,
+        Pos::new(1, 3),
+        Comp::MMinus1,
+        Pos::new(1, 7),
+        Jump::JEQ
+      )
+    );
+    assert_next!(
+      parse,
+      Stmt::Inst(
+        Pos::new(2, 1),
+        Dest::AM,
+        Pos::new(2, 4),
+        Comp::DOrA,
+        Pos::new(2, 8),
+        Jump::JNE
+      )
+    );
+    assert_next!(
+      parse,
+      Stmt::Inst(
+        Pos::new(3, 1),
+        Dest::AMD,
+        Pos::new(3, 5),
+        Comp::APlus1,
+        Pos::new(3, 9),
+        Jump::JMP
+      )
     );
     assert_eq!(parse.next(), None);
   }

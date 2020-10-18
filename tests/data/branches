@@ -1,0 +1,3 @@
+M-1;JEQ
+D|A;JNE
+A+1;JMP
