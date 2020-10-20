@@ -291,15 +291,20 @@ mod tests {
     let mut parse = parse!("assignments");
     assert_next!(
       parse,
-      Stmt::Assign(Pos::new(1, 1), Dest::A, Pos::new(1, 3), Comp::MMinus1)
+      Stmt::Assign(Pos::new(1, 1), Dest::Addr, Pos::new(1, 3), Comp::MMinus1)
     );
     assert_next!(
       parse,
-      Stmt::Assign(Pos::new(2, 1), Dest::AM, Pos::new(2, 4), Comp::DOrA,)
+      Stmt::Assign(Pos::new(2, 1), Dest::AddrMem, Pos::new(2, 4), Comp::DOrA,)
     );
     assert_next!(
       parse,
-      Stmt::Assign(Pos::new(3, 1), Dest::AMD, Pos::new(3, 5), Comp::APlus1,)
+      Stmt::Assign(
+        Pos::new(3, 1),
+        Dest::AddrMemData,
+        Pos::new(3, 5),
+        Comp::APlus1,
+      )
     );
     assert_eq!(parse.next(), None);
   }
@@ -309,15 +314,15 @@ mod tests {
     let mut parse = parse!("branches");
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Pos::new(1, 5), Jump::JEQ)
+      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Pos::new(1, 5), Jump::Jeq)
     );
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Pos::new(2, 5), Jump::JNE)
+      Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Pos::new(2, 5), Jump::Jne)
     );
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Pos::new(3, 5), Jump::JMP)
+      Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Pos::new(3, 5), Jump::Jmp)
     );
     assert_eq!(parse.next(), None);
   }
@@ -329,33 +334,33 @@ mod tests {
       parse,
       Stmt::Inst(
         Pos::new(1, 1),
-        Dest::A,
+        Dest::Addr,
         Pos::new(1, 3),
         Comp::MMinus1,
         Pos::new(1, 7),
-        Jump::JEQ
+        Jump::Jeq
       )
     );
     assert_next!(
       parse,
       Stmt::Inst(
         Pos::new(2, 1),
-        Dest::AM,
+        Dest::AddrMem,
         Pos::new(2, 4),
         Comp::DOrA,
         Pos::new(2, 8),
-        Jump::JNE
+        Jump::Jne
       )
     );
     assert_next!(
       parse,
       Stmt::Inst(
         Pos::new(3, 1),
-        Dest::AMD,
+        Dest::AddrMemData,
         Pos::new(3, 5),
         Comp::APlus1,
         Pos::new(3, 9),
-        Jump::JMP
+        Jump::Jmp
       )
     );
     assert_eq!(parse.next(), None);

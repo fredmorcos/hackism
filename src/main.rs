@@ -35,14 +35,14 @@ struct HasOptions {
 
 #[derive(From)]
 enum Err {
-  IO(io::Error),
+  Io(io::Error),
   Parse(parse::Err),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Err::IO(e) => write!(f, "IO error: {}", e),
+      Err::Io(e) => write!(f, "IO error: {}", e),
       Err::Parse(e) => write!(f, "Parsing error: {}", e),
     }
   }
@@ -106,7 +106,7 @@ fn main() -> Result<(), Err> {
 
     let output_filename = filename.with_extension("hack");
     if output_filename.exists() {
-      return Err(Err::IO(io::Error::new(
+      return Err(Err::Io(io::Error::new(
         io::ErrorKind::AlreadyExists,
         format!("File {} already exists", output_filename.display()),
       )));

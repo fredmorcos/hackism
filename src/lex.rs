@@ -27,8 +27,8 @@ impl<R: Read> Lex<R> {
 
 #[derive(PartialEq, Eq)]
 pub enum Err {
-  IO(Pos, io::ErrorKind),
-  EOF(Pos, &'static str),
+  Io(Pos, io::ErrorKind),
+  Eof(Pos, &'static str),
   Unexpected(Pos, u8, &'static str),
   Range(Pos, Vec<u8>, &'static str),
 }
@@ -36,8 +36,8 @@ pub enum Err {
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Err::IO(pos, e) => write!(f, "IO error at {}: {}", pos, io::Error::from(*e)),
-      Err::EOF(pos, msg) => write!(f, "Unexpected end of file at {}: {}", pos, msg),
+      Err::Io(pos, e) => write!(f, "IO error at {}: {}", pos, io::Error::from(*e)),
+      Err::Eof(pos, msg) => write!(f, "Unexpected end of file at {}: {}", pos, msg),
       Err::Unexpected(pos, c, msg) => {
         write!(f, "Unexpected character {} at {}: {}", c, pos, msg)
       }
@@ -58,25 +58,25 @@ impl fmt::Debug for Err {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Dest {
-  M,
-  D,
-  MD,
-  A,
-  AM,
-  AD,
-  AMD,
+  Mem,
+  Data,
+  MemData,
+  Addr,
+  AddrMem,
+  AddrData,
+  AddrMemData,
 }
 
 impl fmt::Display for Dest {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Dest::M => write!(f, "M"),
-      Dest::D => write!(f, "D"),
-      Dest::MD => write!(f, "MD"),
-      Dest::A => write!(f, "A"),
-      Dest::AM => write!(f, "AM"),
-      Dest::AD => write!(f, "AD"),
-      Dest::AMD => write!(f, "AMD"),
+      Dest::Mem => write!(f, "M"),
+      Dest::Data => write!(f, "D"),
+      Dest::MemData => write!(f, "MD"),
+      Dest::Addr => write!(f, "A"),
+      Dest::AddrMem => write!(f, "AM"),
+      Dest::AddrData => write!(f, "AD"),
+      Dest::AddrMemData => write!(f, "AMD"),
     }
   }
 }
@@ -86,13 +86,13 @@ impl TryFrom<&[u8]> for Dest {
 
   fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
     match v {
-      b"M" => Ok(Dest::M),
-      b"D" => Ok(Dest::D),
-      b"MD" => Ok(Dest::MD),
-      b"A" => Ok(Dest::A),
-      b"AM" => Ok(Dest::AM),
-      b"AD" => Ok(Dest::AD),
-      b"AMD" => Ok(Dest::AMD),
+      b"M" => Ok(Dest::Mem),
+      b"D" => Ok(Dest::Data),
+      b"MD" => Ok(Dest::MemData),
+      b"A" => Ok(Dest::Addr),
+      b"AM" => Ok(Dest::AddrMem),
+      b"AD" => Ok(Dest::AddrData),
+      b"AMD" => Ok(Dest::AddrMemData),
       _ => Err(()),
     }
   }
@@ -205,25 +205,25 @@ impl TryFrom<&[u8]> for Comp {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Jump {
-  JGT,
-  JEQ,
-  JGE,
-  JLT,
-  JNE,
-  JLE,
-  JMP,
+  Jgt,
+  Jeq,
+  Jge,
+  Jlt,
+  Jne,
+  Jle,
+  Jmp,
 }
 
 impl fmt::Display for Jump {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Jump::JGT => write!(f, "JGT"),
-      Jump::JEQ => write!(f, "JEQ"),
-      Jump::JGE => write!(f, "JGE"),
-      Jump::JLT => write!(f, "JLT"),
-      Jump::JNE => write!(f, "JNE"),
-      Jump::JLE => write!(f, "JLE"),
-      Jump::JMP => write!(f, "JMP"),
+      Jump::Jgt => write!(f, "JGT"),
+      Jump::Jeq => write!(f, "JEQ"),
+      Jump::Jge => write!(f, "JGE"),
+      Jump::Jlt => write!(f, "JLT"),
+      Jump::Jne => write!(f, "JNE"),
+      Jump::Jle => write!(f, "JLE"),
+      Jump::Jmp => write!(f, "JMP"),
     }
   }
 }
@@ -233,13 +233,13 @@ impl TryFrom<&[u8]> for Jump {
 
   fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
     match v {
-      b"JGT" => Ok(Jump::JGT),
-      b"JEQ" => Ok(Jump::JEQ),
-      b"JGE" => Ok(Jump::JGE),
-      b"JLT" => Ok(Jump::JLT),
-      b"JNE" => Ok(Jump::JNE),
-      b"JLE" => Ok(Jump::JLE),
-      b"JMP" => Ok(Jump::JMP),
+      b"JGT" => Ok(Jump::Jgt),
+      b"JEQ" => Ok(Jump::Jeq),
+      b"JGE" => Ok(Jump::Jge),
+      b"JLT" => Ok(Jump::Jlt),
+      b"JNE" => Ok(Jump::Jne),
+      b"JLE" => Ok(Jump::Jle),
+      b"JMP" => Ok(Jump::Jmp),
       _ => Err(()),
     }
   }
@@ -276,7 +276,7 @@ impl<R: Read> Iterator for Lex<R> {
       ($b:block) => {
         match self.bytes.next() {
           Some(Ok(c)) => c,
-          Some(Err(e)) => return Some(Err(Err::IO(self.pos, e.kind()))),
+          Some(Err(e)) => return Some(Err(Err::Io(self.pos, e.kind()))),
           None => $b,
         };
       };
@@ -284,7 +284,7 @@ impl<R: Read> Iterator for Lex<R> {
 
     macro_rules! eof {
       ($msg:expr) => {
-        Some(Err(Err::EOF(self.pos, $msg)))
+        Some(Err(Err::Eof(self.pos, $msg)))
       };
     }
 
@@ -535,11 +535,11 @@ mod tests {
   #[test]
   fn assignments() {
     let mut lex = lex!("assignments");
-    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
+    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::Addr));
     assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
+    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AddrMem));
     assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
+    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AddrMemData));
     assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
     assert_eq!(lex.next(), None);
   }
@@ -548,26 +548,26 @@ mod tests {
   fn branches() {
     let mut lex = lex!("branches");
     assert_next!(lex, Tok::Comp(Pos::new(1, 1), Comp::MMinus1));
-    assert_next!(lex, Tok::Jump(Pos::new(1, 5), Jump::JEQ));
+    assert_next!(lex, Tok::Jump(Pos::new(1, 5), Jump::Jeq));
     assert_next!(lex, Tok::Comp(Pos::new(2, 1), Comp::DOrA));
-    assert_next!(lex, Tok::Jump(Pos::new(2, 5), Jump::JNE));
+    assert_next!(lex, Tok::Jump(Pos::new(2, 5), Jump::Jne));
     assert_next!(lex, Tok::Comp(Pos::new(3, 1), Comp::APlus1));
-    assert_next!(lex, Tok::Jump(Pos::new(3, 5), Jump::JMP));
+    assert_next!(lex, Tok::Jump(Pos::new(3, 5), Jump::Jmp));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn instructions() {
     let mut lex = lex!("instructions");
-    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
+    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::Addr));
     assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, Tok::Jump(Pos::new(1, 7), Jump::JEQ));
-    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
+    assert_next!(lex, Tok::Jump(Pos::new(1, 7), Jump::Jeq));
+    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AddrMem));
     assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, Tok::Jump(Pos::new(2, 8), Jump::JNE));
-    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
+    assert_next!(lex, Tok::Jump(Pos::new(2, 8), Jump::Jne));
+    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AddrMemData));
     assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
-    assert_next!(lex, Tok::Jump(Pos::new(3, 9), Jump::JMP));
+    assert_next!(lex, Tok::Jump(Pos::new(3, 9), Jump::Jmp));
     assert_eq!(lex.next(), None);
   }
 }

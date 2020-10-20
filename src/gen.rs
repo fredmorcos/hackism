@@ -19,13 +19,13 @@ impl Default for Gen {
 impl Gen {
   fn encode_dest(dest: Dest) -> u16 {
     match dest {
-      Dest::M => 1,
-      Dest::D => 2,
-      Dest::MD => 3,
-      Dest::A => 4,
-      Dest::AM => 5,
-      Dest::AD => 6,
-      Dest::AMD => 7,
+      Dest::Mem => 1,
+      Dest::Data => 2,
+      Dest::MemData => 3,
+      Dest::Addr => 4,
+      Dest::AddrMem => 5,
+      Dest::AddrData => 6,
+      Dest::AddrMemData => 7,
     }
   }
 
@@ -64,13 +64,13 @@ impl Gen {
 
   fn encode_jump(jump: Jump) -> u16 {
     match jump {
-      Jump::JGT => 1,
-      Jump::JEQ => 2,
-      Jump::JGE => 3,
-      Jump::JLT => 4,
-      Jump::JNE => 5,
-      Jump::JLE => 6,
-      Jump::JMP => 7,
+      Jump::Jgt => 1,
+      Jump::Jeq => 2,
+      Jump::Jge => 3,
+      Jump::Jlt => 4,
+      Jump::Jne => 5,
+      Jump::Jle => 6,
+      Jump::Jmp => 7,
     }
   }
 
