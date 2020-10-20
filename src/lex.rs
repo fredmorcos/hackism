@@ -405,7 +405,7 @@ impl<R: Read> Iterator for Lex<R> {
             return Some(Ok(Tok::Label(pos, label)));
           }
 
-          if !c.is_ascii_alphabetic() && !is_ascii_symbol(c) {
+          if !c.is_ascii_alphanumeric() && !is_ascii_symbol(c) {
             return unexpected!(c, MSG);
           }
 
@@ -527,6 +527,8 @@ mod tests {
     assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"LABEL"[..])));
     assert_next!(lex, Tok::NameAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..])));
     assert_next!(lex, Tok::Label(Pos::new(13, 1), Vec::from(&b"BAR"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(15, 1), Vec::from(&b"LAB0"[..])));
+    assert_next!(lex, Tok::Label(Pos::new(17, 1), Vec::from(&b"LAB0"[..])));
     assert_eq!(lex.next(), None);
   }
 

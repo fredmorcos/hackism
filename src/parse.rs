@@ -279,6 +279,10 @@ mod tests {
       parse,
       Stmt::UnresolvedAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..]))
     );
+    assert_next!(
+      parse,
+      Stmt::UnresolvedAddr(Pos::new(15, 1), Vec::from(&b"LAB0"[..]))
+    );
     assert_eq!(parse.next(), None);
   }
 
