@@ -1,10 +1,5 @@
 #![warn(clippy::all)]
 
-mod gen;
-mod lex;
-mod parse;
-mod pos;
-
 use std::fmt;
 use std::fs::File;
 use std::io::BufWriter;
@@ -13,9 +8,9 @@ use std::io::{self, BufReader, Read};
 use std::{iter::Iterator, path::PathBuf};
 
 use derive_more::From;
-use gen::Gen;
+use has::gen::Gen;
+use has::parse::{self, Parse};
 use log::{debug, info, trace};
-use parse::Parse;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
