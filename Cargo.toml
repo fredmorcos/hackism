@@ -20,5 +20,12 @@ derive-new = "0.5"
 either = "1.6"
 atoi = "0.3"
 
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "pong_benchmark"
+harness = false
+
 [profile.release]
 debug = true
