@@ -19,6 +19,7 @@ derive_more = "0.99"
 derive-new = "0.5"
 either = "1.6"
 atoi = "0.3"
+smallvec = "1.4"
 
 [dev-dependencies]
 criterion = "0.3"

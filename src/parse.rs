@@ -4,13 +4,14 @@ use io::{Bytes, Read};
 use std::collections::HashMap as Map;
 use std::{fmt, io};
 
+use crate::lex::Txt;
 use crate::lex::{self, Comp, Dest, Jump, Lex, Tok};
 use crate::pos::Pos;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
   Addr(Pos, u16),
-  UnresolvedAddr(Pos, Vec<u8>),
+  UnresolvedAddr(Pos, Txt),
   Assign(Pos, Dest, Pos, Comp),
   Branch(Pos, Comp, Pos, Jump),
   Inst(Pos, Dest, Pos, Comp, Pos, Jump),
@@ -59,13 +60,13 @@ impl SymInfo {
 
 pub struct Parse<'s, R: Read> {
   lex: Lex<R>,
-  st: &'s mut Map<Vec<u8>, SymInfo>,
+  st: &'s mut Map<Txt, SymInfo>,
   la: Option<Tok>,
   idx: u16,
 }
 
 impl<'s, R: Read> Parse<'s, R> {
-  pub fn new(bytes: Bytes<R>, st: &'s mut Map<Vec<u8>, SymInfo>) -> Self {
+  pub fn new(bytes: Bytes<R>, st: &'s mut Map<Txt, SymInfo>) -> Self {
     Self {
       lex: Lex::from(bytes),
       st,
@@ -78,7 +79,7 @@ impl<'s, R: Read> Parse<'s, R> {
 #[derive(PartialEq, Eq)]
 pub enum Err {
   Lex(lex::Err),
-  Label(Pos, Vec<u8>, SymInfo),
+  Label(Pos, Txt, SymInfo),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
   Jump(Pos, Jump),
@@ -203,6 +204,7 @@ mod tests {
   use crate::lex::Comp;
   use crate::lex::Dest;
   use crate::lex::Jump;
+  use crate::lex::Txt;
   use crate::pos::Pos;
 
   use super::Parse;
@@ -260,11 +262,11 @@ mod tests {
     let mut parse = parse!("name_address", &mut st);
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))
+      Stmt::UnresolvedAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..]))
     );
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(5, 1), Vec::from(&b"BAR"[..]))
+      Stmt::UnresolvedAddr(Pos::new(5, 1), Txt::from(&b"BAR"[..]))
     );
     assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 2));
     assert_eq!(parse.next(), None);
@@ -276,16 +278,16 @@ mod tests {
     let mut parse = parse!("labels", &mut st);
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))
+      Stmt::UnresolvedAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..]))
     );
     assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 1));
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..]))
+      Stmt::UnresolvedAddr(Pos::new(11, 1), Txt::from(&b"BAR"[..]))
     );
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(15, 1), Vec::from(&b"LAB0"[..]))
+      Stmt::UnresolvedAddr(Pos::new(15, 1), Txt::from(&b"LAB0"[..]))
     );
     assert_eq!(parse.next(), None);
   }

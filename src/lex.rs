@@ -6,8 +6,11 @@ use std::fmt;
 use std::io;
 
 use atoi::FromRadix10Checked;
+use smallvec::{smallvec, SmallVec};
 
 use crate::pos::Pos;
+
+pub type Txt = SmallVec<[u8; 32]>;
 
 pub struct Lex<R: Read> {
   bytes: Bytes<R>,
@@ -30,7 +33,7 @@ pub enum Err {
   Io(Pos, io::ErrorKind),
   Eof(Pos, &'static str),
   Unexpected(Pos, u8, &'static str),
-  Range(Pos, Vec<u8>, &'static str),
+  Range(Pos, Txt, &'static str),
 }
 
 impl fmt::Display for Err {
@@ -248,8 +251,8 @@ impl TryFrom<&[u8]> for Jump {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Tok {
   NumAddr(Pos, u16),
-  NameAddr(Pos, Vec<u8>),
-  Label(Pos, Vec<u8>),
+  NameAddr(Pos, Txt),
+  Label(Pos, Txt),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
   Jump(Pos, Jump),
@@ -343,7 +346,7 @@ impl<R: Read> Iterator for Lex<R> {
       self.pos.inc(c2);
 
       if c2.is_ascii_digit() {
-        let mut addr = vec![c2];
+        let mut addr = smallvec![c2];
 
         loop {
           let c = next!({
@@ -370,7 +373,7 @@ impl<R: Read> Iterator for Lex<R> {
           addr.push(c);
         }
       } else if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
-        let mut addr = vec![c2];
+        let mut addr = smallvec![c2];
 
         loop {
           let c = next!({
@@ -395,7 +398,7 @@ impl<R: Read> Iterator for Lex<R> {
       self.pos.inc(c2);
 
       if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
-        let mut label = vec![c2];
+        let mut label = smallvec![c2];
 
         loop {
           let c = next!({ return eof!(MSG) });
@@ -466,6 +469,7 @@ mod tests {
   use super::Jump;
   use super::Lex;
   use super::Tok;
+  use super::Txt;
 
   macro_rules! lex {
     ($f:expr) => {
@@ -515,22 +519,22 @@ mod tests {
   #[test]
   fn name_address() {
     let mut lex = lex!("name_address");
-    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(5, 1), Vec::from(&b"BAR"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"R2"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(5, 1), Txt::from(&b"BAR"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Txt::from(&b"R2"[..])));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn labels() {
     let mut lex = lex!("labels");
-    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..])));
-    assert_next!(lex, Tok::Label(Pos::new(5, 1), Vec::from(&b"LABEL"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Vec::from(&b"LABEL"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(11, 1), Vec::from(&b"BAR"[..])));
-    assert_next!(lex, Tok::Label(Pos::new(13, 1), Vec::from(&b"BAR"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(15, 1), Vec::from(&b"LAB0"[..])));
-    assert_next!(lex, Tok::Label(Pos::new(17, 1), Vec::from(&b"LAB0"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..])));
+    assert_next!(lex, Tok::Label(Pos::new(5, 1), Txt::from(&b"LABEL"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Txt::from(&b"LABEL"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(11, 1), Txt::from(&b"BAR"[..])));
+    assert_next!(lex, Tok::Label(Pos::new(13, 1), Txt::from(&b"BAR"[..])));
+    assert_next!(lex, Tok::NameAddr(Pos::new(15, 1), Txt::from(&b"LAB0"[..])));
+    assert_next!(lex, Tok::Label(Pos::new(17, 1), Txt::from(&b"LAB0"[..])));
     assert_eq!(lex.next(), None);
   }
 

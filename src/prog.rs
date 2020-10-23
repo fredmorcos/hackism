@@ -5,12 +5,13 @@ use std::io::Bytes;
 use std::io::Read;
 
 use crate::gen::Gen;
+use crate::lex::Txt;
 use crate::parse::Stmt;
 use crate::parse::SymInfo;
 use crate::parse::{self, Parse};
 
 pub struct Prog {
-  st: Map<Vec<u8>, SymInfo>,
+  st: Map<Txt, SymInfo>,
   stmts: Vec<Stmt>,
   idx: usize,
   gen: Gen,

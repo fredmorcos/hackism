@@ -3,6 +3,7 @@ use std::collections::HashMap as Map;
 use crate::lex::Comp;
 use crate::lex::Dest;
 use crate::lex::Jump;
+use crate::lex::Txt;
 use crate::parse::Stmt;
 use crate::parse::SymInfo;
 
@@ -74,7 +75,7 @@ impl Gen {
     }
   }
 
-  pub fn encode(&mut self, stmt: &Stmt, st: &mut Map<Vec<u8>, SymInfo>) -> u16 {
+  pub fn encode(&mut self, stmt: &Stmt, st: &mut Map<Txt, SymInfo>) -> u16 {
     match stmt {
       Stmt::Addr(_, addr) => *addr,
       Stmt::UnresolvedAddr(pos, name) => {
