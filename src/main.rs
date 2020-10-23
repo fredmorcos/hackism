@@ -1,5 +1,6 @@
 #![warn(clippy::all)]
 
+use std::collections::HashMap as Map;
 use std::fmt;
 use std::fs::File;
 use std::io::BufWriter;
@@ -111,7 +112,8 @@ fn main() -> Result<(), Err> {
     let mut writer = BufWriter::new(output);
     info!("Writing to file {}", output_filename.display());
 
-    let mut parse = Parse::new(reader.bytes());
+    let mut st = Map::new();
+    let mut parse = Parse::new(reader.bytes(), &mut st);
     let mut stmts = Vec::new();
     for stmt in &mut parse {
       let stmt = stmt?;
@@ -120,7 +122,6 @@ fn main() -> Result<(), Err> {
     }
 
     let mut gen = Gen::default();
-    let mut st = parse.symtable();
     for stmt in stmts {
       let inst = gen.encode(stmt, &mut st);
       if opt.text {

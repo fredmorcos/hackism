@@ -57,25 +57,21 @@ impl SymInfo {
   }
 }
 
-pub struct Parse<R: Read> {
+pub struct Parse<'s, R: Read> {
   lex: Lex<R>,
-  st: Map<Vec<u8>, SymInfo>,
+  st: &'s mut Map<Vec<u8>, SymInfo>,
   la: Option<Tok>,
   idx: u16,
 }
 
-impl<R: Read> Parse<R> {
-  pub fn new(bytes: Bytes<R>) -> Self {
+impl<'s, R: Read> Parse<'s, R> {
+  pub fn new(bytes: Bytes<R>, st: &'s mut Map<Vec<u8>, SymInfo>) -> Self {
     Self {
-      st: Map::new(),
       lex: Lex::from(bytes),
+      st,
       la: Option::default(),
       idx: 0,
     }
-  }
-
-  pub fn symtable(self) -> Map<Vec<u8>, SymInfo> {
-    self.st
   }
 }
 
@@ -122,7 +118,7 @@ impl fmt::Debug for Err {
   }
 }
 
-impl<R: Read> Iterator for Parse<R> {
+impl<'s, R: Read> Iterator for Parse<'s, R> {
   type Item = Result<Stmt, Err>;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -201,6 +197,7 @@ impl<R: Read> Iterator for Parse<R> {
 
 #[cfg(test)]
 mod tests {
+  use std::collections::HashMap as Map;
   use std::io::{BufReader, Read};
 
   use crate::lex::Comp;
@@ -212,9 +209,10 @@ mod tests {
   use super::Stmt;
 
   macro_rules! parse {
-    ($f:expr) => {
+    ($f:expr, $st:expr) => {
       Parse::new(
         BufReader::new(&include_bytes!(concat!("../tests/data/", $f))[..]).bytes(),
+        $st,
       )
     };
   }
@@ -227,25 +225,29 @@ mod tests {
 
   #[test]
   fn empty() {
-    let mut parse = parse!("empty");
+    let mut st = Map::new();
+    let mut parse = parse!("empty", &mut st);
     assert_eq!(parse.next(), None);
   }
 
   #[test]
   fn spaces() {
-    let mut parse = parse!("spaces");
+    let mut st = Map::new();
+    let mut parse = parse!("spaces", &mut st);
     assert_eq!(parse.next(), None);
   }
 
   #[test]
   fn comments() {
-    let mut parse = parse!("comments");
+    let mut st = Map::new();
+    let mut parse = parse!("comments", &mut st);
     assert_eq!(parse.next(), None);
   }
 
   #[test]
   fn num_address() {
-    let mut parse = parse!("num_address");
+    let mut st = Map::new();
+    let mut parse = parse!("num_address", &mut st);
     assert_next!(parse, Stmt::Addr(Pos::new(3, 5), 8192));
     assert_next!(parse, Stmt::Addr(Pos::new(5, 1), 123));
     assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 556));
@@ -254,7 +256,8 @@ mod tests {
 
   #[test]
   fn name_address() {
-    let mut parse = parse!("name_address");
+    let mut st = Map::new();
+    let mut parse = parse!("name_address", &mut st);
     assert_next!(
       parse,
       Stmt::UnresolvedAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))
@@ -269,7 +272,8 @@ mod tests {
 
   #[test]
   fn labels() {
-    let mut parse = parse!("labels");
+    let mut st = Map::new();
+    let mut parse = parse!("labels", &mut st);
     assert_next!(
       parse,
       Stmt::UnresolvedAddr(Pos::new(3, 5), Vec::from(&b"FOO"[..]))
@@ -288,7 +292,8 @@ mod tests {
 
   #[test]
   fn assignments() {
-    let mut parse = parse!("assignments");
+    let mut st = Map::new();
+    let mut parse = parse!("assignments", &mut st);
     assert_next!(
       parse,
       Stmt::Assign(Pos::new(1, 1), Dest::Addr, Pos::new(1, 3), Comp::MMinus1)
@@ -311,7 +316,8 @@ mod tests {
 
   #[test]
   fn branches() {
-    let mut parse = parse!("branches");
+    let mut st = Map::new();
+    let mut parse = parse!("branches", &mut st);
     assert_next!(
       parse,
       Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Pos::new(1, 5), Jump::Jeq)
@@ -329,7 +335,8 @@ mod tests {
 
   #[test]
   fn instructions() {
-    let mut parse = parse!("instructions");
+    let mut st = Map::new();
+    let mut parse = parse!("instructions", &mut st);
     assert_next!(
       parse,
       Stmt::Inst(
