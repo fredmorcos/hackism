@@ -64,3 +64,9 @@ impl Iterator for Prog {
     }
   }
 }
+
+impl Prog {
+  pub fn text_encode(val: u16) -> [u8; 16] {
+    Gen::text_encode(val)
+  }
+}
