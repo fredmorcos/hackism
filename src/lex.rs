@@ -15,8 +15,8 @@ pub struct Lex<R: Read> {
   la: Option<u8>,
 }
 
-impl<R: Read> Lex<R> {
-  pub fn new(bytes: Bytes<R>) -> Self {
+impl<R: Read> From<Bytes<R>> for Lex<R> {
+  fn from(bytes: Bytes<R>) -> Self {
     Self {
       bytes,
       pos: Pos::default(),
@@ -469,7 +469,9 @@ mod tests {
 
   macro_rules! lex {
     ($f:expr) => {
-      Lex::new(BufReader::new(&include_bytes!(concat!("../tests/data/", $f))[..]).bytes())
+      Lex::from(
+        BufReader::new(&include_bytes!(concat!("../tests/data/", $f))[..]).bytes(),
+      )
     };
   }
 

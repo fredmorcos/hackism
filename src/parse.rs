@@ -67,8 +67,8 @@ pub struct Parse<R: Read> {
 impl<R: Read> Parse<R> {
   pub fn new(bytes: Bytes<R>) -> Self {
     Self {
-      lex: Lex::new(bytes),
       st: Map::new(),
+      lex: Lex::from(bytes),
       la: Option::default(),
       idx: 0,
     }
