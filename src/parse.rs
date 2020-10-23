@@ -80,9 +80,11 @@ impl<'s, R: Read> Parse<'s, R> {
 pub enum Err {
   Lex(lex::Err),
   Label(Pos, Txt, SymInfo),
+  Msg(Pos, &'static str),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
   Jump(Pos, Jump),
+  Semi(Pos),
 }
 
 impl fmt::Display for Err {
@@ -94,6 +96,7 @@ impl fmt::Display for Err {
         "Label {:?} at {} already defined at {} with address {}",
         name, pos, orig.pos, orig.addr,
       ),
+      Err::Msg(pos, msg) => write!(f, "expecting {} after {}", msg, pos),
       Err::Dest(pos, dest) => write!(
         f,
         "destination {} at {} must be followed by a computation",
@@ -109,6 +112,7 @@ impl fmt::Display for Err {
         "jump {} at {} must be preceded by a computation",
         jump, pos
       ),
+      Err::Semi(pos) => write!(f, "freestanding semicolon at {}", pos),
     }
   }
 }
@@ -163,35 +167,63 @@ impl<'s, R: Read> Iterator for Parse<'s, R> {
       }
       Tok::Dest(dest_pos, dest) => {
         self.idx += 1;
-        match next!({
-          return Some(Err(Err::Dest(dest_pos, dest)));
-        }) {
-          Tok::Comp(comp_pos, comp) => match next!({
-            return Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)));
-          }) {
-            Tok::Jump(jump_pos, jump) => Some(Ok(Stmt::Inst(
-              dest_pos, dest, comp_pos, comp, jump_pos, jump,
-            ))),
-            la => {
-              self.la = Some(la);
-              Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)))
+        match next!({ return Some(Err(Err::Msg(dest_pos, "a computation"))) }) {
+          Tok::Comp(comp_pos, comp) => {
+            match next!({ return Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp))) })
+            {
+              Tok::Semi(semi_pos) => {
+                match next!({ return Some(Err(Err::Msg(semi_pos, "a jump"))) }) {
+                  Tok::Jump(jump_pos, jump) => Some(Ok(Stmt::Inst(
+                    dest_pos, dest, comp_pos, comp, jump_pos, jump,
+                  ))),
+                  Tok::NumAddr(_, _)
+                  | Tok::NameAddr(_, _)
+                  | Tok::Label(_, _)
+                  | Tok::Semi(_)
+                  | Tok::Dest(_, _)
+                  | Tok::Comp(_, _) => Some(Err(Err::Msg(semi_pos, "a jump"))),
+                }
+              }
+              la => {
+                self.la = Some(la);
+                Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)))
+              }
             }
-          },
-          _ => Some(Err(Err::Dest(dest_pos, dest))),
+          }
+          Tok::NumAddr(_, _)
+          | Tok::NameAddr(_, _)
+          | Tok::Label(_, _)
+          | Tok::Semi(_)
+          | Tok::Dest(_, _)
+          | Tok::Jump(_, _) => Some(Err(Err::Dest(dest_pos, dest))),
         }
       }
       Tok::Comp(comp_pos, comp) => {
         self.idx += 1;
-        match next!({
-          return Some(Err(Err::Comp(comp_pos, comp)));
-        }) {
-          Tok::Jump(jump_pos, jump) => {
-            Some(Ok(Stmt::Branch(comp_pos, comp, jump_pos, jump)))
+        match next!({ return Some(Err(Err::Comp(comp_pos, comp))) }) {
+          Tok::Semi(semi_pos) => {
+            match next!({ return Some(Err(Err::Msg(semi_pos, "a jump"))) }) {
+              Tok::Jump(jump_pos, jump) => {
+                Some(Ok(Stmt::Branch(comp_pos, comp, jump_pos, jump)))
+              }
+              Tok::NumAddr(_, _)
+              | Tok::NameAddr(_, _)
+              | Tok::Label(_, _)
+              | Tok::Semi(_)
+              | Tok::Dest(_, _)
+              | Tok::Comp(_, _) => Some(Err(Err::Msg(semi_pos, "a jump"))),
+            }
           }
-          _ => Some(Err(Err::Comp(comp_pos, comp))),
+          Tok::Jump(_, _)
+          | Tok::NumAddr(_, _)
+          | Tok::NameAddr(_, _)
+          | Tok::Label(_, _)
+          | Tok::Dest(_, _)
+          | Tok::Comp(_, _) => Some(Err(Err::Comp(comp_pos, comp))),
         }
       }
       Tok::Jump(pos, jump) => Some(Err(Err::Jump(pos, jump))),
+      Tok::Semi(pos) => Some(Err(Err::Semi(pos))),
     }
   }
 }
@@ -298,20 +330,15 @@ mod tests {
     let mut parse = parse!("assignments", &mut st);
     assert_next!(
       parse,
-      Stmt::Assign(Pos::new(1, 1), Dest::Addr, Pos::new(1, 3), Comp::MMinus1)
+      Stmt::Assign(Pos::new(1, 1), Dest::A, Pos::new(1, 3), Comp::MMinus1)
     );
     assert_next!(
       parse,
-      Stmt::Assign(Pos::new(2, 1), Dest::AddrMem, Pos::new(2, 4), Comp::DOrA,)
+      Stmt::Assign(Pos::new(2, 1), Dest::AM, Pos::new(2, 4), Comp::DOrA,)
     );
     assert_next!(
       parse,
-      Stmt::Assign(
-        Pos::new(3, 1),
-        Dest::AddrMemData,
-        Pos::new(3, 5),
-        Comp::APlus1,
-      )
+      Stmt::Assign(Pos::new(3, 1), Dest::AMD, Pos::new(3, 5), Comp::APlus1,)
     );
     assert_eq!(parse.next(), None);
   }
@@ -322,15 +349,15 @@ mod tests {
     let mut parse = parse!("branches", &mut st);
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Pos::new(1, 5), Jump::Jeq)
+      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Pos::new(1, 5), Jump::JEQ)
     );
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Pos::new(2, 5), Jump::Jne)
+      Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Pos::new(2, 5), Jump::JNE)
     );
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Pos::new(3, 5), Jump::Jmp)
+      Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Pos::new(3, 5), Jump::JMP)
     );
     assert_eq!(parse.next(), None);
   }
@@ -343,33 +370,33 @@ mod tests {
       parse,
       Stmt::Inst(
         Pos::new(1, 1),
-        Dest::Addr,
+        Dest::A,
         Pos::new(1, 3),
         Comp::MMinus1,
         Pos::new(1, 7),
-        Jump::Jeq
+        Jump::JEQ
       )
     );
     assert_next!(
       parse,
       Stmt::Inst(
         Pos::new(2, 1),
-        Dest::AddrMem,
+        Dest::AM,
         Pos::new(2, 4),
         Comp::DOrA,
         Pos::new(2, 8),
-        Jump::Jne
+        Jump::JNE
       )
     );
     assert_next!(
       parse,
       Stmt::Inst(
         Pos::new(3, 1),
-        Dest::AddrMemData,
+        Dest::AMD,
         Pos::new(3, 5),
         Comp::APlus1,
         Pos::new(3, 9),
-        Jump::Jmp
+        Jump::JMP
       )
     );
     assert_eq!(parse.next(), None);

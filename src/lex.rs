@@ -1,7 +1,6 @@
 #![warn(clippy::all)]
 
 use io::{Bytes, Read};
-use std::convert::TryFrom;
 use std::fmt;
 use std::io;
 
@@ -30,20 +29,26 @@ impl<R: Read> From<Bytes<R>> for Lex<R> {
 
 #[derive(PartialEq, Eq)]
 pub enum Err {
-  Io(Pos, io::ErrorKind),
-  Eof(Pos, &'static str),
-  Unexpected(Pos, u8, &'static str),
+  IO(Pos, io::ErrorKind),
+  EOF(&'static str, u32, Pos, &'static str),
+  Unexpected(&'static str, u32, Pos, u8, &'static str),
   Range(Pos, Txt, &'static str),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Err::Io(pos, e) => write!(f, "IO error at {}: {}", pos, io::Error::from(*e)),
-      Err::Eof(pos, msg) => write!(f, "Unexpected end of file at {}: {}", pos, msg),
-      Err::Unexpected(pos, c, msg) => {
-        write!(f, "Unexpected character {} at {}: {}", c, pos, msg)
-      }
+      Err::IO(pos, e) => write!(f, "IO error at {}: {}", pos, io::Error::from(*e)),
+      Err::EOF(file, line, pos, msg) => write!(
+        f,
+        "{}:{}: Unexpected end of file at {}: {}",
+        file, line, pos, msg
+      ),
+      Err::Unexpected(file, line, pos, c, msg) => write!(
+        f,
+        "{}:{}: Unexpected character {} at {}: {}",
+        file, line, c, pos, msg
+      ),
       Err::Range(pos, addr, msg) => write!(
         f,
         "Value out of range: address {:?} at {}: {}",
@@ -61,42 +66,25 @@ impl fmt::Debug for Err {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Dest {
-  Mem,
-  Data,
-  MemData,
-  Addr,
-  AddrMem,
-  AddrData,
-  AddrMemData,
+  M,
+  D,
+  MD,
+  A,
+  AM,
+  AD,
+  AMD,
 }
 
 impl fmt::Display for Dest {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Dest::Mem => write!(f, "M"),
-      Dest::Data => write!(f, "D"),
-      Dest::MemData => write!(f, "MD"),
-      Dest::Addr => write!(f, "A"),
-      Dest::AddrMem => write!(f, "AM"),
-      Dest::AddrData => write!(f, "AD"),
-      Dest::AddrMemData => write!(f, "AMD"),
-    }
-  }
-}
-
-impl TryFrom<&[u8]> for Dest {
-  type Error = ();
-
-  fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
-    match v {
-      b"M" => Ok(Dest::Mem),
-      b"D" => Ok(Dest::Data),
-      b"MD" => Ok(Dest::MemData),
-      b"A" => Ok(Dest::Addr),
-      b"AM" => Ok(Dest::AddrMem),
-      b"AD" => Ok(Dest::AddrData),
-      b"AMD" => Ok(Dest::AddrMemData),
-      _ => Err(()),
+      Dest::M => write!(f, "M"),
+      Dest::D => write!(f, "D"),
+      Dest::MD => write!(f, "MD"),
+      Dest::A => write!(f, "A"),
+      Dest::AM => write!(f, "AM"),
+      Dest::AD => write!(f, "AD"),
+      Dest::AMD => write!(f, "AMD"),
     }
   }
 }
@@ -168,82 +156,27 @@ impl fmt::Display for Comp {
   }
 }
 
-impl TryFrom<&[u8]> for Comp {
-  type Error = ();
-
-  fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
-    match v {
-      b"0" => Ok(Comp::Zero),
-      b"1" => Ok(Comp::One),
-      b"-1" => Ok(Comp::Neg1),
-      b"D" => Ok(Comp::D),
-      b"A" => Ok(Comp::A),
-      b"!D" => Ok(Comp::NotD),
-      b"!A" => Ok(Comp::NotA),
-      b"-D" => Ok(Comp::NegD),
-      b"-A" => Ok(Comp::NegA),
-      b"D+1" => Ok(Comp::DPlus1),
-      b"A+1" => Ok(Comp::APlus1),
-      b"D-1" => Ok(Comp::DMinus1),
-      b"A-1" => Ok(Comp::AMinus1),
-      b"D+A" => Ok(Comp::DPlusA),
-      b"D-A" => Ok(Comp::DMinusA),
-      b"A-D" => Ok(Comp::AMinusD),
-      b"D&A" => Ok(Comp::DAndA),
-      b"D|A" => Ok(Comp::DOrA),
-      b"M" => Ok(Comp::M),
-      b"!M" => Ok(Comp::NotM),
-      b"-M" => Ok(Comp::NegM),
-      b"M+1" => Ok(Comp::MPlus1),
-      b"M-1" => Ok(Comp::MMinus1),
-      b"D+M" => Ok(Comp::DPlusM),
-      b"D-M" => Ok(Comp::DMinusM),
-      b"M-D" => Ok(Comp::MMinusD),
-      b"D&M" => Ok(Comp::DAndM),
-      b"D|M" => Ok(Comp::DOrM),
-      _ => Err(()),
-    }
-  }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Jump {
-  Jgt,
-  Jeq,
-  Jge,
-  Jlt,
-  Jne,
-  Jle,
-  Jmp,
+  JGT,
+  JEQ,
+  JGE,
+  JLT,
+  JNE,
+  JLE,
+  JMP,
 }
 
 impl fmt::Display for Jump {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Jump::Jgt => write!(f, "JGT"),
-      Jump::Jeq => write!(f, "JEQ"),
-      Jump::Jge => write!(f, "JGE"),
-      Jump::Jlt => write!(f, "JLT"),
-      Jump::Jne => write!(f, "JNE"),
-      Jump::Jle => write!(f, "JLE"),
-      Jump::Jmp => write!(f, "JMP"),
-    }
-  }
-}
-
-impl TryFrom<&[u8]> for Jump {
-  type Error = ();
-
-  fn try_from(v: &[u8]) -> Result<Self, Self::Error> {
-    match v {
-      b"JGT" => Ok(Jump::Jgt),
-      b"JEQ" => Ok(Jump::Jeq),
-      b"JGE" => Ok(Jump::Jge),
-      b"JLT" => Ok(Jump::Jlt),
-      b"JNE" => Ok(Jump::Jne),
-      b"JLE" => Ok(Jump::Jle),
-      b"JMP" => Ok(Jump::Jmp),
-      _ => Err(()),
+      Jump::JGT => write!(f, "JGT"),
+      Jump::JEQ => write!(f, "JEQ"),
+      Jump::JGE => write!(f, "JGE"),
+      Jump::JLT => write!(f, "JLT"),
+      Jump::JNE => write!(f, "JNE"),
+      Jump::JLE => write!(f, "JLE"),
+      Jump::JMP => write!(f, "JMP"),
     }
   }
 }
@@ -253,6 +186,7 @@ pub enum Tok {
   NumAddr(Pos, u16),
   NameAddr(Pos, Txt),
   Label(Pos, Txt),
+  Semi(Pos),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
   Jump(Pos, Jump),
@@ -279,7 +213,7 @@ impl<R: Read> Iterator for Lex<R> {
       ($b:block) => {
         match self.bytes.next() {
           Some(Ok(c)) => c,
-          Some(Err(e)) => return Some(Err(Err::Io(self.pos, e.kind()))),
+          Some(Err(e)) => return Some(Err(Err::IO(self.pos, e.kind()))),
           None => $b,
         };
       };
@@ -287,13 +221,31 @@ impl<R: Read> Iterator for Lex<R> {
 
     macro_rules! eof {
       ($msg:expr) => {
-        Some(Err(Err::Eof(self.pos, $msg)))
+        Some(Err(Err::EOF(file!(), line!(), self.pos, $msg)))
       };
     }
 
     macro_rules! unexpected {
       ($c:expr, $msg:expr) => {
-        Some(Err(Err::Unexpected(self.pos, $c, $msg)))
+        Some(Err(Err::Unexpected(file!(), line!(), self.pos, $c, $msg)))
+      };
+    }
+
+    macro_rules! dest {
+      ($p:expr, $v:ident) => {
+        Some(Ok(Tok::Dest($p, Dest::$v)))
+      };
+    }
+
+    macro_rules! comp {
+      ($p:expr, $v:ident) => {
+        Some(Ok(Tok::Comp($p, Comp::$v)))
+      };
+    }
+
+    macro_rules! jump {
+      ($p:expr, $v:ident) => {
+        Some(Ok(Tok::Jump($p, Jump::$v)))
       };
     }
 
@@ -417,43 +369,227 @@ impl<R: Read> Iterator for Lex<R> {
       } else {
         unexpected!(c2, MSG)
       }
-    } else {
-      static MSG: &str = "a destination (M, D, MD, A, AM, AD or AMD) \
-                          or a computation (0, 1, -1, D, A, !D, !A, -D, \
-                          -A, D+1, A+1, D-1, A-1, D+A, D-A, A-D, D&A, D|A, \
-                          M, !M, -M, M+1, M-1, D+M, D-M, M-D, D&M or D|M)";
-
+    } else if c1 == b'J' {
       let pos = self.pos;
-      let mut tok = vec![c1];
-
-      loop {
-        let c = next!({
-          return if let Ok(dest) = Dest::try_from(tok.as_slice()) {
-            Some(Ok(Tok::Dest(pos, dest)))
-          } else if let Ok(jump) = Jump::try_from(tok.as_slice()) {
-            Some(Ok(Tok::Jump(pos, jump)))
-          } else if Comp::try_from(tok.as_slice()).is_ok() {
-            eof!("a destination (M, D, MD, A, AM, AD or AMD) followed by an = sign")
-          } else {
-            eof!(MSG)
-          };
-        });
-        self.pos.inc(c);
-
-        if c == b'=' {
-          if let Ok(dest) = Dest::try_from(tok.as_slice()) {
-            return Some(Ok(Tok::Dest(pos, dest)));
-          }
-        } else if c == b';' || c.is_ascii_whitespace() {
-          if let Ok(jump) = Jump::try_from(tok.as_slice()) {
-            return Some(Ok(Tok::Jump(pos, jump)));
-          } else if let Ok(comp) = Comp::try_from(tok.as_slice()) {
-            return Some(Ok(Tok::Comp(pos, comp)));
+      let c2 = next!({ return eof!("JGT|JEQ|JGE|JLT|JNE|JLE|JMP") });
+      self.pos.inc(c2);
+      match c2 {
+        b'G' => {
+          let c3 = next!({ return eof!("JGT|JGE") });
+          self.pos.inc(c3);
+          match c3 {
+            b'T' => jump!(pos, JGT),
+            b'E' => jump!(pos, JGE),
+            c => unexpected!(c, "JGT|JGE"),
           }
         }
-
-        tok.push(c);
+        b'E' => {
+          let c3 = next!({ return eof!("JEQ") });
+          self.pos.inc(c3);
+          match c3 {
+            b'Q' => jump!(pos, JEQ),
+            c => unexpected!(c, "JEQ"),
+          }
+        }
+        b'L' => {
+          let c3 = next!({ return eof!("JLT|JLE") });
+          self.pos.inc(c3);
+          match c3 {
+            b'T' => jump!(pos, JLT),
+            b'E' => jump!(pos, JLE),
+            c => unexpected!(c, "JLT|JLE"),
+          }
+        }
+        b'N' => {
+          let c3 = next!({ return eof!("JNE") });
+          self.pos.inc(c3);
+          match c3 {
+            b'E' => jump!(pos, JNE),
+            c => unexpected!(c, "JNE"),
+          }
+        }
+        b'M' => {
+          let c3 = next!({ return eof!("JMP") });
+          self.pos.inc(c3);
+          match c3 {
+            b'P' => jump!(pos, JMP),
+            c => unexpected!(c, "JMP"),
+          }
+        }
+        c => unexpected!(c, "JGT|JEQ|JGE|JLT|JNE|JLE|JMP"),
       }
+    } else if c1 == b'A' {
+      let pos = self.pos;
+      let c2 = next!({ return comp!(pos, A) });
+      self.pos.inc(c2);
+      match c2 {
+        b'M' => {
+          let c3 = next!({ return eof!("an instruction AM[D]=...") });
+          self.pos.inc(c3);
+          match c3 {
+            b'D' => {
+              let c4 = next!({ return eof!("an instruction AMD=...") });
+              self.pos.inc(c4);
+              match c4 {
+                b'=' => dest!(pos, AMD),
+                c => unexpected!(c, "an instruction AMD=..."),
+              }
+            }
+            b'=' => Some(Ok(Tok::Dest(pos, Dest::AM))),
+            c => unexpected!(c, "an instruction AM[D]=..."),
+          }
+        }
+        b'D' => {
+          let c3 = next!({ return eof!("an instruction AD=...") });
+          self.pos.inc(c3);
+          match c3 {
+            b'=' => dest!(pos, AD),
+            c => unexpected!(c, "an instruction AD=..."),
+          }
+        }
+        b'+' => {
+          let c3 = next!({ return eof!("a computation A+1") });
+          self.pos.inc(c3);
+          match c3 {
+            b'1' => comp!(pos, APlus1),
+            c => unexpected!(c, "a computation A+1"),
+          }
+        }
+        b'-' => {
+          let c3 = next!({ return eof!("a computation A-1|A-D") });
+          self.pos.inc(c3);
+          match c3 {
+            b'1' => comp!(pos, AMinus1),
+            b'D' => comp!(pos, AMinusD),
+            c => unexpected!(c, "a computation A-1|A-D"),
+          }
+        }
+        b'=' => dest!(pos, A),
+        b';' => {
+          self.la = Some(b';');
+          comp!(pos, A)
+        }
+        c if c.is_ascii_whitespace() => comp!(pos, A),
+        c => unexpected!(c, "a destination A= or a computation A"),
+      }
+    } else if c1 == b'M' {
+      let pos = self.pos;
+      let c2 = next!({ return comp!(pos, M) });
+      self.pos.inc(c2);
+      match c2 {
+        b'D' => {
+          let c3 = next!({ return eof!("an instruction MD=...") });
+          self.pos.inc(c3);
+          match c3 {
+            b'=' => dest!(pos, MD),
+            c => unexpected!(c, "an instruction MD=..."),
+          }
+        }
+        b'+' => {
+          let c3 = next!({ return eof!("a computation M+1") });
+          self.pos.inc(c3);
+          match c3 {
+            b'1' => comp!(pos, MPlus1),
+            c => unexpected!(c, "a computation M+1"),
+          }
+        }
+        b'-' => {
+          let c3 = next!({ return eof!("a computation M-1 or M-D") });
+          self.pos.inc(c3);
+          match c3 {
+            b'1' => comp!(pos, MMinus1),
+            b'D' => comp!(pos, MMinusD),
+            c => unexpected!(c, "a computation M-1 or M-D"),
+          }
+        }
+        b'=' => dest!(pos, M),
+        b';' => {
+          self.la = Some(b';');
+          comp!(pos, M)
+        }
+        c if c.is_ascii_whitespace() => comp!(pos, M),
+        c => unexpected!(c, "a destination M= or a computation M"),
+      }
+    } else if c1 == b'D' {
+      let pos = self.pos;
+      let c2 = next!({ return comp!(pos, D) });
+      self.pos.inc(c2);
+      match c2 {
+        b'+' => {
+          let c3 = next!({ return eof!("a computation D+1|D+A|D+M") });
+          self.pos.inc(c3);
+          match c3 {
+            b'1' => comp!(pos, DPlus1),
+            b'A' => comp!(pos, DPlusA),
+            b'M' => comp!(pos, DPlusM),
+            c => unexpected!(c, "a computation D+1|D+A|D+M"),
+          }
+        }
+        b'-' => {
+          let c3 = next!({ return eof!("a computation D-1|D-A|D-M") });
+          self.pos.inc(c3);
+          match c3 {
+            b'1' => comp!(pos, DMinus1),
+            b'A' => comp!(pos, DMinusA),
+            b'M' => comp!(pos, DMinusM),
+            c => unexpected!(c, "a computation D-1|D-A|D-M"),
+          }
+        }
+        b'&' => {
+          let c3 = next!({ return eof!("a computation D&A or D&M") });
+          self.pos.inc(c3);
+          match c3 {
+            b'A' => comp!(pos, DAndA),
+            b'M' => comp!(pos, DAndM),
+            c => unexpected!(c, "a computation D&A or D&M"),
+          }
+        }
+        b'|' => {
+          let c3 = next!({ return eof!("a computation D|A or D|M") });
+          self.pos.inc(c3);
+          match c3 {
+            b'A' => comp!(pos, DOrA),
+            b'M' => comp!(pos, DOrM),
+            c => unexpected!(c, "a computation D|A or D|M"),
+          }
+        }
+        b'=' => dest!(pos, D),
+        b';' => {
+          self.la = Some(b';');
+          comp!(pos, D)
+        }
+        c if c.is_ascii_whitespace() => comp!(pos, D),
+        c => unexpected!(c, "a destination D= or a computation D"),
+      }
+    } else if c1 == b'-' {
+      let pos = self.pos;
+      let c2 = next!({ return eof!("a computation -A|-M|-D") });
+      self.pos.inc(c2);
+      match c2 {
+        b'1' => comp!(pos, Neg1),
+        b'A' => comp!(pos, NegA),
+        b'M' => comp!(pos, NegM),
+        b'D' => comp!(pos, NegD),
+        c => unexpected!(c, "a computation -A|-M|-D"),
+      }
+    } else if c1 == b'!' {
+      let pos = self.pos;
+      let c2 = next!({ return eof!("a computation !A|!M|!D") });
+      self.pos.inc(c2);
+      match c2 {
+        b'A' => comp!(pos, NotA),
+        b'M' => comp!(pos, NotM),
+        b'D' => comp!(pos, NotD),
+        c => unexpected!(c, "a computation !A|!M|!D"),
+      }
+    } else if c1 == b'0' {
+      Some(Ok(Tok::Comp(self.pos, Comp::Zero)))
+    } else if c1 == b'1' {
+      Some(Ok(Tok::Comp(self.pos, Comp::One)))
+    } else if c1 == b';' {
+      Some(Ok(Tok::Semi(self.pos)))
+    } else {
+      unexpected!(c1, "an address or an instruction")
     }
   }
 }
@@ -541,11 +677,11 @@ mod tests {
   #[test]
   fn assignments() {
     let mut lex = lex!("assignments");
-    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::Addr));
+    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
     assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AddrMem));
+    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
     assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AddrMemData));
+    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
     assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
     assert_eq!(lex.next(), None);
   }
@@ -554,26 +690,32 @@ mod tests {
   fn branches() {
     let mut lex = lex!("branches");
     assert_next!(lex, Tok::Comp(Pos::new(1, 1), Comp::MMinus1));
-    assert_next!(lex, Tok::Jump(Pos::new(1, 5), Jump::Jeq));
+    assert_next!(lex, Tok::Semi(Pos::new(1, 4)));
+    assert_next!(lex, Tok::Jump(Pos::new(1, 5), Jump::JEQ));
     assert_next!(lex, Tok::Comp(Pos::new(2, 1), Comp::DOrA));
-    assert_next!(lex, Tok::Jump(Pos::new(2, 5), Jump::Jne));
+    assert_next!(lex, Tok::Semi(Pos::new(2, 4)));
+    assert_next!(lex, Tok::Jump(Pos::new(2, 5), Jump::JNE));
     assert_next!(lex, Tok::Comp(Pos::new(3, 1), Comp::APlus1));
-    assert_next!(lex, Tok::Jump(Pos::new(3, 5), Jump::Jmp));
+    assert_next!(lex, Tok::Semi(Pos::new(3, 4)));
+    assert_next!(lex, Tok::Jump(Pos::new(3, 5), Jump::JMP));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn instructions() {
     let mut lex = lex!("instructions");
-    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::Addr));
+    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
     assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, Tok::Jump(Pos::new(1, 7), Jump::Jeq));
-    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AddrMem));
+    assert_next!(lex, Tok::Semi(Pos::new(1, 6)));
+    assert_next!(lex, Tok::Jump(Pos::new(1, 7), Jump::JEQ));
+    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
     assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, Tok::Jump(Pos::new(2, 8), Jump::Jne));
-    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AddrMemData));
+    assert_next!(lex, Tok::Semi(Pos::new(2, 7)));
+    assert_next!(lex, Tok::Jump(Pos::new(2, 8), Jump::JNE));
+    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
     assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
-    assert_next!(lex, Tok::Jump(Pos::new(3, 9), Jump::Jmp));
+    assert_next!(lex, Tok::Semi(Pos::new(3, 8)));
+    assert_next!(lex, Tok::Jump(Pos::new(3, 9), Jump::JMP));
     assert_eq!(lex.next(), None);
   }
 }
