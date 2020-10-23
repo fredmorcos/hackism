@@ -74,29 +74,29 @@ impl Gen {
     }
   }
 
-  pub fn encode(&mut self, stmt: Stmt, st: &mut Map<Vec<u8>, SymInfo>) -> u16 {
+  pub fn encode(&mut self, stmt: &Stmt, st: &mut Map<Vec<u8>, SymInfo>) -> u16 {
     match stmt {
-      Stmt::Addr(_, addr) => addr,
+      Stmt::Addr(_, addr) => *addr,
       Stmt::UnresolvedAddr(pos, name) => {
-        st.entry(name)
+        st.entry(name.clone())
           .or_insert_with(|| {
-            let info = SymInfo::new(pos, self.addr);
+            let info = SymInfo::new(*pos, self.addr);
             self.addr += 1;
             info
           })
           .addr
       }
       Stmt::Assign(_, dest, _, comp) => {
-        (0b111 << 13) | (Gen::encode_comp(comp) << 6) | (Gen::encode_dest(dest) << 3)
+        (0b111 << 13) | (Gen::encode_comp(*comp) << 6) | (Gen::encode_dest(*dest) << 3)
       }
       Stmt::Branch(_, comp, _, jump) => {
-        (0b111 << 13) | (Gen::encode_comp(comp) << 6) | Gen::encode_jump(jump)
+        (0b111 << 13) | (Gen::encode_comp(*comp) << 6) | Gen::encode_jump(*jump)
       }
       Stmt::Inst(_, dest, _, comp, _, jump) => {
         (0b111 << 13)
-          | (Gen::encode_comp(comp) << 6)
-          | (Gen::encode_dest(dest) << 3)
-          | Gen::encode_jump(jump)
+          | (Gen::encode_comp(*comp) << 6)
+          | (Gen::encode_dest(*dest) << 3)
+          | Gen::encode_jump(*jump)
       }
     }
   }

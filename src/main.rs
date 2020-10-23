@@ -1,6 +1,6 @@
 #![warn(clippy::all)]
 
-use std::collections::HashMap as Map;
+use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
 use std::io::BufWriter;
@@ -9,8 +9,7 @@ use std::io::{self, BufReader, Read};
 use std::{iter::Iterator, path::PathBuf};
 
 use derive_more::From;
-use has::gen::Gen;
-use has::parse::{self, Parse};
+use has::prog::{self, Prog};
 use log::{debug, info, trace};
 use structopt::StructOpt;
 
@@ -32,14 +31,14 @@ struct HasOptions {
 #[derive(From)]
 enum Err {
   Io(io::Error),
-  Parse(parse::Err),
+  Prog(prog::Err),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Err::Io(e) => write!(f, "IO error: {}", e),
-      Err::Parse(e) => write!(f, "Parsing error: {}", e),
+      Err::Prog(e) => write!(f, "Program error: {}", e),
     }
   }
 }
@@ -112,18 +111,8 @@ fn main() -> Result<(), Err> {
     let mut writer = BufWriter::new(output);
     info!("Writing to file {}", output_filename.display());
 
-    let mut st = Map::new();
-    let mut parse = Parse::new(reader.bytes(), &mut st);
-    let mut stmts = Vec::new();
-    for stmt in &mut parse {
-      let stmt = stmt?;
-      debug!("Instruction {:#?}", stmt);
-      stmts.push(stmt);
-    }
-
-    let mut gen = Gen::default();
-    for stmt in stmts {
-      let inst = gen.encode(stmt, &mut st);
+    let mut prog = Prog::try_from(reader.bytes())?;
+    for inst in &mut prog {
       if opt.text {
         writer.write_all(&encode(inst))?;
         writer.write_all(&[b'\n'])?;

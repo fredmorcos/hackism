@@ -56,7 +56,7 @@ impl fmt::Debug for Err {
   }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Dest {
   Mem,
   Data,
@@ -98,7 +98,7 @@ impl TryFrom<&[u8]> for Dest {
   }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Comp {
   Zero,
   One,
@@ -203,7 +203,7 @@ impl TryFrom<&[u8]> for Comp {
   }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Jump {
   Jgt,
   Jeq,

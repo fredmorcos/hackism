@@ -1,4 +1,5 @@
-pub mod gen;
+mod gen;
 mod lex;
-pub mod parse;
+mod parse;
 mod pos;
+pub mod prog;
