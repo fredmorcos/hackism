@@ -5,7 +5,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
-use std::io::{self, BufReader, Read};
+use std::io::{self, Read};
 use std::{iter::Iterator, path::PathBuf};
 
 use derive_more::From;
@@ -73,9 +73,9 @@ fn main() -> Result<(), Err> {
   trace!("Tracing output enabled");
 
   for filename in opt.files {
-    let input = File::open(&filename)?;
-    let reader = BufReader::new(input);
-    info!("Reading file from {}", filename.display());
+    let mut buf = Vec::with_capacity(1024);
+    let bytes = File::open(&filename)?.read_to_end(&mut buf)?;
+    info!("Read {} bytes from {}", bytes, filename.display());
 
     let output_filename = filename.with_extension("hack");
     if output_filename.exists() {
@@ -89,7 +89,12 @@ fn main() -> Result<(), Err> {
     let mut writer = BufWriter::new(output);
     info!("Writing to file {}", output_filename.display());
 
-    let mut prog = Prog::try_from(reader.bytes())?;
+    let mut prog = Prog::try_from(buf.as_slice())?;
+    info!(
+      "Program has {} statements and {} labels",
+      prog.num_statements(),
+      prog.num_labels()
+    );
     for inst in &mut prog {
       if opt.text {
         writer.write_all(&Prog::text_encode(inst))?;

@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::io::Read;
 use std::io::Write;
 
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -12,7 +11,7 @@ fn criterion_benchmark(c: &mut Criterion) {
   let mut prog = None;
 
   c.bench_function("Parse Pong.asm", |b| {
-    b.iter(|| prog = Some(Prog::try_from(INPUT.bytes()).unwrap()))
+    b.iter(|| prog = Some(Prog::try_from(INPUT).unwrap()))
   });
 
   let mut prog = prog.unwrap();

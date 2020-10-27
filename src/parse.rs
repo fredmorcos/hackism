@@ -1,8 +1,7 @@
 #![warn(clippy::all)]
 
-use io::{Bytes, Read};
 use std::collections::HashMap as Map;
-use std::{fmt, io};
+use std::fmt;
 
 use crate::lex::Txt;
 use crate::lex::{self, Comp, Dest, Jump, Lex, Tok};
@@ -18,30 +17,161 @@ pub enum Stmt {
 }
 
 fn is_predefined_symbol(s: &[u8]) -> Option<u16> {
-  match s {
-    b"SP" => Some(0),
-    b"LCL" => Some(1),
-    b"ARG" => Some(2),
-    b"THIS" => Some(3),
-    b"THAT" => Some(4),
-    b"R0" => Some(0),
-    b"R1" => Some(1),
-    b"R2" => Some(2),
-    b"R3" => Some(3),
-    b"R4" => Some(4),
-    b"R5" => Some(5),
-    b"R6" => Some(6),
-    b"R7" => Some(7),
-    b"R8" => Some(8),
-    b"R9" => Some(9),
-    b"R10" => Some(10),
-    b"R11" => Some(11),
-    b"R12" => Some(12),
-    b"R13" => Some(13),
-    b"R14" => Some(14),
-    b"R15" => Some(15),
-    b"SCREEN" => Some(16384),
-    b"KBD" => Some(24576),
+  if s.len() < 2 {
+    return None;
+  }
+
+  match s[0] {
+    b'L' => {
+      if s.len() != 3 {
+        None
+      } else if s[1] == b'C' && s[2] == b'L' {
+        Some(1) // LCL
+      } else {
+        None
+      }
+    }
+    b'A' => {
+      if s.len() != 3 {
+        None
+      } else if s[1] == b'R' && s[2] == b'G' {
+        Some(2) // ARG
+      } else {
+        None
+      }
+    }
+    b'K' => {
+      if s.len() != 3 {
+        None
+      } else if s[1] == b'B' && s[2] == b'D' {
+        Some(24576) // KBD
+      } else {
+        None
+      }
+    }
+    b'T' => {
+      if s.len() != 4 {
+        None
+      } else if s[1] == b'H' {
+        match s[2] {
+          b'I' => {
+            if s[3] == b'S' {
+              Some(3) // THIS
+            } else {
+              None
+            }
+          }
+          b'A' => {
+            if s[3] == b'T' {
+              Some(4) // THAT
+            } else {
+              None
+            }
+          }
+          _ => None,
+        }
+      } else {
+        None
+      }
+    }
+    b'S' => {
+      if s.len() == 2 && s[1] == b'P' {
+        Some(0) // SP
+      } else if s.len() == 6
+        && s[1] == b'C'
+        && s[2] == b'R'
+        && s[3] == b'E'
+        && s[4] == b'E'
+        && s[5] == b'N'
+      {
+        Some(16384) // SCREEN
+      } else {
+        None
+      }
+    }
+    b'R' => match s[1] {
+      b'0' => {
+        if s.len() == 2 {
+          Some(0) // R0
+        } else {
+          None
+        }
+      }
+      b'1' => {
+        if s.len() == 2 {
+          Some(1) // R1
+        } else if s.len() == 3 {
+          match s[2] {
+            b'0' => Some(10), // R10
+            b'1' => Some(11), // R11
+            b'2' => Some(12), // R12
+            b'3' => Some(13), // R13
+            b'4' => Some(14), // R14
+            b'5' => Some(15), // R15
+            _ => None,
+          }
+        } else {
+          None
+        }
+      }
+      b'2' => {
+        if s.len() == 2 {
+          Some(2) // R2
+        } else {
+          None
+        }
+      }
+      b'3' => {
+        if s.len() == 2 {
+          Some(3) // R3
+        } else {
+          None
+        }
+      }
+      b'4' => {
+        if s.len() == 2 {
+          Some(4) // R4
+        } else {
+          None
+        }
+      }
+      b'5' => {
+        if s.len() == 2 {
+          Some(5) // R5
+        } else {
+          None
+        }
+      }
+      b'6' => {
+        if s.len() == 2 {
+          Some(6) // R6
+        } else {
+          None
+        }
+      }
+      b'7' => {
+        if s.len() == 2 {
+          Some(7) // R7
+        } else {
+          None
+        }
+      }
+      b'8' => {
+        if s.len() == 2 {
+          Some(8) // R8
+        } else {
+          None
+        }
+      }
+      b'9' => {
+        if s.len() == 2 {
+          Some(9) // R9
+        } else {
+          None
+        }
+      }
+      _ => None,
+    },
     _ => None,
   }
 }
@@ -58,17 +188,17 @@ impl SymInfo {
   }
 }
 
-pub struct Parse<'s, R: Read> {
-  lex: Lex<R>,
+pub struct Parse<'s, 'buf> {
+  lex: Lex<'buf>,
   st: &'s mut Map<Txt, SymInfo>,
   la: Option<Tok>,
   idx: u16,
 }
 
-impl<'s, R: Read> Parse<'s, R> {
-  pub fn new(bytes: Bytes<R>, st: &'s mut Map<Txt, SymInfo>) -> Self {
+impl<'s, 'buf> Parse<'s, 'buf> {
+  pub fn new(buf: &'buf [u8], st: &'s mut Map<Txt, SymInfo>) -> Self {
     Self {
-      lex: Lex::from(bytes),
+      lex: Lex::from(buf),
       st,
       la: Option::default(),
       idx: 0,
@@ -123,7 +253,7 @@ impl fmt::Debug for Err {
   }
 }
 
-impl<'s, R: Read> Iterator for Parse<'s, R> {
+impl<'s> Iterator for Parse<'s, '_> {
   type Item = Result<Stmt, Err>;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -231,7 +361,6 @@ impl<'s, R: Read> Iterator for Parse<'s, R> {
 #[cfg(test)]
 mod tests {
   use std::collections::HashMap as Map;
-  use std::io::{BufReader, Read};
 
   use crate::lex::Comp;
   use crate::lex::Dest;
@@ -244,10 +373,7 @@ mod tests {
 
   macro_rules! parse {
     ($f:expr, $st:expr) => {
-      Parse::new(
-        BufReader::new(&include_bytes!(concat!("../tests/data/", $f))[..]).bytes(),
-        $st,
-      )
+      Parse::new(&include_bytes!(concat!("../tests/data/", $f))[..], $st)
     };
   }
 

@@ -1,8 +1,8 @@
 #![warn(clippy::all)]
 
-use io::{Bytes, Read};
 use std::fmt;
 use std::io;
+use std::slice;
 
 use atoi::FromRadix10Checked;
 use smallvec::{smallvec, SmallVec};
@@ -11,16 +11,16 @@ use crate::pos::Pos;
 
 pub type Txt = SmallVec<[u8; 32]>;
 
-pub struct Lex<R: Read> {
-  bytes: Bytes<R>,
+pub struct Lex<'buf> {
+  buf: slice::Iter<'buf, u8>,
   pos: Pos,
   la: Option<u8>,
 }
 
-impl<R: Read> From<Bytes<R>> for Lex<R> {
-  fn from(bytes: Bytes<R>) -> Self {
+impl<'buf> From<&'buf [u8]> for Lex<'buf> {
+  fn from(buf: &'buf [u8]) -> Self {
     Self {
-      bytes,
+      buf: buf.iter(),
       pos: Pos::default(),
       la: Option::default(),
     }
@@ -29,7 +29,6 @@ impl<R: Read> From<Bytes<R>> for Lex<R> {
 
 #[derive(PartialEq, Eq)]
 pub enum Err {
-  IO(Pos, io::ErrorKind),
   EOF(&'static str, u32, Pos, &'static str),
   Unexpected(&'static str, u32, Pos, u8, &'static str),
   Range(Pos, Txt, &'static str),
@@ -38,7 +37,6 @@ pub enum Err {
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Err::IO(pos, e) => write!(f, "IO error at {}: {}", pos, io::Error::from(*e)),
       Err::EOF(file, line, pos, msg) => write!(
         f,
         "{}:{}: Unexpected end of file at {}: {}",
@@ -205,15 +203,14 @@ impl Tok {
   }
 }
 
-impl<R: Read> Iterator for Lex<R> {
+impl Iterator for Lex<'_> {
   type Item = Result<Tok, Err>;
 
   fn next(&mut self) -> Option<Self::Item> {
     macro_rules! next {
       ($b:block) => {
-        match self.bytes.next() {
-          Some(Ok(c)) => c,
-          Some(Err(e)) => return Some(Err(Err::IO(self.pos, e.kind()))),
+        match self.buf.next() {
+          Some(c) => *c,
           None => $b,
         };
       };
@@ -596,8 +593,6 @@ impl<R: Read> Iterator for Lex<R> {
 
 #[cfg(test)]
 mod tests {
-  use std::io::{BufReader, Read};
-
   use crate::pos::Pos;
 
   use super::Comp;
@@ -609,9 +604,7 @@ mod tests {
 
   macro_rules! lex {
     ($f:expr) => {
-      Lex::from(
-        BufReader::new(&include_bytes!(concat!("../tests/data/", $f))[..]).bytes(),
-      )
+      Lex::from(&include_bytes!(concat!("../tests/data/", $f))[..])
     };
   }
 

@@ -1,8 +1,6 @@
 use std::collections::HashMap as Map;
 use std::convert::TryFrom;
 use std::fmt;
-use std::io::Bytes;
-use std::io::Read;
 
 use crate::gen::Gen;
 use crate::lex::Txt;
@@ -30,13 +28,13 @@ impl fmt::Display for Err {
   }
 }
 
-impl<R: Read> TryFrom<Bytes<R>> for Prog {
+impl TryFrom<&[u8]> for Prog {
   type Error = Err;
 
-  fn try_from(bytes: Bytes<R>) -> Result<Self, Self::Error> {
+  fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
     let mut st = Map::new();
     let mut stmts = Vec::new();
-    let mut parse = Parse::new(bytes, &mut st);
+    let mut parse = Parse::new(buf, &mut st);
 
     for stmt in &mut parse {
       let stmt = stmt.map_err(Err::Parse)?;
@@ -69,5 +67,13 @@ impl Iterator for Prog {
 impl Prog {
   pub fn text_encode(val: u16) -> [u8; 16] {
     Gen::text_encode(val)
+  }
+
+  pub fn num_statements(&self) -> usize {
+    self.stmts.len()
+  }
+
+  pub fn num_labels(&self) -> usize {
+    self.st.len()
   }
 }
