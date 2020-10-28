@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::io::Write;
 
 use criterion::{criterion_group, criterion_main, Criterion};

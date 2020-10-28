@@ -1,6 +1,5 @@
 #![warn(clippy::all)]
 
-use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
 use std::io::BufWriter;

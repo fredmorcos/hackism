@@ -1,11 +1,10 @@
 #![warn(clippy::all)]
 
 use std::fmt;
-use std::io;
 use std::slice;
 
 use atoi::FromRadix10Checked;
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 
 use crate::pos::Pos;
 
@@ -13,6 +12,7 @@ pub type Txt = SmallVec<[u8; 32]>;
 
 pub struct Lex<'buf> {
   buf: slice::Iter<'buf, u8>,
+  tbuf: Txt,
   pos: Pos,
   la: Option<u8>,
 }
@@ -21,6 +21,7 @@ impl<'buf> From<&'buf [u8]> for Lex<'buf> {
   fn from(buf: &'buf [u8]) -> Self {
     Self {
       buf: buf.iter(),
+      tbuf: Txt::default(),
       pos: Pos::default(),
       la: Option::default(),
     }
@@ -31,7 +32,7 @@ impl<'buf> From<&'buf [u8]> for Lex<'buf> {
 pub enum Err {
   EOF(&'static str, u32, Pos, &'static str),
   Unexpected(&'static str, u32, Pos, u8, &'static str),
-  Range(Pos, Txt, &'static str),
+  Range(Pos, &'static str),
 }
 
 impl fmt::Display for Err {
@@ -47,11 +48,9 @@ impl fmt::Display for Err {
         "{}:{}: Unexpected character {} at {}: {}",
         file, line, c, pos, msg
       ),
-      Err::Range(pos, addr, msg) => write!(
-        f,
-        "Value out of range: address {:?} at {}: {}",
-        addr, pos, msg
-      ),
+      Err::Range(pos, msg) => {
+        write!(f, "Value at {} out of range (expecting {})", pos, msg)
+      }
     }
   }
 }
@@ -182,8 +181,8 @@ impl fmt::Display for Jump {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Tok {
   NumAddr(Pos, u16),
-  NameAddr(Pos, Txt),
-  Label(Pos, Txt),
+  NameAddr(Pos),
+  Label(Pos),
   Semi(Pos),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
@@ -203,10 +202,16 @@ impl Tok {
   }
 }
 
-impl Iterator for Lex<'_> {
-  type Item = Result<Tok, Err>;
+impl Lex<'_> {
+  pub fn text(&self) -> &Txt {
+    &self.tbuf
+  }
 
-  fn next(&mut self) -> Option<Self::Item> {
+  pub fn take_text(&mut self) -> Txt {
+    std::mem::take(&mut self.tbuf)
+  }
+
+  pub fn next(&mut self) -> Option<Result<Tok, Err>> {
     macro_rules! next {
       ($b:block) => {
         match self.buf.next() {
@@ -295,23 +300,24 @@ impl Iterator for Lex<'_> {
       self.pos.inc(c2);
 
       if c2.is_ascii_digit() {
-        let mut addr = smallvec![c2];
+        self.tbuf.clear();
+        self.tbuf.push(c2);
 
         loop {
           let c = next!({
-            return if let Some(addr) = Tok::num_addr(&addr) {
+            return if let Some(addr) = Tok::num_addr(&self.tbuf) {
               Some(Ok(Tok::NumAddr(pos, addr)))
             } else {
-              Some(Err(Err::Range(pos, addr, "a numeric address")))
+              Some(Err(Err::Range(pos, "a numeric address")))
             };
           });
           self.pos.inc(c);
 
           if c.is_ascii_whitespace() {
-            return if let Some(addr) = Tok::num_addr(&addr) {
+            return if let Some(addr) = Tok::num_addr(&self.tbuf) {
               Some(Ok(Tok::NumAddr(pos, addr)))
             } else {
-              Some(Err(Err::Range(pos, addr, "a numeric address")))
+              Some(Err(Err::Range(pos, "a numeric address")))
             };
           }
 
@@ -319,22 +325,23 @@ impl Iterator for Lex<'_> {
             return unexpected!(c, "a digit, space or newline to form an address");
           }
 
-          addr.push(c);
+          self.tbuf.push(c);
         }
       } else if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
-        let mut addr = smallvec![c2];
+        self.tbuf.clear();
+        self.tbuf.push(c2);
 
         loop {
           let c = next!({
-            return Some(Ok(Tok::NameAddr(pos, addr)));
+            return Some(Ok(Tok::NameAddr(pos)));
           });
           self.pos.inc(c);
 
           if c.is_ascii_whitespace() {
-            return Some(Ok(Tok::NameAddr(pos, addr)));
+            return Some(Ok(Tok::NameAddr(pos)));
           }
 
-          addr.push(c);
+          self.tbuf.push(c);
         }
       } else {
         unexpected!(c2, MSG)
@@ -347,21 +354,22 @@ impl Iterator for Lex<'_> {
       self.pos.inc(c2);
 
       if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
-        let mut label = smallvec![c2];
+        self.tbuf.clear();
+        self.tbuf.push(c2);
 
         loop {
           let c = next!({ return eof!(MSG) });
           self.pos.inc(c);
 
           if c == b')' {
-            return Some(Ok(Tok::Label(pos, label)));
+            return Some(Ok(Tok::Label(pos)));
           }
 
           if !c.is_ascii_alphanumeric() && !is_ascii_symbol(c) {
             return unexpected!(c, MSG);
           }
 
-          label.push(c);
+          self.tbuf.push(c);
         }
       } else {
         unexpected!(c2, MSG)
@@ -609,7 +617,7 @@ mod tests {
   }
 
   macro_rules! assert_next {
-    ($lex:expr, $e:expr) => {
+    ($lex:expr, $tbuf:expr, $e:expr) => {
       assert_eq!($lex.next(), Some(Ok($e)))
     };
   }
@@ -639,76 +647,86 @@ mod tests {
   #[test]
   fn num_address() {
     let mut lex = lex!("num_address");
-    assert_next!(lex, Tok::NumAddr(Pos::new(3, 5), 8192));
-    assert_next!(lex, Tok::NumAddr(Pos::new(5, 1), 123));
-    assert_next!(lex, Tok::NumAddr(Pos::new(9, 5), 556));
+    assert_next!(lex, tbuf, Tok::NumAddr(Pos::new(3, 5), 8192));
+    assert_next!(lex, tbuf, Tok::NumAddr(Pos::new(5, 1), 123));
+    assert_next!(lex, tbuf, Tok::NumAddr(Pos::new(9, 5), 556));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn name_address() {
     let mut lex = lex!("name_address");
-    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(5, 1), Txt::from(&b"BAR"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Txt::from(&b"R2"[..])));
+    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(3, 5)));
+    assert_eq!(lex.text(), &Txt::from(&b"FOO"[..]));
+    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(5, 1)));
+    assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
+    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(9, 5)));
+    assert_eq!(lex.text(), &Txt::from(&b"R2"[..]));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn labels() {
     let mut lex = lex!("labels");
-    assert_next!(lex, Tok::NameAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..])));
-    assert_next!(lex, Tok::Label(Pos::new(5, 1), Txt::from(&b"LABEL"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(9, 5), Txt::from(&b"LABEL"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(11, 1), Txt::from(&b"BAR"[..])));
-    assert_next!(lex, Tok::Label(Pos::new(13, 1), Txt::from(&b"BAR"[..])));
-    assert_next!(lex, Tok::NameAddr(Pos::new(15, 1), Txt::from(&b"LAB0"[..])));
-    assert_next!(lex, Tok::Label(Pos::new(17, 1), Txt::from(&b"LAB0"[..])));
+    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(3, 5)));
+    assert_eq!(lex.text(), &Txt::from(&b"FOO"[..]));
+    assert_next!(lex, tbuf, Tok::Label(Pos::new(5, 1)));
+    assert_eq!(lex.text(), &Txt::from(&b"LABEL"[..]));
+    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(9, 5)));
+    assert_eq!(lex.text(), &Txt::from(&b"LABEL"[..]));
+    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(11, 1)));
+    assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
+    assert_next!(lex, tbuf, Tok::Label(Pos::new(13, 1)));
+    assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
+    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(15, 1)));
+    assert_eq!(lex.text(), &Txt::from(&b"LAB0"[..]));
+    assert_next!(lex, tbuf, Tok::Label(Pos::new(17, 1)));
+    assert_eq!(lex.text(), &Txt::from(&b"LAB0"[..]));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn assignments() {
     let mut lex = lex!("assignments");
-    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
-    assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
-    assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
-    assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
+    assert_next!(lex, tbuf, Tok::Dest(Pos::new(1, 1), Dest::A));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
+    assert_next!(lex, tbuf, Tok::Dest(Pos::new(2, 1), Dest::AM));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
+    assert_next!(lex, tbuf, Tok::Dest(Pos::new(3, 1), Dest::AMD));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn branches() {
     let mut lex = lex!("branches");
-    assert_next!(lex, Tok::Comp(Pos::new(1, 1), Comp::MMinus1));
-    assert_next!(lex, Tok::Semi(Pos::new(1, 4)));
-    assert_next!(lex, Tok::Jump(Pos::new(1, 5), Jump::JEQ));
-    assert_next!(lex, Tok::Comp(Pos::new(2, 1), Comp::DOrA));
-    assert_next!(lex, Tok::Semi(Pos::new(2, 4)));
-    assert_next!(lex, Tok::Jump(Pos::new(2, 5), Jump::JNE));
-    assert_next!(lex, Tok::Comp(Pos::new(3, 1), Comp::APlus1));
-    assert_next!(lex, Tok::Semi(Pos::new(3, 4)));
-    assert_next!(lex, Tok::Jump(Pos::new(3, 5), Jump::JMP));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(1, 1), Comp::MMinus1));
+    assert_next!(lex, tbuf, Tok::Semi(Pos::new(1, 4)));
+    assert_next!(lex, tbuf, Tok::Jump(Pos::new(1, 5), Jump::JEQ));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(2, 1), Comp::DOrA));
+    assert_next!(lex, tbuf, Tok::Semi(Pos::new(2, 4)));
+    assert_next!(lex, tbuf, Tok::Jump(Pos::new(2, 5), Jump::JNE));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(3, 1), Comp::APlus1));
+    assert_next!(lex, tbuf, Tok::Semi(Pos::new(3, 4)));
+    assert_next!(lex, tbuf, Tok::Jump(Pos::new(3, 5), Jump::JMP));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn instructions() {
     let mut lex = lex!("instructions");
-    assert_next!(lex, Tok::Dest(Pos::new(1, 1), Dest::A));
-    assert_next!(lex, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, Tok::Semi(Pos::new(1, 6)));
-    assert_next!(lex, Tok::Jump(Pos::new(1, 7), Jump::JEQ));
-    assert_next!(lex, Tok::Dest(Pos::new(2, 1), Dest::AM));
-    assert_next!(lex, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, Tok::Semi(Pos::new(2, 7)));
-    assert_next!(lex, Tok::Jump(Pos::new(2, 8), Jump::JNE));
-    assert_next!(lex, Tok::Dest(Pos::new(3, 1), Dest::AMD));
-    assert_next!(lex, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
-    assert_next!(lex, Tok::Semi(Pos::new(3, 8)));
-    assert_next!(lex, Tok::Jump(Pos::new(3, 9), Jump::JMP));
+    assert_next!(lex, tbuf, Tok::Dest(Pos::new(1, 1), Dest::A));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
+    assert_next!(lex, tbuf, Tok::Semi(Pos::new(1, 6)));
+    assert_next!(lex, tbuf, Tok::Jump(Pos::new(1, 7), Jump::JEQ));
+    assert_next!(lex, tbuf, Tok::Dest(Pos::new(2, 1), Dest::AM));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
+    assert_next!(lex, tbuf, Tok::Semi(Pos::new(2, 7)));
+    assert_next!(lex, tbuf, Tok::Jump(Pos::new(2, 8), Jump::JNE));
+    assert_next!(lex, tbuf, Tok::Dest(Pos::new(3, 1), Dest::AMD));
+    assert_next!(lex, tbuf, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
+    assert_next!(lex, tbuf, Tok::Semi(Pos::new(3, 8)));
+    assert_next!(lex, tbuf, Tok::Jump(Pos::new(3, 9), Jump::JMP));
     assert_eq!(lex.next(), None);
   }
 }

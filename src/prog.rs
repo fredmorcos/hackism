@@ -1,5 +1,4 @@
 use std::collections::HashMap as Map;
-use std::convert::TryFrom;
 use std::fmt;
 
 use crate::gen::Gen;
@@ -28,15 +27,13 @@ impl fmt::Display for Err {
   }
 }
 
-impl TryFrom<&[u8]> for Prog {
-  type Error = Err;
-
-  fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
+impl Prog {
+  pub fn try_from(buf: &[u8]) -> Result<Self, Err> {
     let mut st = Map::new();
     let mut stmts = Vec::new();
     let mut parse = Parse::new(buf, &mut st);
 
-    for stmt in &mut parse {
+    while let Some(stmt) = parse.next() {
       let stmt = stmt.map_err(Err::Parse)?;
       stmts.push(stmt);
     }

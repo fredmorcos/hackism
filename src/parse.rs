@@ -209,7 +209,7 @@ impl<'s, 'buf> Parse<'s, 'buf> {
 #[derive(PartialEq, Eq)]
 pub enum Err {
   Lex(lex::Err),
-  Label(Pos, Txt, SymInfo),
+  Label(Pos, SymInfo),
   Msg(Pos, &'static str),
   Dest(Pos, Dest),
   Comp(Pos, Comp),
@@ -221,10 +221,10 @@ impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Err::Lex(e) => write!(f, "Lexing error: {}", e),
-      Err::Label(pos, name, orig) => write!(
+      Err::Label(pos, orig) => write!(
         f,
-        "Label {:?} at {} already defined at {} with address {}",
-        name, pos, orig.pos, orig.addr,
+        "Label at {} already defined at {} with address {}",
+        pos, orig.pos, orig.addr,
       ),
       Err::Msg(pos, msg) => write!(f, "expecting {} after {}", msg, pos),
       Err::Dest(pos, dest) => write!(
@@ -253,10 +253,8 @@ impl fmt::Debug for Err {
   }
 }
 
-impl<'s> Iterator for Parse<'s, '_> {
-  type Item = Result<Stmt, Err>;
-
-  fn next(&mut self) -> Option<Self::Item> {
+impl<'s> Parse<'s, '_> {
+  pub fn next(&mut self) -> Option<Result<Stmt, Err>> {
     macro_rules! next {
       ($b:block) => {
         match self.lex.next() {
@@ -278,19 +276,22 @@ impl<'s> Iterator for Parse<'s, '_> {
         self.idx += 1;
         Some(Ok(Stmt::Addr(pos, addr)))
       }
-      Tok::NameAddr(pos, name) => {
+      Tok::NameAddr(pos) => {
         self.idx += 1;
-        if let Some(addr) = is_predefined_symbol(&name) {
+        if let Some(addr) = is_predefined_symbol(self.lex.text()) {
           Some(Ok(Stmt::Addr(pos, addr)))
-        } else if let Some(info) = self.st.get(&name) {
+        } else if let Some(info) = self.st.get(self.lex.text()) {
           Some(Ok(Stmt::Addr(pos, info.addr)))
         } else {
-          Some(Ok(Stmt::UnresolvedAddr(pos, name)))
+          Some(Ok(Stmt::UnresolvedAddr(pos, self.lex.take_text())))
         }
       }
-      Tok::Label(pos, label) => {
-        if let Some(old) = self.st.insert(label.clone(), SymInfo::new(pos, self.idx)) {
-          Some(Err(Err::Label(pos, label, old)))
+      Tok::Label(pos) => {
+        if let Some(old) = self
+          .st
+          .insert(self.lex.take_text(), SymInfo::new(pos, self.idx))
+        {
+          Some(Err(Err::Label(pos, old)))
         } else {
           self.next()
         }
@@ -299,16 +300,17 @@ impl<'s> Iterator for Parse<'s, '_> {
         self.idx += 1;
         match next!({ return Some(Err(Err::Msg(dest_pos, "a computation"))) }) {
           Tok::Comp(comp_pos, comp) => {
-            match next!({ return Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp))) })
-            {
+            match next!({
+              return Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)));
+            }) {
               Tok::Semi(semi_pos) => {
                 match next!({ return Some(Err(Err::Msg(semi_pos, "a jump"))) }) {
                   Tok::Jump(jump_pos, jump) => Some(Ok(Stmt::Inst(
                     dest_pos, dest, comp_pos, comp, jump_pos, jump,
                   ))),
                   Tok::NumAddr(_, _)
-                  | Tok::NameAddr(_, _)
-                  | Tok::Label(_, _)
+                  | Tok::NameAddr(_)
+                  | Tok::Label(_)
                   | Tok::Semi(_)
                   | Tok::Dest(_, _)
                   | Tok::Comp(_, _) => Some(Err(Err::Msg(semi_pos, "a jump"))),
@@ -321,8 +323,8 @@ impl<'s> Iterator for Parse<'s, '_> {
             }
           }
           Tok::NumAddr(_, _)
-          | Tok::NameAddr(_, _)
-          | Tok::Label(_, _)
+          | Tok::NameAddr(_)
+          | Tok::Label(_)
           | Tok::Semi(_)
           | Tok::Dest(_, _)
           | Tok::Jump(_, _) => Some(Err(Err::Dest(dest_pos, dest))),
@@ -337,8 +339,8 @@ impl<'s> Iterator for Parse<'s, '_> {
                 Some(Ok(Stmt::Branch(comp_pos, comp, jump_pos, jump)))
               }
               Tok::NumAddr(_, _)
-              | Tok::NameAddr(_, _)
-              | Tok::Label(_, _)
+              | Tok::NameAddr(_)
+              | Tok::Label(_)
               | Tok::Semi(_)
               | Tok::Dest(_, _)
               | Tok::Comp(_, _) => Some(Err(Err::Msg(semi_pos, "a jump"))),
@@ -346,8 +348,8 @@ impl<'s> Iterator for Parse<'s, '_> {
           }
           Tok::Jump(_, _)
           | Tok::NumAddr(_, _)
-          | Tok::NameAddr(_, _)
-          | Tok::Label(_, _)
+          | Tok::NameAddr(_)
+          | Tok::Label(_)
           | Tok::Dest(_, _)
           | Tok::Comp(_, _) => Some(Err(Err::Comp(comp_pos, comp))),
         }
