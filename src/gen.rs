@@ -77,7 +77,7 @@ impl Gen {
 
   pub fn encode(&mut self, stmt: &Stmt, st: &mut Map<Txt, SymInfo>) -> u16 {
     match stmt {
-      Stmt::Addr(_, addr) => *addr,
+      Stmt::Addr(addr) => *addr,
       Stmt::UnresolvedAddr(pos, name) => {
         st.entry(name.clone())
           .or_insert_with(|| {
@@ -87,13 +87,13 @@ impl Gen {
           })
           .addr
       }
-      Stmt::Assign(_, dest, _, comp) => {
+      Stmt::Assign(_, dest, comp) => {
         (0b111 << 13) | (Gen::encode_comp(*comp) << 6) | (Gen::encode_dest(*dest) << 3)
       }
-      Stmt::Branch(_, comp, _, jump) => {
+      Stmt::Branch(_, comp, jump) => {
         (0b111 << 13) | (Gen::encode_comp(*comp) << 6) | Gen::encode_jump(*jump)
       }
-      Stmt::Inst(_, dest, _, comp, _, jump) => {
+      Stmt::Inst(_, dest, comp, jump) => {
         (0b111 << 13)
           | (Gen::encode_comp(*comp) << 6)
           | (Gen::encode_dest(*dest) << 3)

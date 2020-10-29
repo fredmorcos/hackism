@@ -14,6 +14,7 @@ pub struct Lex<'buf> {
   buf: slice::Iter<'buf, u8>,
   tbuf: Txt,
   pos: Pos,
+  tpos: Pos,
   la: Option<u8>,
 }
 
@@ -23,6 +24,7 @@ impl<'buf> From<&'buf [u8]> for Lex<'buf> {
       buf: buf.iter(),
       tbuf: Txt::default(),
       pos: Pos::default(),
+      tpos: Pos::default(),
       la: Option::default(),
     }
   }
@@ -32,7 +34,7 @@ impl<'buf> From<&'buf [u8]> for Lex<'buf> {
 pub enum Err {
   EOF(&'static str, u32, Pos, &'static str),
   Unexpected(&'static str, u32, Pos, u8, &'static str),
-  Range(Pos, &'static str),
+  Range(&'static str),
 }
 
 impl fmt::Display for Err {
@@ -48,9 +50,7 @@ impl fmt::Display for Err {
         "{}:{}: Unexpected character {} at {}: {}",
         file, line, c, pos, msg
       ),
-      Err::Range(pos, msg) => {
-        write!(f, "Value at {} out of range (expecting {})", pos, msg)
-      }
+      Err::Range(msg) => write!(f, "Value out of range (expecting {})", msg),
     }
   }
 }
@@ -180,13 +180,13 @@ impl fmt::Display for Jump {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Tok {
-  NumAddr(Pos, u16),
-  NameAddr(Pos),
-  Label(Pos),
-  Semi(Pos),
-  Dest(Pos, Dest),
-  Comp(Pos, Comp),
-  Jump(Pos, Jump),
+  NumAddr(u16),
+  NameAddr,
+  Label,
+  Semi,
+  Dest(Dest),
+  Comp(Comp),
+  Jump(Jump),
 }
 
 impl Tok {
@@ -224,6 +224,10 @@ macro_rules! unexpected {
 }
 
 impl Lex<'_> {
+  pub fn token_pos(&self) -> Pos {
+    self.tpos
+  }
+
   pub fn text(&self) -> &Txt {
     &self.tbuf
   }
@@ -267,20 +271,20 @@ impl Lex<'_> {
 
   pub fn next(&mut self) -> Option<Result<Tok, Err>> {
     macro_rules! dest {
-      ($p:expr, $v:ident) => {
-        Some(Ok(Tok::Dest($p, Dest::$v)))
+      ($v:ident) => {
+        Some(Ok(Tok::Dest(Dest::$v)))
       };
     }
 
     macro_rules! comp {
-      ($p:expr, $v:ident) => {
-        Some(Ok(Tok::Comp($p, Comp::$v)))
+      ($v:ident) => {
+        Some(Ok(Tok::Comp(Comp::$v)))
       };
     }
 
     macro_rules! jump {
-      ($p:expr, $v:ident) => {
-        Some(Ok(Tok::Jump($p, Jump::$v)))
+      ($v:ident) => {
+        Some(Ok(Tok::Jump(Jump::$v)))
       };
     }
 
@@ -303,7 +307,7 @@ impl Lex<'_> {
     } else if c1 == b'@' {
       static MSG: &str = "an address, name or register";
 
-      let pos = self.pos;
+      self.tpos = self.pos;
       let c2 = next!(self.buf, { return eof!(self.pos, MSG) });
       self.pos.inc(c2);
 
@@ -314,18 +318,18 @@ impl Lex<'_> {
         loop {
           let c = next!(self.buf, {
             return if let Some(addr) = Tok::num_addr(&self.tbuf) {
-              Some(Ok(Tok::NumAddr(pos, addr)))
+              Some(Ok(Tok::NumAddr(addr)))
             } else {
-              Some(Err(Err::Range(pos, "a numeric address")))
+              Some(Err(Err::Range("a numeric address")))
             };
           });
           self.pos.inc(c);
 
           if c.is_ascii_whitespace() {
             return if let Some(addr) = Tok::num_addr(&self.tbuf) {
-              Some(Ok(Tok::NumAddr(pos, addr)))
+              Some(Ok(Tok::NumAddr(addr)))
             } else {
-              Some(Err(Err::Range(pos, "a numeric address")))
+              Some(Err(Err::Range("a numeric address")))
             };
           }
 
@@ -345,12 +349,12 @@ impl Lex<'_> {
 
         loop {
           let c = next!(self.buf, {
-            return Some(Ok(Tok::NameAddr(pos)));
+            return Some(Ok(Tok::NameAddr));
           });
           self.pos.inc(c);
 
           if c.is_ascii_whitespace() {
-            return Some(Ok(Tok::NameAddr(pos)));
+            return Some(Ok(Tok::NameAddr));
           }
 
           self.tbuf.push(c);
@@ -361,7 +365,7 @@ impl Lex<'_> {
     } else if c1 == b'(' {
       static MSG: &str = "a label (cannot start with a digit)";
 
-      let pos = self.pos;
+      self.tpos = self.pos;
       let c2 = next!(self.buf, { return eof!(self.pos, MSG) });
       self.pos.inc(c2);
 
@@ -374,7 +378,7 @@ impl Lex<'_> {
           self.pos.inc(c);
 
           if c == b')' {
-            return Some(Ok(Tok::Label(pos)));
+            return Some(Ok(Tok::Label));
           }
 
           if !c.is_ascii_alphanumeric() && !is_ascii_symbol(c) {
@@ -387,7 +391,7 @@ impl Lex<'_> {
         unexpected!(self.pos, c2, MSG)
       }
     } else if c1 == b'J' {
-      let pos = self.pos;
+      self.tpos = self.pos;
       let c2 = next!(self.buf, {
         return eof!(self.pos, "JGT|JEQ|JGE|JLT|JNE|JLE|JMP");
       });
@@ -397,8 +401,8 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "JGT|JGE") });
           self.pos.inc(c3);
           match c3 {
-            b'T' => jump!(pos, JGT),
-            b'E' => jump!(pos, JGE),
+            b'T' => jump!(JGT),
+            b'E' => jump!(JGE),
             c => unexpected!(self.pos, c, "JGT|JGE"),
           }
         }
@@ -406,7 +410,7 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "JEQ") });
           self.pos.inc(c3);
           match c3 {
-            b'Q' => jump!(pos, JEQ),
+            b'Q' => jump!(JEQ),
             c => unexpected!(self.pos, c, "JEQ"),
           }
         }
@@ -414,8 +418,8 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "JLT|JLE") });
           self.pos.inc(c3);
           match c3 {
-            b'T' => jump!(pos, JLT),
-            b'E' => jump!(pos, JLE),
+            b'T' => jump!(JLT),
+            b'E' => jump!(JLE),
             c => unexpected!(self.pos, c, "JLT|JLE"),
           }
         }
@@ -423,7 +427,7 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "JNE") });
           self.pos.inc(c3);
           match c3 {
-            b'E' => jump!(pos, JNE),
+            b'E' => jump!(JNE),
             c => unexpected!(self.pos, c, "JNE"),
           }
         }
@@ -431,15 +435,15 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "JMP") });
           self.pos.inc(c3);
           match c3 {
-            b'P' => jump!(pos, JMP),
+            b'P' => jump!(JMP),
             c => unexpected!(self.pos, c, "JMP"),
           }
         }
         c => unexpected!(self.pos, c, "JGT|JEQ|JGE|JLT|JNE|JLE|JMP"),
       }
     } else if c1 == b'A' {
-      let pos = self.pos;
-      let c2 = next!(self.buf, { return comp!(pos, A) });
+      self.tpos = self.pos;
+      let c2 = next!(self.buf, { return comp!(A) });
       self.pos.inc(c2);
       match c2 {
         b'M' => {
@@ -454,11 +458,11 @@ impl Lex<'_> {
               });
               self.pos.inc(c4);
               match c4 {
-                b'=' => dest!(pos, AMD),
+                b'=' => dest!(AMD),
                 c => unexpected!(self.pos, c, "an instruction AMD=..."),
               }
             }
-            b'=' => Some(Ok(Tok::Dest(pos, Dest::AM))),
+            b'=' => Some(Ok(Tok::Dest(Dest::AM))),
             c => unexpected!(self.pos, c, "an instruction AM[D]=..."),
           }
         }
@@ -466,7 +470,7 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "an instruction AD=...") });
           self.pos.inc(c3);
           match c3 {
-            b'=' => dest!(pos, AD),
+            b'=' => dest!(AD),
             c => unexpected!(self.pos, c, "an instruction AD=..."),
           }
         }
@@ -474,7 +478,7 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "a computation A+1") });
           self.pos.inc(c3);
           match c3 {
-            b'1' => comp!(pos, APlus1),
+            b'1' => comp!(APlus1),
             c => unexpected!(self.pos, c, "a computation A+1"),
           }
         }
@@ -482,29 +486,29 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "a computation A-1|A-D") });
           self.pos.inc(c3);
           match c3 {
-            b'1' => comp!(pos, AMinus1),
-            b'D' => comp!(pos, AMinusD),
+            b'1' => comp!(AMinus1),
+            b'D' => comp!(AMinusD),
             c => unexpected!(self.pos, c, "a computation A-1|A-D"),
           }
         }
-        b'=' => dest!(pos, A),
+        b'=' => dest!(A),
         b';' => {
           self.la = Some(b';');
-          comp!(pos, A)
+          comp!(A)
         }
-        c if c.is_ascii_whitespace() => comp!(pos, A),
+        c if c.is_ascii_whitespace() => comp!(A),
         c => unexpected!(self.pos, c, "a destination A= or a computation A"),
       }
     } else if c1 == b'M' {
-      let pos = self.pos;
-      let c2 = next!(self.buf, { return comp!(pos, M) });
+      self.tpos = self.pos;
+      let c2 = next!(self.buf, { return comp!(M) });
       self.pos.inc(c2);
       match c2 {
         b'D' => {
           let c3 = next!(self.buf, { return eof!(self.pos, "an instruction MD=...") });
           self.pos.inc(c3);
           match c3 {
-            b'=' => dest!(pos, MD),
+            b'=' => dest!(MD),
             c => unexpected!(self.pos, c, "an instruction MD=..."),
           }
         }
@@ -512,7 +516,7 @@ impl Lex<'_> {
           let c3 = next!(self.buf, { return eof!(self.pos, "a computation M+1") });
           self.pos.inc(c3);
           match c3 {
-            b'1' => comp!(pos, MPlus1),
+            b'1' => comp!(MPlus1),
             c => unexpected!(self.pos, c, "a computation M+1"),
           }
         }
@@ -522,22 +526,22 @@ impl Lex<'_> {
           });
           self.pos.inc(c3);
           match c3 {
-            b'1' => comp!(pos, MMinus1),
-            b'D' => comp!(pos, MMinusD),
+            b'1' => comp!(MMinus1),
+            b'D' => comp!(MMinusD),
             c => unexpected!(self.pos, c, "a computation M-1 or M-D"),
           }
         }
-        b'=' => dest!(pos, M),
+        b'=' => dest!(M),
         b';' => {
           self.la = Some(b';');
-          comp!(pos, M)
+          comp!(M)
         }
-        c if c.is_ascii_whitespace() => comp!(pos, M),
+        c if c.is_ascii_whitespace() => comp!(M),
         c => unexpected!(self.pos, c, "a destination M= or a computation M"),
       }
     } else if c1 == b'D' {
-      let pos = self.pos;
-      let c2 = next!(self.buf, { return comp!(pos, D) });
+      self.tpos = self.pos;
+      let c2 = next!(self.buf, { return comp!(D) });
       self.pos.inc(c2);
       match c2 {
         b'+' => {
@@ -546,9 +550,9 @@ impl Lex<'_> {
           });
           self.pos.inc(c3);
           match c3 {
-            b'1' => comp!(pos, DPlus1),
-            b'A' => comp!(pos, DPlusA),
-            b'M' => comp!(pos, DPlusM),
+            b'1' => comp!(DPlus1),
+            b'A' => comp!(DPlusA),
+            b'M' => comp!(DPlusM),
             c => unexpected!(self.pos, c, "a computation D+1|D+A|D+M"),
           }
         }
@@ -558,9 +562,9 @@ impl Lex<'_> {
           });
           self.pos.inc(c3);
           match c3 {
-            b'1' => comp!(pos, DMinus1),
-            b'A' => comp!(pos, DMinusA),
-            b'M' => comp!(pos, DMinusM),
+            b'1' => comp!(DMinus1),
+            b'A' => comp!(DMinusA),
+            b'M' => comp!(DMinusM),
             c => unexpected!(self.pos, c, "a computation D-1|D-A|D-M"),
           }
         }
@@ -570,8 +574,8 @@ impl Lex<'_> {
           });
           self.pos.inc(c3);
           match c3 {
-            b'A' => comp!(pos, DAndA),
-            b'M' => comp!(pos, DAndM),
+            b'A' => comp!(DAndA),
+            b'M' => comp!(DAndM),
             c => unexpected!(self.pos, c, "a computation D&A or D&M"),
           }
         }
@@ -581,50 +585,53 @@ impl Lex<'_> {
           });
           self.pos.inc(c3);
           match c3 {
-            b'A' => comp!(pos, DOrA),
-            b'M' => comp!(pos, DOrM),
+            b'A' => comp!(DOrA),
+            b'M' => comp!(DOrM),
             c => unexpected!(self.pos, c, "a computation D|A or D|M"),
           }
         }
-        b'=' => dest!(pos, D),
+        b'=' => dest!(D),
         b';' => {
           self.la = Some(b';');
-          comp!(pos, D)
+          comp!(D)
         }
-        c if c.is_ascii_whitespace() => comp!(pos, D),
+        c if c.is_ascii_whitespace() => comp!(D),
         c => unexpected!(self.pos, c, "a destination D= or a computation D"),
       }
     } else if c1 == b'-' {
-      let pos = self.pos;
+      self.tpos = self.pos;
       let c2 = next!(self.buf, {
         return eof!(self.pos, "a computation -A|-M|-D");
       });
       self.pos.inc(c2);
       match c2 {
-        b'1' => comp!(pos, Neg1),
-        b'A' => comp!(pos, NegA),
-        b'M' => comp!(pos, NegM),
-        b'D' => comp!(pos, NegD),
+        b'1' => comp!(Neg1),
+        b'A' => comp!(NegA),
+        b'M' => comp!(NegM),
+        b'D' => comp!(NegD),
         c => unexpected!(self.pos, c, "a computation -A|-M|-D"),
       }
     } else if c1 == b'!' {
-      let pos = self.pos;
+      self.tpos = self.pos;
       let c2 = next!(self.buf, {
         return eof!(self.pos, "a computation !A|!M|!D");
       });
       self.pos.inc(c2);
       match c2 {
-        b'A' => comp!(pos, NotA),
-        b'M' => comp!(pos, NotM),
-        b'D' => comp!(pos, NotD),
+        b'A' => comp!(NotA),
+        b'M' => comp!(NotM),
+        b'D' => comp!(NotD),
         c => unexpected!(self.pos, c, "a computation !A|!M|!D"),
       }
     } else if c1 == b'0' {
-      Some(Ok(Tok::Comp(self.pos, Comp::Zero)))
+      self.tpos = self.pos;
+      Some(Ok(Tok::Comp(Comp::Zero)))
     } else if c1 == b'1' {
-      Some(Ok(Tok::Comp(self.pos, Comp::One)))
+      self.tpos = self.pos;
+      Some(Ok(Tok::Comp(Comp::One)))
     } else if c1 == b';' {
-      Some(Ok(Tok::Semi(self.pos)))
+      self.tpos = self.pos;
+      Some(Ok(Tok::Semi))
     } else {
       unexpected!(self.pos, c1, "an address or an instruction")
     }
@@ -679,20 +686,26 @@ mod tests {
   #[test]
   fn num_address() {
     let mut lex = lex!("num_address");
-    assert_next!(lex, tbuf, Tok::NumAddr(Pos::new(3, 5), 8192));
-    assert_next!(lex, tbuf, Tok::NumAddr(Pos::new(5, 1), 123));
-    assert_next!(lex, tbuf, Tok::NumAddr(Pos::new(9, 5), 556));
+    assert_next!(lex, tbuf, Tok::NumAddr(8192));
+    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_next!(lex, tbuf, Tok::NumAddr(123));
+    assert_eq!(lex.token_pos(), Pos::new(5, 1));
+    assert_next!(lex, tbuf, Tok::NumAddr(556));
+    assert_eq!(lex.token_pos(), Pos::new(9, 5));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn name_address() {
     let mut lex = lex!("name_address");
-    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(3, 5)));
+    assert_next!(lex, tbuf, Tok::NameAddr);
+    assert_eq!(lex.token_pos(), Pos::new(3, 5));
     assert_eq!(lex.text(), &Txt::from(&b"FOO"[..]));
-    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(5, 1)));
+    assert_next!(lex, tbuf, Tok::NameAddr);
+    assert_eq!(lex.token_pos(), Pos::new(5, 1));
     assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
-    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(9, 5)));
+    assert_next!(lex, tbuf, Tok::NameAddr);
+    assert_eq!(lex.token_pos(), Pos::new(9, 5));
     assert_eq!(lex.text(), &Txt::from(&b"R2"[..]));
     assert_eq!(lex.next(), None);
   }
@@ -700,19 +713,26 @@ mod tests {
   #[test]
   fn labels() {
     let mut lex = lex!("labels");
-    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(3, 5)));
+    assert_next!(lex, tbuf, Tok::NameAddr);
+    assert_eq!(lex.token_pos(), Pos::new(3, 5));
     assert_eq!(lex.text(), &Txt::from(&b"FOO"[..]));
-    assert_next!(lex, tbuf, Tok::Label(Pos::new(5, 1)));
+    assert_next!(lex, tbuf, Tok::Label);
+    assert_eq!(lex.token_pos(), Pos::new(5, 1));
     assert_eq!(lex.text(), &Txt::from(&b"LABEL"[..]));
-    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(9, 5)));
+    assert_next!(lex, tbuf, Tok::NameAddr);
+    assert_eq!(lex.token_pos(), Pos::new(9, 5));
     assert_eq!(lex.text(), &Txt::from(&b"LABEL"[..]));
-    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(11, 1)));
+    assert_next!(lex, tbuf, Tok::NameAddr);
+    assert_eq!(lex.token_pos(), Pos::new(11, 1));
     assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
-    assert_next!(lex, tbuf, Tok::Label(Pos::new(13, 1)));
+    assert_next!(lex, tbuf, Tok::Label);
+    assert_eq!(lex.token_pos(), Pos::new(13, 1));
     assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
-    assert_next!(lex, tbuf, Tok::NameAddr(Pos::new(15, 1)));
+    assert_next!(lex, tbuf, Tok::NameAddr);
+    assert_eq!(lex.token_pos(), Pos::new(15, 1));
     assert_eq!(lex.text(), &Txt::from(&b"LAB0"[..]));
-    assert_next!(lex, tbuf, Tok::Label(Pos::new(17, 1)));
+    assert_next!(lex, tbuf, Tok::Label);
+    assert_eq!(lex.token_pos(), Pos::new(17, 1));
     assert_eq!(lex.text(), &Txt::from(&b"LAB0"[..]));
     assert_eq!(lex.next(), None);
   }
@@ -720,45 +740,72 @@ mod tests {
   #[test]
   fn assignments() {
     let mut lex = lex!("assignments");
-    assert_next!(lex, tbuf, Tok::Dest(Pos::new(1, 1), Dest::A));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, tbuf, Tok::Dest(Pos::new(2, 1), Dest::AM));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, tbuf, Tok::Dest(Pos::new(3, 1), Dest::AMD));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
+    assert_next!(lex, tbuf, Tok::Dest(Dest::A));
+    assert_eq!(lex.token_pos(), Pos::new(1, 1));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::MMinus1));
+    assert_eq!(lex.token_pos(), Pos::new(1, 3));
+    assert_next!(lex, tbuf, Tok::Dest(Dest::AM));
+    assert_eq!(lex.token_pos(), Pos::new(2, 1));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::DOrA));
+    assert_eq!(lex.token_pos(), Pos::new(2, 4));
+    assert_next!(lex, tbuf, Tok::Dest(Dest::AMD));
+    assert_eq!(lex.token_pos(), Pos::new(3, 1));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::APlus1));
+    assert_eq!(lex.token_pos(), Pos::new(3, 5));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn branches() {
     let mut lex = lex!("branches");
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(1, 1), Comp::MMinus1));
-    assert_next!(lex, tbuf, Tok::Semi(Pos::new(1, 4)));
-    assert_next!(lex, tbuf, Tok::Jump(Pos::new(1, 5), Jump::JEQ));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(2, 1), Comp::DOrA));
-    assert_next!(lex, tbuf, Tok::Semi(Pos::new(2, 4)));
-    assert_next!(lex, tbuf, Tok::Jump(Pos::new(2, 5), Jump::JNE));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(3, 1), Comp::APlus1));
-    assert_next!(lex, tbuf, Tok::Semi(Pos::new(3, 4)));
-    assert_next!(lex, tbuf, Tok::Jump(Pos::new(3, 5), Jump::JMP));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::MMinus1));
+    assert_eq!(lex.token_pos(), Pos::new(1, 1));
+    assert_next!(lex, tbuf, Tok::Semi);
+    assert_eq!(lex.token_pos(), Pos::new(1, 4));
+    assert_next!(lex, tbuf, Tok::Jump(Jump::JEQ));
+    assert_eq!(lex.token_pos(), Pos::new(1, 5));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::DOrA));
+    assert_eq!(lex.token_pos(), Pos::new(2, 1));
+    assert_next!(lex, tbuf, Tok::Semi);
+    assert_eq!(lex.token_pos(), Pos::new(2, 4));
+    assert_next!(lex, tbuf, Tok::Jump(Jump::JNE));
+    assert_eq!(lex.token_pos(), Pos::new(2, 5));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::APlus1));
+    assert_eq!(lex.token_pos(), Pos::new(3, 1));
+    assert_next!(lex, tbuf, Tok::Semi);
+    assert_eq!(lex.token_pos(), Pos::new(3, 4));
+    assert_next!(lex, tbuf, Tok::Jump(Jump::JMP));
+    assert_eq!(lex.token_pos(), Pos::new(3, 5));
     assert_eq!(lex.next(), None);
   }
 
   #[test]
   fn instructions() {
     let mut lex = lex!("instructions");
-    assert_next!(lex, tbuf, Tok::Dest(Pos::new(1, 1), Dest::A));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(1, 3), Comp::MMinus1));
-    assert_next!(lex, tbuf, Tok::Semi(Pos::new(1, 6)));
-    assert_next!(lex, tbuf, Tok::Jump(Pos::new(1, 7), Jump::JEQ));
-    assert_next!(lex, tbuf, Tok::Dest(Pos::new(2, 1), Dest::AM));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(2, 4), Comp::DOrA));
-    assert_next!(lex, tbuf, Tok::Semi(Pos::new(2, 7)));
-    assert_next!(lex, tbuf, Tok::Jump(Pos::new(2, 8), Jump::JNE));
-    assert_next!(lex, tbuf, Tok::Dest(Pos::new(3, 1), Dest::AMD));
-    assert_next!(lex, tbuf, Tok::Comp(Pos::new(3, 5), Comp::APlus1));
-    assert_next!(lex, tbuf, Tok::Semi(Pos::new(3, 8)));
-    assert_next!(lex, tbuf, Tok::Jump(Pos::new(3, 9), Jump::JMP));
+    assert_next!(lex, tbuf, Tok::Dest(Dest::A));
+    assert_eq!(lex.token_pos(), Pos::new(1, 1));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::MMinus1));
+    assert_eq!(lex.token_pos(), Pos::new(1, 3));
+    assert_next!(lex, tbuf, Tok::Semi);
+    assert_eq!(lex.token_pos(), Pos::new(1, 6));
+    assert_next!(lex, tbuf, Tok::Jump(Jump::JEQ));
+    assert_eq!(lex.token_pos(), Pos::new(1, 7));
+    assert_next!(lex, tbuf, Tok::Dest(Dest::AM));
+    assert_eq!(lex.token_pos(), Pos::new(2, 1));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::DOrA));
+    assert_eq!(lex.token_pos(), Pos::new(2, 4));
+    assert_next!(lex, tbuf, Tok::Semi);
+    assert_eq!(lex.token_pos(), Pos::new(2, 7));
+    assert_next!(lex, tbuf, Tok::Jump(Jump::JNE));
+    assert_eq!(lex.token_pos(), Pos::new(2, 8));
+    assert_next!(lex, tbuf, Tok::Dest(Dest::AMD));
+    assert_eq!(lex.token_pos(), Pos::new(3, 1));
+    assert_next!(lex, tbuf, Tok::Comp(Comp::APlus1));
+    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_next!(lex, tbuf, Tok::Semi);
+    assert_eq!(lex.token_pos(), Pos::new(3, 8));
+    assert_next!(lex, tbuf, Tok::Jump(Jump::JMP));
+    assert_eq!(lex.token_pos(), Pos::new(3, 9));
     assert_eq!(lex.next(), None);
   }
 }

@@ -9,11 +9,11 @@ use crate::pos::Pos;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
-  Addr(Pos, u16),
+  Addr(u16),
   UnresolvedAddr(Pos, Txt),
-  Assign(Pos, Dest, Pos, Comp),
-  Branch(Pos, Comp, Pos, Jump),
-  Inst(Pos, Dest, Pos, Comp, Pos, Jump),
+  Assign(Pos, Dest, Comp),
+  Branch(Pos, Comp, Jump),
+  Inst(Pos, Dest, Comp, Jump),
 }
 
 fn is_predefined_symbol(s: &[u8]) -> Option<u16> {
@@ -254,6 +254,10 @@ impl fmt::Debug for Err {
 }
 
 impl<'s> Parse<'s, '_> {
+  pub fn pos(&self) -> Pos {
+    self.lex.token_pos()
+  }
+
   pub fn next(&mut self) -> Option<Result<Stmt, Err>> {
     macro_rules! next {
       ($b:block) => {
@@ -272,90 +276,90 @@ impl<'s> Parse<'s, '_> {
     };
 
     match t1 {
-      Tok::NumAddr(pos, addr) => {
+      Tok::NumAddr(addr) => {
         self.idx += 1;
-        Some(Ok(Stmt::Addr(pos, addr)))
+        Some(Ok(Stmt::Addr(addr)))
       }
-      Tok::NameAddr(pos) => {
+      Tok::NameAddr => {
         self.idx += 1;
         if let Some(addr) = is_predefined_symbol(self.lex.text()) {
-          Some(Ok(Stmt::Addr(pos, addr)))
+          Some(Ok(Stmt::Addr(addr)))
         } else if let Some(info) = self.st.get(self.lex.text()) {
-          Some(Ok(Stmt::Addr(pos, info.addr)))
+          Some(Ok(Stmt::Addr(info.addr)))
         } else {
-          Some(Ok(Stmt::UnresolvedAddr(pos, self.lex.take_text())))
+          Some(Ok(Stmt::UnresolvedAddr(self.pos(), self.lex.take_text())))
         }
       }
-      Tok::Label(pos) => {
+      Tok::Label => {
         if let Some(old) = self
           .st
-          .insert(self.lex.take_text(), SymInfo::new(pos, self.idx))
+          .insert(self.lex.take_text(), SymInfo::new(self.pos(), self.idx))
         {
-          Some(Err(Err::Label(pos, old)))
+          Some(Err(Err::Label(self.pos(), old)))
         } else {
           self.next()
         }
       }
-      Tok::Dest(dest_pos, dest) => {
+      Tok::Dest(dest) => {
         self.idx += 1;
-        match next!({ return Some(Err(Err::Msg(dest_pos, "a computation"))) }) {
-          Tok::Comp(comp_pos, comp) => {
+        let pos = self.pos();
+        match next!({ return Some(Err(Err::Msg(pos, "a computation"))) }) {
+          Tok::Comp(comp) => {
             match next!({
-              return Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)));
+              return Some(Ok(Stmt::Assign(pos, dest, comp)));
             }) {
-              Tok::Semi(semi_pos) => {
-                match next!({ return Some(Err(Err::Msg(semi_pos, "a jump"))) }) {
-                  Tok::Jump(jump_pos, jump) => Some(Ok(Stmt::Inst(
-                    dest_pos, dest, comp_pos, comp, jump_pos, jump,
-                  ))),
-                  Tok::NumAddr(_, _)
-                  | Tok::NameAddr(_)
-                  | Tok::Label(_)
-                  | Tok::Semi(_)
-                  | Tok::Dest(_, _)
-                  | Tok::Comp(_, _) => Some(Err(Err::Msg(semi_pos, "a jump"))),
+              Tok::Semi => {
+                match next!({
+                  return Some(Err(Err::Msg(self.pos(), "a jump")));
+                }) {
+                  Tok::Jump(jump) => Some(Ok(Stmt::Inst(pos, dest, comp, jump))),
+                  Tok::NumAddr(_)
+                  | Tok::NameAddr
+                  | Tok::Label
+                  | Tok::Semi
+                  | Tok::Dest(_)
+                  | Tok::Comp(_) => Some(Err(Err::Msg(self.pos(), "a jump"))),
                 }
               }
               la => {
                 self.la = Some(la);
-                Some(Ok(Stmt::Assign(dest_pos, dest, comp_pos, comp)))
+                Some(Ok(Stmt::Assign(pos, dest, comp)))
               }
             }
           }
-          Tok::NumAddr(_, _)
-          | Tok::NameAddr(_)
-          | Tok::Label(_)
-          | Tok::Semi(_)
-          | Tok::Dest(_, _)
-          | Tok::Jump(_, _) => Some(Err(Err::Dest(dest_pos, dest))),
+          Tok::NumAddr(_)
+          | Tok::NameAddr
+          | Tok::Label
+          | Tok::Semi
+          | Tok::Dest(_)
+          | Tok::Jump(_) => Some(Err(Err::Dest(self.pos(), dest))),
         }
       }
-      Tok::Comp(comp_pos, comp) => {
+      Tok::Comp(comp) => {
         self.idx += 1;
-        match next!({ return Some(Err(Err::Comp(comp_pos, comp))) }) {
-          Tok::Semi(semi_pos) => {
-            match next!({ return Some(Err(Err::Msg(semi_pos, "a jump"))) }) {
-              Tok::Jump(jump_pos, jump) => {
-                Some(Ok(Stmt::Branch(comp_pos, comp, jump_pos, jump)))
-              }
-              Tok::NumAddr(_, _)
-              | Tok::NameAddr(_)
-              | Tok::Label(_)
-              | Tok::Semi(_)
-              | Tok::Dest(_, _)
-              | Tok::Comp(_, _) => Some(Err(Err::Msg(semi_pos, "a jump"))),
+        let pos = self.pos();
+        match next!({ return Some(Err(Err::Comp(pos, comp))) }) {
+          Tok::Semi => {
+            match next!({ return Some(Err(Err::Msg(self.pos(), "a jump"))) }) {
+              Tok::Jump(jump) => Some(Ok(Stmt::Branch(pos, comp, jump))),
+              Tok::NumAddr(_)
+              | Tok::NameAddr
+              | Tok::Label
+              | Tok::Semi
+              | Tok::Dest(_)
+              | Tok::Comp(_) => Some(Err(Err::Msg(self.pos(), "a jump"))),
             }
           }
-          Tok::Jump(_, _)
-          | Tok::NumAddr(_, _)
-          | Tok::NameAddr(_)
-          | Tok::Label(_)
-          | Tok::Dest(_, _)
-          | Tok::Comp(_, _) => Some(Err(Err::Comp(comp_pos, comp))),
+          Tok::Jump(_)
+          | Tok::NumAddr(_)
+          | Tok::NameAddr
+          | Tok::Label
+          | Tok::Dest(_)
+          | Tok::Comp(_) => Some(Err(Err::Comp(self.pos(), comp))),
         }
       }
-      Tok::Jump(pos, jump) => Some(Err(Err::Jump(pos, jump))),
-      Tok::Semi(pos) => Some(Err(Err::Semi(pos))),
+      Tok::Jump(jump) => Some(Err(Err::Jump(self.pos(), jump))),
+      Tok::Semi => Some(Err(Err::Semi(self.pos()))),
     }
   }
 }
@@ -410,9 +414,12 @@ mod tests {
   fn num_address() {
     let mut st = Map::new();
     let mut parse = parse!("num_address", &mut st);
-    assert_next!(parse, Stmt::Addr(Pos::new(3, 5), 8192));
-    assert_next!(parse, Stmt::Addr(Pos::new(5, 1), 123));
-    assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 556));
+    assert_next!(parse, Stmt::Addr(8192));
+    assert_eq!(parse.pos(), Pos::new(3, 5));
+    assert_next!(parse, Stmt::Addr(123));
+    assert_eq!(parse.pos(), Pos::new(5, 1));
+    assert_next!(parse, Stmt::Addr(556));
+    assert_eq!(parse.pos(), Pos::new(9, 5));
     assert_eq!(parse.next(), None);
   }
 
@@ -428,7 +435,8 @@ mod tests {
       parse,
       Stmt::UnresolvedAddr(Pos::new(5, 1), Txt::from(&b"BAR"[..]))
     );
-    assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 2));
+    assert_next!(parse, Stmt::Addr(2));
+    assert_eq!(parse.pos(), Pos::new(9, 5));
     assert_eq!(parse.next(), None);
   }
 
@@ -440,7 +448,8 @@ mod tests {
       parse,
       Stmt::UnresolvedAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..]))
     );
-    assert_next!(parse, Stmt::Addr(Pos::new(9, 5), 1));
+    assert_next!(parse, Stmt::Addr(1));
+    assert_eq!(parse.pos(), Pos::new(9, 5));
     assert_next!(
       parse,
       Stmt::UnresolvedAddr(Pos::new(11, 1), Txt::from(&b"BAR"[..]))
@@ -456,17 +465,11 @@ mod tests {
   fn assignments() {
     let mut st = Map::new();
     let mut parse = parse!("assignments", &mut st);
+    assert_next!(parse, Stmt::Assign(Pos::new(1, 1), Dest::A, Comp::MMinus1));
+    assert_next!(parse, Stmt::Assign(Pos::new(2, 1), Dest::AM, Comp::DOrA,));
     assert_next!(
       parse,
-      Stmt::Assign(Pos::new(1, 1), Dest::A, Pos::new(1, 3), Comp::MMinus1)
-    );
-    assert_next!(
-      parse,
-      Stmt::Assign(Pos::new(2, 1), Dest::AM, Pos::new(2, 4), Comp::DOrA,)
-    );
-    assert_next!(
-      parse,
-      Stmt::Assign(Pos::new(3, 1), Dest::AMD, Pos::new(3, 5), Comp::APlus1,)
+      Stmt::Assign(Pos::new(3, 1), Dest::AMD, Comp::APlus1,)
     );
     assert_eq!(parse.next(), None);
   }
@@ -477,16 +480,10 @@ mod tests {
     let mut parse = parse!("branches", &mut st);
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Pos::new(1, 5), Jump::JEQ)
+      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Jump::JEQ)
     );
-    assert_next!(
-      parse,
-      Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Pos::new(2, 5), Jump::JNE)
-    );
-    assert_next!(
-      parse,
-      Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Pos::new(3, 5), Jump::JMP)
-    );
+    assert_next!(parse, Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Jump::JNE));
+    assert_next!(parse, Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Jump::JMP));
     assert_eq!(parse.next(), None);
   }
 
@@ -496,36 +493,15 @@ mod tests {
     let mut parse = parse!("instructions", &mut st);
     assert_next!(
       parse,
-      Stmt::Inst(
-        Pos::new(1, 1),
-        Dest::A,
-        Pos::new(1, 3),
-        Comp::MMinus1,
-        Pos::new(1, 7),
-        Jump::JEQ
-      )
+      Stmt::Inst(Pos::new(1, 1), Dest::A, Comp::MMinus1, Jump::JEQ)
     );
     assert_next!(
       parse,
-      Stmt::Inst(
-        Pos::new(2, 1),
-        Dest::AM,
-        Pos::new(2, 4),
-        Comp::DOrA,
-        Pos::new(2, 8),
-        Jump::JNE
-      )
+      Stmt::Inst(Pos::new(2, 1), Dest::AM, Comp::DOrA, Jump::JNE)
     );
     assert_next!(
       parse,
-      Stmt::Inst(
-        Pos::new(3, 1),
-        Dest::AMD,
-        Pos::new(3, 5),
-        Comp::APlus1,
-        Pos::new(3, 9),
-        Jump::JMP
-      )
+      Stmt::Inst(Pos::new(3, 1), Dest::AMD, Comp::APlus1, Jump::JMP)
     );
     assert_eq!(parse.next(), None);
   }
