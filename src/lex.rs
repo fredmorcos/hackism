@@ -202,6 +202,27 @@ impl Tok {
   }
 }
 
+macro_rules! next {
+  ($buf:expr, $b:block) => {
+    match $buf.next() {
+      Some(c) => *c,
+      None => $b,
+    };
+  };
+}
+
+macro_rules! eof {
+  ($pos:expr, $msg:expr) => {
+    Some(Err(Err::EOF(file!(), line!(), $pos, $msg)))
+  };
+}
+
+macro_rules! unexpected {
+  ($pos:expr, $c:expr, $msg:expr) => {
+    Some(Err(Err::Unexpected(file!(), line!(), $pos, $c, $msg)))
+  };
+}
+
 impl Lex<'_> {
   pub fn text(&self) -> &Txt {
     &self.tbuf
@@ -211,28 +232,40 @@ impl Lex<'_> {
     std::mem::take(&mut self.tbuf)
   }
 
+  pub fn whitespace(&mut self) -> Option<Result<Tok, Err>> {
+    loop {
+      let c2 = next!(self.buf, { return None });
+
+      if c2.is_ascii_whitespace() {
+        self.pos.inc(c2);
+      } else {
+        self.la = Some(c2);
+        return self.next();
+      }
+    }
+  }
+
+  pub fn comment(&mut self) -> Option<Result<Tok, Err>> {
+    static MSG: &str = "a second / to create a comment";
+
+    let c2 = next!(self.buf, { return eof!(self.pos, MSG) });
+    self.pos.inc(c2);
+
+    if c2 == b'/' {
+      loop {
+        let c = next!(self.buf, { return None });
+        self.pos.inc(c);
+
+        if c == b'\n' {
+          return self.next();
+        }
+      }
+    } else {
+      unexpected!(self.pos, c2, MSG)
+    }
+  }
+
   pub fn next(&mut self) -> Option<Result<Tok, Err>> {
-    macro_rules! next {
-      ($b:block) => {
-        match self.buf.next() {
-          Some(c) => *c,
-          None => $b,
-        };
-      };
-    }
-
-    macro_rules! eof {
-      ($msg:expr) => {
-        Some(Err(Err::EOF(file!(), line!(), self.pos, $msg)))
-      };
-    }
-
-    macro_rules! unexpected {
-      ($c:expr, $msg:expr) => {
-        Some(Err(Err::Unexpected(file!(), line!(), self.pos, $c, $msg)))
-      };
-    }
-
     macro_rules! dest {
       ($p:expr, $v:ident) => {
         Some(Ok(Tok::Dest($p, Dest::$v)))
@@ -258,45 +291,20 @@ impl Lex<'_> {
     let c1 = if let Some(la) = self.la.take() {
       la
     } else {
-      next!({ return None })
+      next!(self.buf, { return None })
     };
 
     self.pos.inc(c1);
 
     if c1.is_ascii_whitespace() {
-      loop {
-        let c2 = next!({ return None });
-
-        if c2.is_ascii_whitespace() {
-          self.pos.inc(c2);
-        } else {
-          self.la = Some(c2);
-          return self.next();
-        }
-      }
+      self.whitespace()
     } else if c1 == b'/' {
-      static MSG: &str = "a second / to create a comment";
-
-      let c2 = next!({ return eof!(MSG) });
-      self.pos.inc(c2);
-
-      if c2 == b'/' {
-        loop {
-          let c = next!({ return None });
-          self.pos.inc(c);
-
-          if c == b'\n' {
-            return self.next();
-          }
-        }
-      } else {
-        unexpected!(c2, MSG)
-      }
+      self.comment()
     } else if c1 == b'@' {
       static MSG: &str = "an address, name or register";
 
       let pos = self.pos;
-      let c2 = next!({ return eof!(MSG) });
+      let c2 = next!(self.buf, { return eof!(self.pos, MSG) });
       self.pos.inc(c2);
 
       if c2.is_ascii_digit() {
@@ -304,7 +312,7 @@ impl Lex<'_> {
         self.tbuf.push(c2);
 
         loop {
-          let c = next!({
+          let c = next!(self.buf, {
             return if let Some(addr) = Tok::num_addr(&self.tbuf) {
               Some(Ok(Tok::NumAddr(pos, addr)))
             } else {
@@ -322,7 +330,11 @@ impl Lex<'_> {
           }
 
           if !c.is_ascii_digit() {
-            return unexpected!(c, "a digit, space or newline to form an address");
+            return unexpected!(
+              self.pos,
+              c,
+              "a digit, space or newline to form an address"
+            );
           }
 
           self.tbuf.push(c);
@@ -332,7 +344,7 @@ impl Lex<'_> {
         self.tbuf.push(c2);
 
         loop {
-          let c = next!({
+          let c = next!(self.buf, {
             return Some(Ok(Tok::NameAddr(pos)));
           });
           self.pos.inc(c);
@@ -344,13 +356,13 @@ impl Lex<'_> {
           self.tbuf.push(c);
         }
       } else {
-        unexpected!(c2, MSG)
+        unexpected!(self.pos, c2, MSG)
       }
     } else if c1 == b'(' {
       static MSG: &str = "a label (cannot start with a digit)";
 
       let pos = self.pos;
-      let c2 = next!({ return eof!(MSG) });
+      let c2 = next!(self.buf, { return eof!(self.pos, MSG) });
       self.pos.inc(c2);
 
       if c2.is_ascii_alphabetic() || is_ascii_symbol(c2) {
@@ -358,7 +370,7 @@ impl Lex<'_> {
         self.tbuf.push(c2);
 
         loop {
-          let c = next!({ return eof!(MSG) });
+          let c = next!(self.buf, { return eof!(self.pos, MSG) });
           self.pos.inc(c);
 
           if c == b')' {
@@ -366,107 +378,113 @@ impl Lex<'_> {
           }
 
           if !c.is_ascii_alphanumeric() && !is_ascii_symbol(c) {
-            return unexpected!(c, MSG);
+            return unexpected!(self.pos, c, MSG);
           }
 
           self.tbuf.push(c);
         }
       } else {
-        unexpected!(c2, MSG)
+        unexpected!(self.pos, c2, MSG)
       }
     } else if c1 == b'J' {
       let pos = self.pos;
-      let c2 = next!({ return eof!("JGT|JEQ|JGE|JLT|JNE|JLE|JMP") });
+      let c2 = next!(self.buf, {
+        return eof!(self.pos, "JGT|JEQ|JGE|JLT|JNE|JLE|JMP");
+      });
       self.pos.inc(c2);
       match c2 {
         b'G' => {
-          let c3 = next!({ return eof!("JGT|JGE") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "JGT|JGE") });
           self.pos.inc(c3);
           match c3 {
             b'T' => jump!(pos, JGT),
             b'E' => jump!(pos, JGE),
-            c => unexpected!(c, "JGT|JGE"),
+            c => unexpected!(self.pos, c, "JGT|JGE"),
           }
         }
         b'E' => {
-          let c3 = next!({ return eof!("JEQ") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "JEQ") });
           self.pos.inc(c3);
           match c3 {
             b'Q' => jump!(pos, JEQ),
-            c => unexpected!(c, "JEQ"),
+            c => unexpected!(self.pos, c, "JEQ"),
           }
         }
         b'L' => {
-          let c3 = next!({ return eof!("JLT|JLE") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "JLT|JLE") });
           self.pos.inc(c3);
           match c3 {
             b'T' => jump!(pos, JLT),
             b'E' => jump!(pos, JLE),
-            c => unexpected!(c, "JLT|JLE"),
+            c => unexpected!(self.pos, c, "JLT|JLE"),
           }
         }
         b'N' => {
-          let c3 = next!({ return eof!("JNE") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "JNE") });
           self.pos.inc(c3);
           match c3 {
             b'E' => jump!(pos, JNE),
-            c => unexpected!(c, "JNE"),
+            c => unexpected!(self.pos, c, "JNE"),
           }
         }
         b'M' => {
-          let c3 = next!({ return eof!("JMP") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "JMP") });
           self.pos.inc(c3);
           match c3 {
             b'P' => jump!(pos, JMP),
-            c => unexpected!(c, "JMP"),
+            c => unexpected!(self.pos, c, "JMP"),
           }
         }
-        c => unexpected!(c, "JGT|JEQ|JGE|JLT|JNE|JLE|JMP"),
+        c => unexpected!(self.pos, c, "JGT|JEQ|JGE|JLT|JNE|JLE|JMP"),
       }
     } else if c1 == b'A' {
       let pos = self.pos;
-      let c2 = next!({ return comp!(pos, A) });
+      let c2 = next!(self.buf, { return comp!(pos, A) });
       self.pos.inc(c2);
       match c2 {
         b'M' => {
-          let c3 = next!({ return eof!("an instruction AM[D]=...") });
+          let c3 = next!(self.buf, {
+            return eof!(self.pos, "an instruction AM[D]=...");
+          });
           self.pos.inc(c3);
           match c3 {
             b'D' => {
-              let c4 = next!({ return eof!("an instruction AMD=...") });
+              let c4 = next!(self.buf, {
+                return eof!(self.pos, "an instruction AMD=...");
+              });
               self.pos.inc(c4);
               match c4 {
                 b'=' => dest!(pos, AMD),
-                c => unexpected!(c, "an instruction AMD=..."),
+                c => unexpected!(self.pos, c, "an instruction AMD=..."),
               }
             }
             b'=' => Some(Ok(Tok::Dest(pos, Dest::AM))),
-            c => unexpected!(c, "an instruction AM[D]=..."),
+            c => unexpected!(self.pos, c, "an instruction AM[D]=..."),
           }
         }
         b'D' => {
-          let c3 = next!({ return eof!("an instruction AD=...") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "an instruction AD=...") });
           self.pos.inc(c3);
           match c3 {
             b'=' => dest!(pos, AD),
-            c => unexpected!(c, "an instruction AD=..."),
+            c => unexpected!(self.pos, c, "an instruction AD=..."),
           }
         }
         b'+' => {
-          let c3 = next!({ return eof!("a computation A+1") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "a computation A+1") });
           self.pos.inc(c3);
           match c3 {
             b'1' => comp!(pos, APlus1),
-            c => unexpected!(c, "a computation A+1"),
+            c => unexpected!(self.pos, c, "a computation A+1"),
           }
         }
         b'-' => {
-          let c3 = next!({ return eof!("a computation A-1|A-D") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "a computation A-1|A-D") });
           self.pos.inc(c3);
           match c3 {
             b'1' => comp!(pos, AMinus1),
             b'D' => comp!(pos, AMinusD),
-            c => unexpected!(c, "a computation A-1|A-D"),
+            c => unexpected!(self.pos, c, "a computation A-1|A-D"),
           }
         }
         b'=' => dest!(pos, A),
@@ -475,36 +493,38 @@ impl Lex<'_> {
           comp!(pos, A)
         }
         c if c.is_ascii_whitespace() => comp!(pos, A),
-        c => unexpected!(c, "a destination A= or a computation A"),
+        c => unexpected!(self.pos, c, "a destination A= or a computation A"),
       }
     } else if c1 == b'M' {
       let pos = self.pos;
-      let c2 = next!({ return comp!(pos, M) });
+      let c2 = next!(self.buf, { return comp!(pos, M) });
       self.pos.inc(c2);
       match c2 {
         b'D' => {
-          let c3 = next!({ return eof!("an instruction MD=...") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "an instruction MD=...") });
           self.pos.inc(c3);
           match c3 {
             b'=' => dest!(pos, MD),
-            c => unexpected!(c, "an instruction MD=..."),
+            c => unexpected!(self.pos, c, "an instruction MD=..."),
           }
         }
         b'+' => {
-          let c3 = next!({ return eof!("a computation M+1") });
+          let c3 = next!(self.buf, { return eof!(self.pos, "a computation M+1") });
           self.pos.inc(c3);
           match c3 {
             b'1' => comp!(pos, MPlus1),
-            c => unexpected!(c, "a computation M+1"),
+            c => unexpected!(self.pos, c, "a computation M+1"),
           }
         }
         b'-' => {
-          let c3 = next!({ return eof!("a computation M-1 or M-D") });
+          let c3 = next!(self.buf, {
+            return eof!(self.pos, "a computation M-1 or M-D");
+          });
           self.pos.inc(c3);
           match c3 {
             b'1' => comp!(pos, MMinus1),
             b'D' => comp!(pos, MMinusD),
-            c => unexpected!(c, "a computation M-1 or M-D"),
+            c => unexpected!(self.pos, c, "a computation M-1 or M-D"),
           }
         }
         b'=' => dest!(pos, M),
@@ -513,49 +533,57 @@ impl Lex<'_> {
           comp!(pos, M)
         }
         c if c.is_ascii_whitespace() => comp!(pos, M),
-        c => unexpected!(c, "a destination M= or a computation M"),
+        c => unexpected!(self.pos, c, "a destination M= or a computation M"),
       }
     } else if c1 == b'D' {
       let pos = self.pos;
-      let c2 = next!({ return comp!(pos, D) });
+      let c2 = next!(self.buf, { return comp!(pos, D) });
       self.pos.inc(c2);
       match c2 {
         b'+' => {
-          let c3 = next!({ return eof!("a computation D+1|D+A|D+M") });
+          let c3 = next!(self.buf, {
+            return eof!(self.pos, "a computation D+1|D+A|D+M");
+          });
           self.pos.inc(c3);
           match c3 {
             b'1' => comp!(pos, DPlus1),
             b'A' => comp!(pos, DPlusA),
             b'M' => comp!(pos, DPlusM),
-            c => unexpected!(c, "a computation D+1|D+A|D+M"),
+            c => unexpected!(self.pos, c, "a computation D+1|D+A|D+M"),
           }
         }
         b'-' => {
-          let c3 = next!({ return eof!("a computation D-1|D-A|D-M") });
+          let c3 = next!(self.buf, {
+            return eof!(self.pos, "a computation D-1|D-A|D-M");
+          });
           self.pos.inc(c3);
           match c3 {
             b'1' => comp!(pos, DMinus1),
             b'A' => comp!(pos, DMinusA),
             b'M' => comp!(pos, DMinusM),
-            c => unexpected!(c, "a computation D-1|D-A|D-M"),
+            c => unexpected!(self.pos, c, "a computation D-1|D-A|D-M"),
           }
         }
         b'&' => {
-          let c3 = next!({ return eof!("a computation D&A or D&M") });
+          let c3 = next!(self.buf, {
+            return eof!(self.pos, "a computation D&A or D&M");
+          });
           self.pos.inc(c3);
           match c3 {
             b'A' => comp!(pos, DAndA),
             b'M' => comp!(pos, DAndM),
-            c => unexpected!(c, "a computation D&A or D&M"),
+            c => unexpected!(self.pos, c, "a computation D&A or D&M"),
           }
         }
         b'|' => {
-          let c3 = next!({ return eof!("a computation D|A or D|M") });
+          let c3 = next!(self.buf, {
+            return eof!(self.pos, "a computation D|A or D|M");
+          });
           self.pos.inc(c3);
           match c3 {
             b'A' => comp!(pos, DOrA),
             b'M' => comp!(pos, DOrM),
-            c => unexpected!(c, "a computation D|A or D|M"),
+            c => unexpected!(self.pos, c, "a computation D|A or D|M"),
           }
         }
         b'=' => dest!(pos, D),
@@ -564,28 +592,32 @@ impl Lex<'_> {
           comp!(pos, D)
         }
         c if c.is_ascii_whitespace() => comp!(pos, D),
-        c => unexpected!(c, "a destination D= or a computation D"),
+        c => unexpected!(self.pos, c, "a destination D= or a computation D"),
       }
     } else if c1 == b'-' {
       let pos = self.pos;
-      let c2 = next!({ return eof!("a computation -A|-M|-D") });
+      let c2 = next!(self.buf, {
+        return eof!(self.pos, "a computation -A|-M|-D");
+      });
       self.pos.inc(c2);
       match c2 {
         b'1' => comp!(pos, Neg1),
         b'A' => comp!(pos, NegA),
         b'M' => comp!(pos, NegM),
         b'D' => comp!(pos, NegD),
-        c => unexpected!(c, "a computation -A|-M|-D"),
+        c => unexpected!(self.pos, c, "a computation -A|-M|-D"),
       }
     } else if c1 == b'!' {
       let pos = self.pos;
-      let c2 = next!({ return eof!("a computation !A|!M|!D") });
+      let c2 = next!(self.buf, {
+        return eof!(self.pos, "a computation !A|!M|!D");
+      });
       self.pos.inc(c2);
       match c2 {
         b'A' => comp!(pos, NotA),
         b'M' => comp!(pos, NotM),
         b'D' => comp!(pos, NotD),
-        c => unexpected!(c, "a computation !A|!M|!D"),
+        c => unexpected!(self.pos, c, "a computation !A|!M|!D"),
       }
     } else if c1 == b'0' {
       Some(Ok(Tok::Comp(self.pos, Comp::Zero)))
@@ -594,7 +626,7 @@ impl Lex<'_> {
     } else if c1 == b';' {
       Some(Ok(Tok::Semi(self.pos)))
     } else {
-      unexpected!(c1, "an address or an instruction")
+      unexpected!(self.pos, c1, "an address or an instruction")
     }
   }
 }
