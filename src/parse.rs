@@ -5,15 +5,15 @@ use std::fmt;
 
 use crate::lex::Txt;
 use crate::lex::{self, Comp, Dest, Jump, Lex, Tok};
-use crate::pos::Pos;
+use crate::loc::Loc;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Stmt {
   Addr(u16),
-  UnresolvedAddr(Pos, Txt),
-  Assign(Pos, Dest, Comp),
-  Branch(Pos, Comp, Jump),
-  Inst(Pos, Dest, Comp, Jump),
+  UnresolvedAddr(Loc, Txt),
+  Assign(Loc, Dest, Comp),
+  Branch(Loc, Comp, Jump),
+  Inst(Loc, Dest, Comp, Jump),
 }
 
 fn is_predefined_symbol(s: &[u8]) -> Option<u16> {
@@ -178,12 +178,12 @@ fn is_predefined_symbol(s: &[u8]) -> Option<u16> {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct SymInfo {
-  pub pos: Pos,
+  pub pos: Loc,
   pub addr: u16,
 }
 
 impl SymInfo {
-  pub fn new(pos: Pos, addr: u16) -> Self {
+  pub fn new(pos: Loc, addr: u16) -> Self {
     Self { pos, addr }
   }
 }
@@ -209,12 +209,12 @@ impl<'s, 'buf> Parse<'s, 'buf> {
 #[derive(PartialEq, Eq)]
 pub enum Err {
   Lex(lex::Err),
-  Label(Pos, SymInfo),
-  Msg(Pos, &'static str),
-  Dest(Pos, Dest),
-  Comp(Pos, Comp),
-  Jump(Pos, Jump),
-  Semi(Pos),
+  Label(Loc, SymInfo),
+  Msg(Loc, &'static str),
+  Dest(Loc, Dest),
+  Comp(Loc, Comp),
+  Jump(Loc, Jump),
+  Semi(Loc),
 }
 
 impl fmt::Display for Err {
@@ -254,7 +254,7 @@ impl fmt::Debug for Err {
 }
 
 impl<'s> Parse<'s, '_> {
-  pub fn pos(&self) -> Pos {
+  pub fn pos(&self) -> Loc {
     self.lex.token_pos()
   }
 
@@ -372,7 +372,7 @@ mod tests {
   use crate::lex::Dest;
   use crate::lex::Jump;
   use crate::lex::Txt;
-  use crate::pos::Pos;
+  use crate::loc::Loc;
 
   use super::Parse;
   use super::Stmt;
@@ -415,11 +415,11 @@ mod tests {
     let mut st = Map::new();
     let mut parse = parse!("num_address", &mut st);
     assert_next!(parse, Stmt::Addr(8192));
-    assert_eq!(parse.pos(), Pos::new(3, 5));
+    assert_eq!(parse.pos(), Loc::new(3, 5));
     assert_next!(parse, Stmt::Addr(123));
-    assert_eq!(parse.pos(), Pos::new(5, 1));
+    assert_eq!(parse.pos(), Loc::new(5, 1));
     assert_next!(parse, Stmt::Addr(556));
-    assert_eq!(parse.pos(), Pos::new(9, 5));
+    assert_eq!(parse.pos(), Loc::new(9, 5));
     assert_eq!(parse.next(), None);
   }
 
@@ -429,14 +429,14 @@ mod tests {
     let mut parse = parse!("name_address", &mut st);
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..]))
+      Stmt::UnresolvedAddr(Loc::new(3, 5), Txt::from(&b"FOO"[..]))
     );
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(5, 1), Txt::from(&b"BAR"[..]))
+      Stmt::UnresolvedAddr(Loc::new(5, 1), Txt::from(&b"BAR"[..]))
     );
     assert_next!(parse, Stmt::Addr(2));
-    assert_eq!(parse.pos(), Pos::new(9, 5));
+    assert_eq!(parse.pos(), Loc::new(9, 5));
     assert_eq!(parse.next(), None);
   }
 
@@ -446,17 +446,17 @@ mod tests {
     let mut parse = parse!("labels", &mut st);
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(3, 5), Txt::from(&b"FOO"[..]))
+      Stmt::UnresolvedAddr(Loc::new(3, 5), Txt::from(&b"FOO"[..]))
     );
     assert_next!(parse, Stmt::Addr(1));
-    assert_eq!(parse.pos(), Pos::new(9, 5));
+    assert_eq!(parse.pos(), Loc::new(9, 5));
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(11, 1), Txt::from(&b"BAR"[..]))
+      Stmt::UnresolvedAddr(Loc::new(11, 1), Txt::from(&b"BAR"[..]))
     );
     assert_next!(
       parse,
-      Stmt::UnresolvedAddr(Pos::new(15, 1), Txt::from(&b"LAB0"[..]))
+      Stmt::UnresolvedAddr(Loc::new(15, 1), Txt::from(&b"LAB0"[..]))
     );
     assert_eq!(parse.next(), None);
   }
@@ -465,11 +465,11 @@ mod tests {
   fn assignments() {
     let mut st = Map::new();
     let mut parse = parse!("assignments", &mut st);
-    assert_next!(parse, Stmt::Assign(Pos::new(1, 1), Dest::A, Comp::MMinus1));
-    assert_next!(parse, Stmt::Assign(Pos::new(2, 1), Dest::AM, Comp::DOrA,));
+    assert_next!(parse, Stmt::Assign(Loc::new(1, 1), Dest::A, Comp::MMinus1));
+    assert_next!(parse, Stmt::Assign(Loc::new(2, 1), Dest::AM, Comp::DOrA,));
     assert_next!(
       parse,
-      Stmt::Assign(Pos::new(3, 1), Dest::AMD, Comp::APlus1,)
+      Stmt::Assign(Loc::new(3, 1), Dest::AMD, Comp::APlus1,)
     );
     assert_eq!(parse.next(), None);
   }
@@ -480,10 +480,10 @@ mod tests {
     let mut parse = parse!("branches", &mut st);
     assert_next!(
       parse,
-      Stmt::Branch(Pos::new(1, 1), Comp::MMinus1, Jump::JEQ)
+      Stmt::Branch(Loc::new(1, 1), Comp::MMinus1, Jump::JEQ)
     );
-    assert_next!(parse, Stmt::Branch(Pos::new(2, 1), Comp::DOrA, Jump::JNE));
-    assert_next!(parse, Stmt::Branch(Pos::new(3, 1), Comp::APlus1, Jump::JMP));
+    assert_next!(parse, Stmt::Branch(Loc::new(2, 1), Comp::DOrA, Jump::JNE));
+    assert_next!(parse, Stmt::Branch(Loc::new(3, 1), Comp::APlus1, Jump::JMP));
     assert_eq!(parse.next(), None);
   }
 
@@ -493,15 +493,15 @@ mod tests {
     let mut parse = parse!("instructions", &mut st);
     assert_next!(
       parse,
-      Stmt::Inst(Pos::new(1, 1), Dest::A, Comp::MMinus1, Jump::JEQ)
+      Stmt::Inst(Loc::new(1, 1), Dest::A, Comp::MMinus1, Jump::JEQ)
     );
     assert_next!(
       parse,
-      Stmt::Inst(Pos::new(2, 1), Dest::AM, Comp::DOrA, Jump::JNE)
+      Stmt::Inst(Loc::new(2, 1), Dest::AM, Comp::DOrA, Jump::JNE)
     );
     assert_next!(
       parse,
-      Stmt::Inst(Pos::new(3, 1), Dest::AMD, Comp::APlus1, Jump::JMP)
+      Stmt::Inst(Loc::new(3, 1), Dest::AMD, Comp::APlus1, Jump::JMP)
     );
     assert_eq!(parse.next(), None);
   }

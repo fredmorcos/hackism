@@ -1,5 +1,5 @@
 mod gen;
 mod lex;
+mod loc;
 mod parse;
-mod pos;
 pub mod prog;

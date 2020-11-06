@@ -6,15 +6,15 @@ use std::slice;
 use atoi::FromRadix10Checked;
 use smallvec::SmallVec;
 
-use crate::pos::Pos;
+use crate::loc::Loc;
 
 pub type Txt = SmallVec<[u8; 32]>;
 
 pub struct Lex<'buf> {
   buf: slice::Iter<'buf, u8>,
   tbuf: Txt,
-  pos: Pos,
-  tpos: Pos,
+  pos: Loc,
+  tpos: Loc,
   la: Option<u8>,
 }
 
@@ -23,8 +23,8 @@ impl<'buf> From<&'buf [u8]> for Lex<'buf> {
     Self {
       buf: buf.iter(),
       tbuf: Txt::default(),
-      pos: Pos::default(),
-      tpos: Pos::default(),
+      pos: Loc::default(),
+      tpos: Loc::default(),
       la: Option::default(),
     }
   }
@@ -32,8 +32,8 @@ impl<'buf> From<&'buf [u8]> for Lex<'buf> {
 
 #[derive(PartialEq, Eq)]
 pub enum Err {
-  EOF(&'static str, u32, Pos, &'static str),
-  Unexpected(&'static str, u32, Pos, u8, &'static str),
+  EOF(&'static str, u32, Loc, &'static str),
+  Unexpected(&'static str, u32, Loc, u8, &'static str),
   Range(&'static str),
 }
 
@@ -224,7 +224,7 @@ macro_rules! unexpected {
 }
 
 impl Lex<'_> {
-  pub fn token_pos(&self) -> Pos {
+  pub fn token_pos(&self) -> Loc {
     self.tpos
   }
 
@@ -640,7 +640,7 @@ impl Lex<'_> {
 
 #[cfg(test)]
 mod tests {
-  use crate::pos::Pos;
+  use crate::loc::Loc;
 
   use super::Comp;
   use super::Dest;
@@ -664,34 +664,34 @@ mod tests {
   #[test]
   fn empty() {
     let mut lex = lex!("empty");
-    assert_eq!(lex.pos, Pos::new(1, 0));
+    assert_eq!(lex.pos, Loc::new(1, 0));
     assert_eq!(lex.next(), None);
-    assert_eq!(lex.pos, Pos::new(1, 0));
+    assert_eq!(lex.pos, Loc::new(1, 0));
   }
 
   #[test]
   fn spaces() {
     let mut lex = lex!("spaces");
     assert_eq!(lex.next(), None);
-    assert_eq!(lex.pos, Pos::new(5, 0));
+    assert_eq!(lex.pos, Loc::new(5, 0));
   }
 
   #[test]
   fn comments() {
     let mut lex = lex!("comments");
     assert_eq!(lex.next(), None);
-    assert_eq!(lex.pos, Pos::new(5, 0));
+    assert_eq!(lex.pos, Loc::new(5, 0));
   }
 
   #[test]
   fn num_address() {
     let mut lex = lex!("num_address");
     assert_next!(lex, tbuf, Tok::NumAddr(8192));
-    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_eq!(lex.token_pos(), Loc::new(3, 5));
     assert_next!(lex, tbuf, Tok::NumAddr(123));
-    assert_eq!(lex.token_pos(), Pos::new(5, 1));
+    assert_eq!(lex.token_pos(), Loc::new(5, 1));
     assert_next!(lex, tbuf, Tok::NumAddr(556));
-    assert_eq!(lex.token_pos(), Pos::new(9, 5));
+    assert_eq!(lex.token_pos(), Loc::new(9, 5));
     assert_eq!(lex.next(), None);
   }
 
@@ -699,13 +699,13 @@ mod tests {
   fn name_address() {
     let mut lex = lex!("name_address");
     assert_next!(lex, tbuf, Tok::NameAddr);
-    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_eq!(lex.token_pos(), Loc::new(3, 5));
     assert_eq!(lex.text(), &Txt::from(&b"FOO"[..]));
     assert_next!(lex, tbuf, Tok::NameAddr);
-    assert_eq!(lex.token_pos(), Pos::new(5, 1));
+    assert_eq!(lex.token_pos(), Loc::new(5, 1));
     assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
     assert_next!(lex, tbuf, Tok::NameAddr);
-    assert_eq!(lex.token_pos(), Pos::new(9, 5));
+    assert_eq!(lex.token_pos(), Loc::new(9, 5));
     assert_eq!(lex.text(), &Txt::from(&b"R2"[..]));
     assert_eq!(lex.next(), None);
   }
@@ -714,25 +714,25 @@ mod tests {
   fn labels() {
     let mut lex = lex!("labels");
     assert_next!(lex, tbuf, Tok::NameAddr);
-    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_eq!(lex.token_pos(), Loc::new(3, 5));
     assert_eq!(lex.text(), &Txt::from(&b"FOO"[..]));
     assert_next!(lex, tbuf, Tok::Label);
-    assert_eq!(lex.token_pos(), Pos::new(5, 1));
+    assert_eq!(lex.token_pos(), Loc::new(5, 1));
     assert_eq!(lex.text(), &Txt::from(&b"LABEL"[..]));
     assert_next!(lex, tbuf, Tok::NameAddr);
-    assert_eq!(lex.token_pos(), Pos::new(9, 5));
+    assert_eq!(lex.token_pos(), Loc::new(9, 5));
     assert_eq!(lex.text(), &Txt::from(&b"LABEL"[..]));
     assert_next!(lex, tbuf, Tok::NameAddr);
-    assert_eq!(lex.token_pos(), Pos::new(11, 1));
+    assert_eq!(lex.token_pos(), Loc::new(11, 1));
     assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
     assert_next!(lex, tbuf, Tok::Label);
-    assert_eq!(lex.token_pos(), Pos::new(13, 1));
+    assert_eq!(lex.token_pos(), Loc::new(13, 1));
     assert_eq!(lex.text(), &Txt::from(&b"BAR"[..]));
     assert_next!(lex, tbuf, Tok::NameAddr);
-    assert_eq!(lex.token_pos(), Pos::new(15, 1));
+    assert_eq!(lex.token_pos(), Loc::new(15, 1));
     assert_eq!(lex.text(), &Txt::from(&b"LAB0"[..]));
     assert_next!(lex, tbuf, Tok::Label);
-    assert_eq!(lex.token_pos(), Pos::new(17, 1));
+    assert_eq!(lex.token_pos(), Loc::new(17, 1));
     assert_eq!(lex.text(), &Txt::from(&b"LAB0"[..]));
     assert_eq!(lex.next(), None);
   }
@@ -741,17 +741,17 @@ mod tests {
   fn assignments() {
     let mut lex = lex!("assignments");
     assert_next!(lex, tbuf, Tok::Dest(Dest::A));
-    assert_eq!(lex.token_pos(), Pos::new(1, 1));
+    assert_eq!(lex.token_pos(), Loc::new(1, 1));
     assert_next!(lex, tbuf, Tok::Comp(Comp::MMinus1));
-    assert_eq!(lex.token_pos(), Pos::new(1, 3));
+    assert_eq!(lex.token_pos(), Loc::new(1, 3));
     assert_next!(lex, tbuf, Tok::Dest(Dest::AM));
-    assert_eq!(lex.token_pos(), Pos::new(2, 1));
+    assert_eq!(lex.token_pos(), Loc::new(2, 1));
     assert_next!(lex, tbuf, Tok::Comp(Comp::DOrA));
-    assert_eq!(lex.token_pos(), Pos::new(2, 4));
+    assert_eq!(lex.token_pos(), Loc::new(2, 4));
     assert_next!(lex, tbuf, Tok::Dest(Dest::AMD));
-    assert_eq!(lex.token_pos(), Pos::new(3, 1));
+    assert_eq!(lex.token_pos(), Loc::new(3, 1));
     assert_next!(lex, tbuf, Tok::Comp(Comp::APlus1));
-    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_eq!(lex.token_pos(), Loc::new(3, 5));
     assert_eq!(lex.next(), None);
   }
 
@@ -759,23 +759,23 @@ mod tests {
   fn branches() {
     let mut lex = lex!("branches");
     assert_next!(lex, tbuf, Tok::Comp(Comp::MMinus1));
-    assert_eq!(lex.token_pos(), Pos::new(1, 1));
+    assert_eq!(lex.token_pos(), Loc::new(1, 1));
     assert_next!(lex, tbuf, Tok::Semi);
-    assert_eq!(lex.token_pos(), Pos::new(1, 4));
+    assert_eq!(lex.token_pos(), Loc::new(1, 4));
     assert_next!(lex, tbuf, Tok::Jump(Jump::JEQ));
-    assert_eq!(lex.token_pos(), Pos::new(1, 5));
+    assert_eq!(lex.token_pos(), Loc::new(1, 5));
     assert_next!(lex, tbuf, Tok::Comp(Comp::DOrA));
-    assert_eq!(lex.token_pos(), Pos::new(2, 1));
+    assert_eq!(lex.token_pos(), Loc::new(2, 1));
     assert_next!(lex, tbuf, Tok::Semi);
-    assert_eq!(lex.token_pos(), Pos::new(2, 4));
+    assert_eq!(lex.token_pos(), Loc::new(2, 4));
     assert_next!(lex, tbuf, Tok::Jump(Jump::JNE));
-    assert_eq!(lex.token_pos(), Pos::new(2, 5));
+    assert_eq!(lex.token_pos(), Loc::new(2, 5));
     assert_next!(lex, tbuf, Tok::Comp(Comp::APlus1));
-    assert_eq!(lex.token_pos(), Pos::new(3, 1));
+    assert_eq!(lex.token_pos(), Loc::new(3, 1));
     assert_next!(lex, tbuf, Tok::Semi);
-    assert_eq!(lex.token_pos(), Pos::new(3, 4));
+    assert_eq!(lex.token_pos(), Loc::new(3, 4));
     assert_next!(lex, tbuf, Tok::Jump(Jump::JMP));
-    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_eq!(lex.token_pos(), Loc::new(3, 5));
     assert_eq!(lex.next(), None);
   }
 
@@ -783,29 +783,29 @@ mod tests {
   fn instructions() {
     let mut lex = lex!("instructions");
     assert_next!(lex, tbuf, Tok::Dest(Dest::A));
-    assert_eq!(lex.token_pos(), Pos::new(1, 1));
+    assert_eq!(lex.token_pos(), Loc::new(1, 1));
     assert_next!(lex, tbuf, Tok::Comp(Comp::MMinus1));
-    assert_eq!(lex.token_pos(), Pos::new(1, 3));
+    assert_eq!(lex.token_pos(), Loc::new(1, 3));
     assert_next!(lex, tbuf, Tok::Semi);
-    assert_eq!(lex.token_pos(), Pos::new(1, 6));
+    assert_eq!(lex.token_pos(), Loc::new(1, 6));
     assert_next!(lex, tbuf, Tok::Jump(Jump::JEQ));
-    assert_eq!(lex.token_pos(), Pos::new(1, 7));
+    assert_eq!(lex.token_pos(), Loc::new(1, 7));
     assert_next!(lex, tbuf, Tok::Dest(Dest::AM));
-    assert_eq!(lex.token_pos(), Pos::new(2, 1));
+    assert_eq!(lex.token_pos(), Loc::new(2, 1));
     assert_next!(lex, tbuf, Tok::Comp(Comp::DOrA));
-    assert_eq!(lex.token_pos(), Pos::new(2, 4));
+    assert_eq!(lex.token_pos(), Loc::new(2, 4));
     assert_next!(lex, tbuf, Tok::Semi);
-    assert_eq!(lex.token_pos(), Pos::new(2, 7));
+    assert_eq!(lex.token_pos(), Loc::new(2, 7));
     assert_next!(lex, tbuf, Tok::Jump(Jump::JNE));
-    assert_eq!(lex.token_pos(), Pos::new(2, 8));
+    assert_eq!(lex.token_pos(), Loc::new(2, 8));
     assert_next!(lex, tbuf, Tok::Dest(Dest::AMD));
-    assert_eq!(lex.token_pos(), Pos::new(3, 1));
+    assert_eq!(lex.token_pos(), Loc::new(3, 1));
     assert_next!(lex, tbuf, Tok::Comp(Comp::APlus1));
-    assert_eq!(lex.token_pos(), Pos::new(3, 5));
+    assert_eq!(lex.token_pos(), Loc::new(3, 5));
     assert_next!(lex, tbuf, Tok::Semi);
-    assert_eq!(lex.token_pos(), Pos::new(3, 8));
+    assert_eq!(lex.token_pos(), Loc::new(3, 8));
     assert_next!(lex, tbuf, Tok::Jump(Jump::JMP));
-    assert_eq!(lex.token_pos(), Pos::new(3, 9));
+    assert_eq!(lex.token_pos(), Loc::new(3, 9));
     assert_eq!(lex.next(), None);
   }
 }
