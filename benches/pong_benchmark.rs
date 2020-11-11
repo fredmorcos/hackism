@@ -3,7 +3,7 @@ use std::io::Write;
 use criterion::{criterion_group, criterion_main, Criterion};
 use has::prog::Prog;
 
-static INPUT: &[u8] = include_bytes!("../tests/data/Pong.asm");
+static INPUT: &[u8] = include_bytes!("../tests/fixtures/Pong.asm");
 static OUTPUT: &[u8] = include_bytes!("../tests/fixtures/Pong.hack");
 
 fn criterion_benchmark(c: &mut Criterion) {

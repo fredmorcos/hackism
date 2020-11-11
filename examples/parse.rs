@@ -1,6 +1,6 @@
 use has::prog::Prog;
 
-static INPUT: &[u8] = include_bytes!("../tests/data/Pong.asm");
+static INPUT: &[u8] = include_bytes!("../tests/fixtures/Pong.asm");
 
 fn main() {
   for _ in 0..10000 {
