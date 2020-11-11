@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
 use std::io::{self, Read};
-use std::{iter::Iterator, path::PathBuf};
+use std::path::PathBuf;
 
 use derive_more::From;
 use has::prog::{self, Prog};
@@ -22,9 +22,12 @@ struct HasOptions {
   #[structopt(short, long)]
   text: bool,
 
-  /// Hack assembly file(s) to load
-  #[structopt(name = "FILE", parse(from_os_str), required = true, min_values = 1)]
-  files: Vec<PathBuf>,
+  #[structopt(short, long, name = "OUT", parse(from_os_str))]
+  out: PathBuf,
+
+  /// Hack assembly file to compile
+  #[structopt(name = "FILE", parse(from_os_str))]
+  file: PathBuf,
 }
 
 #[derive(From)]
@@ -71,36 +74,33 @@ fn main() -> Result<(), Err> {
   debug!("Debug output enabled");
   trace!("Tracing output enabled");
 
-  for filename in opt.files {
-    let mut buf = Vec::with_capacity(1024);
-    let bytes = File::open(&filename)?.read_to_end(&mut buf)?;
-    info!("Read {} bytes from {}", bytes, filename.display());
+  let mut buf = Vec::with_capacity(1024);
+  let bytes = File::open(&opt.file)?.read_to_end(&mut buf)?;
+  info!("Read {} bytes from {}", bytes, opt.file.display());
 
-    let output_filename = filename.with_extension("hack");
-    if output_filename.exists() {
-      return Err(Err::Io(io::Error::new(
-        io::ErrorKind::AlreadyExists,
-        format!("File {} already exists", output_filename.display()),
-      )));
-    }
+  if opt.out.exists() {
+    return Err(Err::Io(io::Error::new(
+      io::ErrorKind::AlreadyExists,
+      format!("File {} already exists", opt.out.display()),
+    )));
+  }
 
-    let output = File::create(&output_filename)?;
-    let mut writer = BufWriter::new(output);
-    info!("Writing to file {}", output_filename.display());
+  let output = File::create(&opt.out)?;
+  let mut writer = BufWriter::new(output);
+  info!("Writing to file {}", opt.out.display());
 
-    let mut prog = Prog::try_from(buf.as_slice())?;
-    info!(
-      "Program has {} statements and {} labels",
-      prog.num_statements(),
-      prog.num_labels()
-    );
-    for inst in &mut prog {
-      if opt.text {
-        writer.write_all(&Prog::text_encode(inst))?;
-        writer.write_all(&[b'\n'])?;
-      } else {
-        writer.write_all(&[(inst >> 8) as u8, inst as u8])?;
-      }
+  let mut prog = Prog::try_from(buf.as_slice())?;
+  info!(
+    "Program has {} statements and {} labels",
+    prog.num_statements(),
+    prog.num_labels()
+  );
+  for inst in &mut prog {
+    if opt.text {
+      writer.write_all(&Prog::text_encode(inst))?;
+      writer.write_all(&[b'\n'])?;
+    } else {
+      writer.write_all(&[(inst >> 8) as u8, inst as u8])?;
     }
   }
 
