@@ -8,7 +8,8 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use derive_more::From;
-use has::prog::{self, Prog};
+// use has::prog;
+// use has::prog::Prog;
 use log::{debug, info, trace};
 use structopt::StructOpt;
 
@@ -33,14 +34,14 @@ struct HasOptions {
 #[derive(From)]
 enum Err {
   Io(io::Error),
-  Prog(prog::Err),
+  // Prog(prog::Err),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Err::Io(e) => write!(f, "IO error: {}", e),
-      Err::Prog(e) => write!(f, "Program error: {}", e),
+      // Err::Prog(e) => write!(f, "Program error: {}", e),
     }
   }
 }
@@ -89,20 +90,20 @@ fn main() -> Result<(), Err> {
   let mut writer = BufWriter::new(output);
   info!("Writing to file {}", opt.out.display());
 
-  let mut prog = Prog::try_from(buf.as_slice())?;
-  info!(
-    "Program has {} statements and {} labels",
-    prog.num_statements(),
-    prog.num_labels()
-  );
-  for inst in &mut prog {
-    if opt.text {
-      writer.write_all(&Prog::text_encode(inst))?;
-      writer.write_all(&[b'\n'])?;
-    } else {
-      writer.write_all(&[(inst >> 8) as u8, inst as u8])?;
-    }
-  }
+  // let mut prog = Prog::try_from(buf.as_slice())?;
+  // info!(
+  //   "Program has {} statements and {} labels",
+  //   prog.num_statements(),
+  //   prog.num_labels()
+  // );
+  // for inst in &mut prog {
+  //   if opt.text {
+  //     writer.write_all(&Prog::text_encode(inst))?;
+  //     writer.write_all(&[b'\n'])?;
+  //   } else {
+  //     writer.write_all(&[(inst >> 8) as u8, inst as u8])?;
+  //   }
+  // }
 
   Ok(())
 }

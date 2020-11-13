@@ -1,5 +1,5 @@
-mod gen;
-mod lex;
-mod loc;
-mod parse;
-pub mod prog;
+// mod generator;
+mod location;
+// mod parser;
+// pub mod program;
+mod scanner;

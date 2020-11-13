@@ -2,6 +2,7 @@ max_width = 90
 # struct_lit_width = 80
 # comment_width = 97
 # wrap_comments = true
+# use_small_heuristics = max
 tab_spaces = 2
 edition = "2018"
 newline_style = "Unix"

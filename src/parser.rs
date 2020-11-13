@@ -247,12 +247,6 @@ impl fmt::Display for Err {
   }
 }
 
-impl fmt::Debug for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    (self as &dyn fmt::Display).fmt(f)
-  }
-}
-
 impl<'s> Parse<'s, '_> {
   pub fn pos(&self) -> Loc {
     self.lex.token_pos()

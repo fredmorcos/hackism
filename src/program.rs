@@ -1,3 +1,5 @@
+#![warn(clippy::all)]
+
 use std::collections::HashMap as Map;
 use std::fmt;
 
