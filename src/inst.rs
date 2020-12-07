@@ -1,16 +1,7 @@
-use crate::utils::text::{text_str, Text};
 use atoi::FromRadix10Checked;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
-
-pub struct DestErr(Text);
-
-impl fmt::Display for DestErr {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "invalid destination `{}`", text_str(&self.0))
-  }
-}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Dest {
@@ -23,11 +14,11 @@ pub enum Dest {
   AMD,
 }
 
-impl TryFrom<Text> for Dest {
-  type Error = DestErr;
+impl<'b> TryFrom<&'b [u8]> for Dest {
+  type Error = ();
 
-  fn try_from(v: Text) -> Result<Self, Self::Error> {
-    match v.as_slice() {
+  fn try_from(buf: &'b [u8]) -> Result<Self, Self::Error> {
+    match buf {
       b"M" => Ok(Dest::M),
       b"D" => Ok(Dest::D),
       b"MD" => Ok(Dest::MD),
@@ -35,7 +26,7 @@ impl TryFrom<Text> for Dest {
       b"AM" => Ok(Dest::AM),
       b"AD" => Ok(Dest::AD),
       b"AMD" => Ok(Dest::AMD),
-      _ => Err(DestErr(v)),
+      _ => Err(()),
     }
   }
 }
@@ -53,8 +44,6 @@ impl fmt::Display for Dest {
     }
   }
 }
-
-pub struct CompErr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Comp {
@@ -88,11 +77,11 @@ pub enum Comp {
   DOrM,
 }
 
-impl<'a> TryFrom<&'a Text> for Comp {
-  type Error = CompErr;
+impl<'b> TryFrom<&'b [u8]> for Comp {
+  type Error = ();
 
-  fn try_from(v: &'a Text) -> Result<Self, Self::Error> {
-    match v.as_slice() {
+  fn try_from(buf: &'b [u8]) -> Result<Self, Self::Error> {
+    match buf {
       b"0" => Ok(Comp::Zero),
       b"1" => Ok(Comp::One),
       b"-1" => Ok(Comp::Neg1),
@@ -121,7 +110,7 @@ impl<'a> TryFrom<&'a Text> for Comp {
       b"M-D" => Ok(Comp::MMinusD),
       b"D&M" => Ok(Comp::DAndM),
       b"D|M" => Ok(Comp::DOrM),
-      _ => Err(CompErr),
+      _ => Err(()),
     }
   }
 }
@@ -161,8 +150,6 @@ impl fmt::Display for Comp {
   }
 }
 
-pub struct JumpErr;
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Jump {
   JGT,
@@ -174,11 +161,11 @@ pub enum Jump {
   JMP,
 }
 
-impl<'a> TryFrom<&'a Text> for Jump {
-  type Error = JumpErr;
+impl<'b> TryFrom<&'b [u8]> for Jump {
+  type Error = ();
 
-  fn try_from(v: &'a Text) -> Result<Self, Self::Error> {
-    match v.as_slice() {
+  fn try_from(buf: &'b [u8]) -> Result<Self, Self::Error> {
+    match buf {
       b"JGT" => Ok(Jump::JGT),
       b"JEQ" => Ok(Jump::JEQ),
       b"JGE" => Ok(Jump::JGE),
@@ -186,7 +173,7 @@ impl<'a> TryFrom<&'a Text> for Jump {
       b"JNE" => Ok(Jump::JNE),
       b"JLE" => Ok(Jump::JLE),
       b"JMP" => Ok(Jump::JMP),
-      _ => Err(JumpErr),
+      _ => Err(()),
     }
   }
 }
@@ -204,8 +191,6 @@ impl fmt::Display for Jump {
     }
   }
 }
-
-pub struct PredefErr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Predef {
@@ -234,11 +219,11 @@ pub enum Predef {
   KBD,
 }
 
-impl<'a> TryFrom<&'a Text> for Predef {
-  type Error = PredefErr;
+impl<'b> TryFrom<&'b [u8]> for Predef {
+  type Error = ();
 
-  fn try_from(v: &'a Text) -> Result<Self, Self::Error> {
-    match v.as_slice() {
+  fn try_from(buf: &'b [u8]) -> Result<Self, Self::Error> {
+    match buf {
       b"SP" => Ok(Predef::SP),
       b"LCL" => Ok(Predef::LCL),
       b"ARG" => Ok(Predef::ARG),
@@ -262,109 +247,101 @@ impl<'a> TryFrom<&'a Text> for Predef {
       b"R15" => Ok(Predef::R15),
       b"SCREEN" => Ok(Predef::SCREEN),
       b"KBD" => Ok(Predef::KBD),
-      _ => Err(PredefErr),
+      _ => Err(()),
     }
   }
 }
 
-pub enum LabelErr {
-  InvStartByte(Text, u8),
-  InvByte(Text, u8),
-}
-
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Label(Text);
+pub struct Label<'b>(&'b [u8]);
 
-impl Label {
+impl Label<'_> {
   fn is_label_symbol(byte: u8) -> bool {
     byte == b'_' || byte == b'.' || byte == b'$' || byte == b':'
   }
 
-  fn is_label_start(byte: u8) -> bool {
+  pub(crate) fn is_label_start(byte: u8) -> bool {
     byte.is_ascii_alphabetic() || Label::is_label_symbol(byte)
   }
 
-  fn is_label_byte(byte: u8) -> bool {
+  pub(crate) fn is_label_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || Label::is_label_symbol(byte)
   }
 }
 
-impl TryFrom<Text> for Label {
-  type Error = LabelErr;
+impl<'b> TryFrom<&'b [u8]> for Label<'b> {
+  type Error = ();
 
-  fn try_from(v: Text) -> Result<Self, Self::Error> {
-    let c0 = unsafe { v.get_unchecked(0) };
+  fn try_from(buf: &'b [u8]) -> Result<Self, Self::Error> {
+    let c0 = if let Some(&c0) = buf.get(0) {
+      c0
+    } else {
+      return Err(());
+    };
 
-    if !Label::is_label_start(*c0) {
-      return Err(LabelErr::InvStartByte(v, *c0));
+    if !Label::is_label_start(c0) {
+      return Err(());
     }
 
-    for c in &v[1..] {
-      if !Label::is_label_byte(*c) {
-        return Err(LabelErr::InvByte(v, *c));
+    for &c in &buf[1..] {
+      if !Label::is_label_byte(c) {
+        return Err(());
       }
     }
 
-    Ok(Self(v))
+    Ok(Self(buf))
   }
-}
-
-pub enum AddrErr {
-  Empty,
-  NotDigit { byte: u8 },
-  Range { addr: Text, max: u16 },
-  Other(Box<dyn Error>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Addr {
+pub enum Addr<'b> {
   Num(u16),
-  Label(Label),
+  Label(Label<'b>),
   Predef(Predef),
 }
 
-impl TryFrom<Text> for Addr {
-  type Error = AddrErr;
+// impl TryFrom<Text> for Addr {
+//   type Error = AddrErr;
 
-  fn try_from(v: Text) -> Result<Self, Self::Error> {
-    if v.is_empty() {
-      return Err(AddrErr::Empty);
-    }
+//   fn try_from(v: Text) -> Result<Self, Self::Error> {
+//     if v.is_empty() {
+//       return Err(AddrErr::Empty);
+//     }
 
-    let c0 = unsafe { v.get_unchecked(0) };
+//     let c0 = unsafe { v.get_unchecked(0) };
 
-    if !c0.is_ascii_digit() {
-      if let Ok(predef) = Predef::try_from(&v) {
-        return Ok(Self::Predef(predef));
-      }
+//     if !c0.is_ascii_digit() {
+//       if let Ok(predef) = Predef::try_from(&v) {
+//         return Ok(Self::Predef(predef));
+//       }
 
-      return match Label::try_from(v) {
-        Ok(label) => Ok(Self::Label(label)),
-        Err(e) => Err(AddrErr::Other(Box::new(e))),
-      };
-    }
+//       return match Label::try_from(v) {
+//         Ok(label) => Ok(Self::Label(label)),
+//         Err(e) => Err(AddrErr::Other(Box::new(e))),
+//       };
+//     }
 
-    for c in &v[1..] {
-      if !c.is_ascii_digit() {
-        return Err(AddrErr::NotDigit { byte: *c });
-      }
-    }
+//     for c in &v[1..] {
+//       if !c.is_ascii_digit() {
+//         return Err(AddrErr::NotDigit { byte: *c });
+//       }
+//     }
 
-    if let Some(addr) = u16::from_radix_10_checked(&v).0 {
-      // 32767 (15 bits of address value)
-      if addr <= 32767 {
-        return Ok(Self::Num(addr));
-      }
-    }
+//     if let Some(addr) = u16::from_radix_10_checked(&v).0 {
+//       // 32767 (15 bits of address value)
+//       if addr <= 32767 {
+//         return Ok(Self::Num(addr));
+//       }
+//     }
 
-    Err(AddrErr::Range { addr: v, max: 32767 })
-  }
-}
+//     Err(AddrErr::Range { addr: v, max: 32767 })
+//   }
+// }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Inst {
-  Addr(Addr),
-  Label(Label),
+pub enum Inst<'b> {
+  Addr(Addr<'b>),
+  Label(Label<'b>),
   Assign(Dest, Comp),
   Branch(Comp, Jump),
   Stmt(Dest, Comp, Jump),

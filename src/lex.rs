@@ -1,16 +1,9 @@
-use crate::inst::Comp;
-use crate::inst::Dest;
+// use crate::inst::Dest;
 use crate::inst::Inst;
+// use crate::inst::{Comp, Label};
 use crate::loc::Loc;
 use crate::loc::SrcLoc;
 use crate::srcloc;
-use std::convert::TryFrom;
-use std::io;
-use std::io::Bytes;
-use std::io::Read;
-
-#[macro_use]
-mod err;
 
 pub struct Lex<'b> {
   buf: &'b [u8],
@@ -44,10 +37,10 @@ impl Err {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Tok(Loc, Inst);
+pub struct Tok<'b>(Loc, Inst<'b>);
 
 impl<'b> Iterator for Lex<'b> {
-  type Item = Result<Tok, Err>;
+  type Item = Result<Tok<'b>, Err>;
 
   fn next(&mut self) -> Option<Self::Item> {
     macro_rules! next {
@@ -89,19 +82,14 @@ impl<'b> Iterator for Lex<'b> {
             continue 'LOOP;
           }
         }
-      } else if c == b'@' {
-        let loc = self.loc;
-        c = next!({ return Some(Err(Err::new(srcloc!(), loc, ErrKind::LabelEOF))) });
+        // } else if c == b'@' {
+        //   let loc = self.loc;
+        //   let len = 1;
+        //   c = next!({ return Some(Err(Err::new(srcloc!(), loc, ErrKind::LabelEOF))) });
 
-        if c.is_ascii_digit() {}
-
-        let len = 1;
-
-        loop {
-          if c.is_ascii_whitespace() {}
-
-          text.push(c);
-        }
+        //   if c.is_ascii_digit() {
+        //   } else if Label::is_label_start(c) {
+        //   }
 
         //   if c.is_ascii_digit() {
         //     loop {
