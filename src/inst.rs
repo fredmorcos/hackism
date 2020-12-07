@@ -1,5 +1,3 @@
-#![warn(clippy::all)]
-
 use crate::utils::text::{text_str, Text};
 use atoi::FromRadix10Checked;
 use std::convert::TryFrom;
@@ -369,5 +367,5 @@ pub enum Inst {
   Label(Label),
   Assign(Dest, Comp),
   Branch(Comp, Jump),
-  Inst(Dest, Comp, Jump),
+  Stmt(Dest, Comp, Jump),
 }

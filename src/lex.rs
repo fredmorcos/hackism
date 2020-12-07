@@ -1,17 +1,9 @@
-#![warn(clippy::all)]
-
-use self::err::AddrRange;
-use self::err::Err;
-use self::err::UnexpectedByte;
-use self::err::EOF;
 use crate::inst::Comp;
 use crate::inst::Dest;
 use crate::inst::Inst;
+use crate::loc::Loc;
+use crate::loc::SrcLoc;
 use crate::srcloc;
-use crate::utils::loc::Loc;
-use crate::utils::loc::SrcLoc;
-use crate::utils::text::Text;
-use smallvec::smallvec;
 use std::convert::TryFrom;
 use std::io;
 use std::io::Bytes;
@@ -20,72 +12,92 @@ use std::io::Read;
 #[macro_use]
 mod err;
 
-pub struct Lex<R: Read> {
-  bytes: Bytes<R>,
+pub struct Lex<'b> {
+  buf: &'b [u8],
   loc: Loc,
 }
 
-impl<R: Read> From<Bytes<R>> for Lex<R> {
-  fn from(bytes: Bytes<R>) -> Self {
-    Self { bytes, loc: Loc::default() }
+impl<'b> Lex<'b> {
+  pub fn new(buf: &'b [u8]) -> Self {
+    Self { buf, loc: Loc::default() }
   }
 }
 
-macro_rules! next {
-  ($lex:expr, $on_eof:block) => {
-    match $lex.bytes.next() {
-      Some(Ok(c)) => {
-        $lex.loc.inc(c);
-        c
-      }
-      Some(Err(e)) => return Some(Err(err!($lex.loc, e))),
-      None => $on_eof,
-    }
-  };
+#[derive(Debug, PartialEq, Eq)]
+pub enum ErrKind {
+  CommentEOF,
+  CommentByte(u8),
+  LabelEOF,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Err {
+  srcloc: SrcLoc,
+  loc: Loc,
+  kind: ErrKind,
+}
+
+impl Err {
+  pub fn new(srcloc: SrcLoc, loc: Loc, kind: ErrKind) -> Self {
+    Self { srcloc, loc, kind }
+  }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Tok(Loc, Inst);
 
-impl<R: Read> Iterator for Lex<R> {
-  type Item = Result<Tok, String>;
+impl<'b> Iterator for Lex<'b> {
+  type Item = Result<Tok, Err>;
 
   fn next(&mut self) -> Option<Self::Item> {
-    let mut c = next!(self, { return None });
+    macro_rules! next {
+      ($on_eof:block) => {
+        if let Some(&c) = self.buf.get(0) {
+          self.buf = &self.buf[1..];
+          self.loc.inc(c);
+          c
+        } else $on_eof
+      };
+    }
+
+    let mut c = next!({ return None });
 
     'LOOP: loop {
       if c.is_ascii_whitespace() {
         loop {
-          c = next!(self, { return None });
+          c = next!({ return None });
 
           if !c.is_ascii_whitespace() {
             continue 'LOOP;
           }
         }
       } else if c == b'/' {
-        const MSG: &str = "another / to form a comment";
-        c = next!(self, { return Some(Err(eof!(self.loc, MSG))) });
-
-        if c == b'/' {
-          loop {
-            c = next!(self, { return None });
-
-            if c == b'\n' {
-              continue 'LOOP;
-            }
-          }
-        } else {
-          return Some(Err(unexpected_byte!(self.loc, c, MSG)));
-        }
-      } else if c == b'@' {
-        const MSG: &str = "a numerical or label address";
-
         let loc = self.loc;
-        let mut text: Text = smallvec![c];
+
+        c = next!({
+          return Some(Err(Err::new(srcloc!(), loc, ErrKind::CommentEOF)));
+        });
+
+        if c != b'/' {
+          return Some(Err(Err::new(srcloc!(), loc, ErrKind::CommentByte(c))));
+        }
 
         loop {
-          c = next!(self, { return Some(Err(eof!(self.loc, MSG))) });
+          c = next!({ return None });
 
+          if c == b'\n' {
+            continue 'LOOP;
+          }
+        }
+      } else if c == b'@' {
+        let loc = self.loc;
+        c = next!({ return Some(Err(Err::new(srcloc!(), loc, ErrKind::LabelEOF))) });
+
+        if c.is_ascii_digit() {}
+
+        let len = 1;
+
+        loop {
           if c.is_ascii_whitespace() {}
 
           text.push(c);

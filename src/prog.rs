@@ -1,5 +1,3 @@
-#![warn(clippy::all)]
-
 use std::collections::HashMap as Map;
 use std::fmt;
 
@@ -40,12 +38,7 @@ impl Prog {
       stmts.push(stmt);
     }
 
-    Ok(Self {
-      st,
-      stmts,
-      idx: 0,
-      gen: Gen::default(),
-    })
+    Ok(Self { st, stmts, idx: 0, gen: Gen::default() })
   }
 }
 

@@ -1,5 +1,3 @@
-#![warn(clippy::all)]
-
 use std::collections::HashMap as Map;
 
 use crate::lex::Comp;

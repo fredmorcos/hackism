@@ -1,5 +1,7 @@
 #![warn(clippy::all)]
 
-mod asm;
+mod gen;
 mod inst;
-mod utils;
+mod lex;
+mod loc;
+mod prog;

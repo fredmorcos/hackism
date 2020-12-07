@@ -1,5 +1,3 @@
-#![warn(clippy::all)]
-
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
