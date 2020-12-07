@@ -1,5 +1,5 @@
-// mod generator;
-mod location;
-// mod parser;
-// pub mod program;
-mod scanner;
+#![warn(clippy::all)]
+
+mod asm;
+mod inst;
+mod utils;

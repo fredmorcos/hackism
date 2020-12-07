@@ -20,17 +20,3 @@ derive-new = "0.5"
 either = "1.6"
 atoi = "0.3"
 smallvec = "1.4"
-
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "pong_benchmark"
-harness = false
-
-# [profile.dev]
-# opt-level = 0
-# debug = true
-
-# [profile.release]
-# debug = true
