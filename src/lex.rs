@@ -1,5 +1,6 @@
 // use crate::inst::Dest;
 use crate::inst::Inst;
+use crate::inst::Label;
 // use crate::inst::{Comp, Label};
 use crate::loc::Loc;
 use crate::loc::SrcLoc;
@@ -7,12 +8,13 @@ use crate::srcloc;
 
 pub struct Lex<'b> {
   buf: &'b [u8],
+  index: usize,
   loc: Loc,
 }
 
 impl<'b> Lex<'b> {
   pub fn new(buf: &'b [u8]) -> Self {
-    Self { buf, loc: Loc::default() }
+    Self { buf, index: usize::default(), loc: Loc::default() }
   }
 }
 
@@ -20,7 +22,8 @@ impl<'b> Lex<'b> {
 pub enum ErrKind {
   CommentEOF,
   CommentByte(u8),
-  LabelEOF,
+  AddrEOF,
+  AddrNumByte(u8),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -82,14 +85,29 @@ impl<'b> Iterator for Lex<'b> {
             continue 'LOOP;
           }
         }
-        // } else if c == b'@' {
-        //   let loc = self.loc;
-        //   let len = 1;
-        //   c = next!({ return Some(Err(Err::new(srcloc!(), loc, ErrKind::LabelEOF))) });
+      } else if c == b'@' {
+        let loc = self.loc;
+        c = next!({ return Some(Err(Err::new(srcloc!(), loc, ErrKind::AddrEOF))) });
 
-        //   if c.is_ascii_digit() {
-        //   } else if Label::is_label_start(c) {
-        //   }
+        let mut len = 1;
+        if c.is_ascii_digit() {
+          loop {
+            c = next!({ break });
+
+            if !c.is_ascii_digit() {
+              if !c.is_ascii_whitespace() {
+                return Some(Err(Err::new(srcloc!(), loc, ErrKind::AddrNumByte(c))));
+              }
+
+              break;
+            }
+
+            len += 1;
+          }
+
+        // let tok = self.buf
+        } else if Label::is_label_start(c) {
+        }
 
         //   if c.is_ascii_digit() {
         //     loop {

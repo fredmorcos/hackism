@@ -1,6 +1,6 @@
-use atoi::FromRadix10Checked;
+// use atoi::FromRadix10Checked;
 use std::convert::TryFrom;
-use std::error::Error;
+// use std::error::Error;
 use std::fmt;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -298,6 +298,31 @@ pub enum Addr<'b> {
   Num(u16),
   Label(Label<'b>),
   Predef(Predef),
+}
+
+impl<'b> TryFrom<u16> for Addr<'b> {
+  type Error = ();
+
+  fn try_from(addr: u16) -> Result<Self, Self::Error> {
+    // 32767 (15 bits of address value)
+    if addr <= 32767 {
+      return Ok(Self::Num(addr));
+    }
+
+    Err(())
+  }
+}
+
+impl<'b> From<Label<'b>> for Addr<'b> {
+  fn from(label: Label<'b>) -> Self {
+    Addr::Label(label)
+  }
+}
+
+impl From<Predef> for Addr<'_> {
+  fn from(label: Predef) -> Self {
+    Addr::Predef(label)
+  }
 }
 
 // impl TryFrom<Text> for Addr {
