@@ -17,3 +17,7 @@ env_logger = "0.7"
 log = "0.4"
 atoi = "0.3"
 derive_more = "0.99"
+
+[features]
+# Enables helper functions and macros useful for writing tests.
+testing = []
