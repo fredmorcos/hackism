@@ -62,9 +62,7 @@ fn main() -> Result<(), Err> {
     _ => log::LevelFilter::Trace,
   };
 
-  let log_res = env_logger::Builder::new()
-    .filter_level(log_level)
-    .try_init();
+  let log_res = env_logger::Builder::new().filter_level(log_level).try_init();
 
   match log_res {
     Ok(_) => {}
