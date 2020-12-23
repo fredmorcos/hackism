@@ -6,39 +6,11 @@
 use std::fmt;
 use std::{convert::TryFrom, str::FromStr};
 
+use crate::utils;
+
 /// A destination as defined by the HACK assembly reference.
 ///
-/// # Parsing
-///
-/// A destination object can be created using [has::utils::read_from].
-///
-/// ## Examples
-///
-/// ```
-/// use has::inst::Dest;
-/// use has::utils::read_from;
-///
-/// let p = |c| c == 'A' || c == 'M' || c == 'D';
-///
-/// assert_eq!(read_from::<Dest,_,_>("",     p), Err(()));
-/// assert_eq!(read_from::<Dest,_,_>("Foo",  p), Err(()));
-///
-/// assert_eq!(read_from::<Dest,_,_>("M",    p), Ok((Dest::M,   "", 1)));
-/// assert_eq!(read_from::<Dest,_,_>("D",    p), Ok((Dest::D,   "", 1)));
-/// assert_eq!(read_from::<Dest,_,_>("MD",   p), Ok((Dest::MD,  "", 2)));
-/// assert_eq!(read_from::<Dest,_,_>("A",    p), Ok((Dest::A,   "", 1)));
-/// assert_eq!(read_from::<Dest,_,_>("AM",   p), Ok((Dest::AM,  "", 2)));
-/// assert_eq!(read_from::<Dest,_,_>("AD",   p), Ok((Dest::AD,  "", 2)));
-/// assert_eq!(read_from::<Dest,_,_>("AMD",  p), Ok((Dest::AMD, "", 3)));
-///
-/// assert_eq!(read_from::<Dest,_,_>("M=",   p), Ok((Dest::M,   "=", 1)));
-/// assert_eq!(read_from::<Dest,_,_>("D=",   p), Ok((Dest::D,   "=", 1)));
-/// assert_eq!(read_from::<Dest,_,_>("MD=",  p), Ok((Dest::MD,  "=", 2)));
-/// assert_eq!(read_from::<Dest,_,_>("A=",   p), Ok((Dest::A,   "=", 1)));
-/// assert_eq!(read_from::<Dest,_,_>("AM=",  p), Ok((Dest::AM,  "=", 2)));
-/// assert_eq!(read_from::<Dest,_,_>("AD=",  p), Ok((Dest::AD,  "=", 2)));
-/// assert_eq!(read_from::<Dest,_,_>("AMD=", p), Ok((Dest::AMD, "=", 3)));
-/// ```
+/// A destination object can be parsed using [Dest::read_from].
 ///
 /// # impl `Into<u16>`
 ///
@@ -142,6 +114,40 @@ impl FromStr for Dest {
 }
 
 impl Dest {
+  /// Read a destination object from a string.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use has::inst::Dest;
+  ///
+  /// assert_eq!(Dest::read_from(""), Err(()));
+  /// assert_eq!(Dest::read_from("Foo"), Err(()));
+  ///
+  /// assert_eq!(Dest::read_from("M"),   Ok((Dest::M,   "", 1)));
+  /// assert_eq!(Dest::read_from("D"),   Ok((Dest::D,   "", 1)));
+  /// assert_eq!(Dest::read_from("MD"),  Ok((Dest::MD,  "", 2)));
+  /// assert_eq!(Dest::read_from("A"),   Ok((Dest::A,   "", 1)));
+  /// assert_eq!(Dest::read_from("AM"),  Ok((Dest::AM,  "", 2)));
+  /// assert_eq!(Dest::read_from("AD"),  Ok((Dest::AD,  "", 2)));
+  /// assert_eq!(Dest::read_from("AMD"), Ok((Dest::AMD, "", 3)));
+  ///
+  /// assert_eq!(Dest::read_from("M="),   Ok((Dest::M,   "=", 1)));
+  /// assert_eq!(Dest::read_from("D="),   Ok((Dest::D,   "=", 1)));
+  /// assert_eq!(Dest::read_from("MD="),  Ok((Dest::MD,  "=", 2)));
+  /// assert_eq!(Dest::read_from("A="),   Ok((Dest::A,   "=", 1)));
+  /// assert_eq!(Dest::read_from("AM="),  Ok((Dest::AM,  "=", 2)));
+  /// assert_eq!(Dest::read_from("AD="),  Ok((Dest::AD,  "=", 2)));
+  /// assert_eq!(Dest::read_from("AMD="), Ok((Dest::AMD, "=", 3)));
+  /// ```
+  pub fn read_from(buf: &str) -> Result<(Self, &str, usize), ()> {
+    let p = |c| c == 'A' || c == 'M' || c == 'D';
+
+    let (s, rem) = utils::read_while(buf, p);
+    let res = Self::from_str(s).map_err(|_| ())?;
+    Ok((res, rem, s.len()))
+  }
+
   /// Whether the destination object is null.
   ///
   /// # Examples
@@ -162,88 +168,7 @@ impl Dest {
 
 /// A computation as defined by the HACK assembly reference.
 ///
-/// # Parsing
-///
-/// A computation object can be created using [has::utils::read_from].
-///
-/// ## Examples
-///
-/// ```
-/// use has::inst::Comp;
-/// use has::utils::read_from;
-///
-/// let p = |c| c == '0' ||
-///             c == '1' ||
-///             c == 'A' ||
-///             c == 'M' ||
-///             c == 'D' ||
-///             c == '+' ||
-///             c == '-' ||
-///             c == '!' ||
-///             c == '&' ||
-///             c == '|';
-///
-/// assert_eq!(read_from::<Comp,_,_>("",    p), Err(()));
-/// assert_eq!(read_from::<Comp,_,_>("Foo", p), Err(()));
-///
-/// assert_eq!(read_from::<Comp,_,_>("0",   p), Ok((Comp::Zero,    "", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("1",   p), Ok((Comp::One,     "", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("-1",  p), Ok((Comp::Neg1,    "", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("D",   p), Ok((Comp::D,       "", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("A",   p), Ok((Comp::A,       "", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("!D",  p), Ok((Comp::NotD,    "", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("!A",  p), Ok((Comp::NotA,    "", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("-D",  p), Ok((Comp::NegD,    "", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("-A",  p), Ok((Comp::NegA,    "", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("D+1", p), Ok((Comp::DPlus1,  "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("A+1", p), Ok((Comp::APlus1,  "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D-1", p), Ok((Comp::DMinus1, "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("A-1", p), Ok((Comp::AMinus1, "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D+A", p), Ok((Comp::DPlusA,  "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D-A", p), Ok((Comp::DMinusA, "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("A-D", p), Ok((Comp::AMinusD, "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D&A", p), Ok((Comp::DAndA,   "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D|A", p), Ok((Comp::DOrA,    "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("M",   p), Ok((Comp::M,       "", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("!M",  p), Ok((Comp::NotM,    "", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("-M",  p), Ok((Comp::NegM,    "", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("M+1", p), Ok((Comp::MPlus1,  "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("M-1", p), Ok((Comp::MMinus1, "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D+M", p), Ok((Comp::DPlusM,  "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D-M", p), Ok((Comp::DMinusM, "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("M-D", p), Ok((Comp::MMinusD, "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D&M", p), Ok((Comp::DAndM,   "", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D|M", p), Ok((Comp::DOrM,    "", 3)));
-///
-/// assert_eq!(read_from::<Comp,_,_>("0;",   p), Ok((Comp::Zero,    ";", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("1;",   p), Ok((Comp::One,     ";", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("-1;",  p), Ok((Comp::Neg1,    ";", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("D;",   p), Ok((Comp::D,       ";", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("A;",   p), Ok((Comp::A,       ";", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("!D;",  p), Ok((Comp::NotD,    ";", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("!A;",  p), Ok((Comp::NotA,    ";", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("-D;",  p), Ok((Comp::NegD,    ";", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("-A;",  p), Ok((Comp::NegA,    ";", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("D+1;", p), Ok((Comp::DPlus1,  ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("A+1;", p), Ok((Comp::APlus1,  ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D-1;", p), Ok((Comp::DMinus1, ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("A-1;", p), Ok((Comp::AMinus1, ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D+A;", p), Ok((Comp::DPlusA,  ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D-A;", p), Ok((Comp::DMinusA, ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("A-D;", p), Ok((Comp::AMinusD, ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D&A;", p), Ok((Comp::DAndA,   ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D|A;", p), Ok((Comp::DOrA,    ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("M;",   p), Ok((Comp::M,       ";", 1)));
-/// assert_eq!(read_from::<Comp,_,_>("!M;",  p), Ok((Comp::NotM,    ";", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("-M;",  p), Ok((Comp::NegM,    ";", 2)));
-/// assert_eq!(read_from::<Comp,_,_>("M+1;", p), Ok((Comp::MPlus1,  ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("M-1;", p), Ok((Comp::MMinus1, ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D+M;", p), Ok((Comp::DPlusM,  ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D-M;", p), Ok((Comp::DMinusM, ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("M-D;", p), Ok((Comp::MMinusD, ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D&M;", p), Ok((Comp::DAndM,   ";", 3)));
-/// assert_eq!(read_from::<Comp,_,_>("D|M;", p), Ok((Comp::DOrM,    ";", 3)));
-/// ```
+/// A computation object can be created using [Comp::read_from].
 ///
 /// # impl `Into<u16>`
 ///
@@ -488,14 +413,105 @@ impl fmt::Display for Comp {
   }
 }
 
+impl Comp {
+  /// Read a computation object from a string.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use has::inst::Comp;
+  ///
+  /// assert_eq!(Comp::read_from(""), Err(()));
+  /// assert_eq!(Comp::read_from("Foo"), Err(()));
+  ///
+  /// assert_eq!(Comp::read_from("0"),   Ok((Comp::Zero,    "", 1)));
+  /// assert_eq!(Comp::read_from("1"),   Ok((Comp::One,     "", 1)));
+  /// assert_eq!(Comp::read_from("-1"),  Ok((Comp::Neg1,    "", 2)));
+  /// assert_eq!(Comp::read_from("D"),   Ok((Comp::D,       "", 1)));
+  /// assert_eq!(Comp::read_from("A"),   Ok((Comp::A,       "", 1)));
+  /// assert_eq!(Comp::read_from("!D"),  Ok((Comp::NotD,    "", 2)));
+  /// assert_eq!(Comp::read_from("!A"),  Ok((Comp::NotA,    "", 2)));
+  /// assert_eq!(Comp::read_from("-D"),  Ok((Comp::NegD,    "", 2)));
+  /// assert_eq!(Comp::read_from("-A"),  Ok((Comp::NegA,    "", 2)));
+  /// assert_eq!(Comp::read_from("D+1"), Ok((Comp::DPlus1,  "", 3)));
+  /// assert_eq!(Comp::read_from("A+1"), Ok((Comp::APlus1,  "", 3)));
+  /// assert_eq!(Comp::read_from("D-1"), Ok((Comp::DMinus1, "", 3)));
+  /// assert_eq!(Comp::read_from("A-1"), Ok((Comp::AMinus1, "", 3)));
+  /// assert_eq!(Comp::read_from("D+A"), Ok((Comp::DPlusA,  "", 3)));
+  /// assert_eq!(Comp::read_from("D-A"), Ok((Comp::DMinusA, "", 3)));
+  /// assert_eq!(Comp::read_from("A-D"), Ok((Comp::AMinusD, "", 3)));
+  /// assert_eq!(Comp::read_from("D&A"), Ok((Comp::DAndA,   "", 3)));
+  /// assert_eq!(Comp::read_from("D|A"), Ok((Comp::DOrA,    "", 3)));
+  /// assert_eq!(Comp::read_from("M"),   Ok((Comp::M,       "", 1)));
+  /// assert_eq!(Comp::read_from("!M"),  Ok((Comp::NotM,    "", 2)));
+  /// assert_eq!(Comp::read_from("-M"),  Ok((Comp::NegM,    "", 2)));
+  /// assert_eq!(Comp::read_from("M+1"), Ok((Comp::MPlus1,  "", 3)));
+  /// assert_eq!(Comp::read_from("M-1"), Ok((Comp::MMinus1, "", 3)));
+  /// assert_eq!(Comp::read_from("D+M"), Ok((Comp::DPlusM,  "", 3)));
+  /// assert_eq!(Comp::read_from("D-M"), Ok((Comp::DMinusM, "", 3)));
+  /// assert_eq!(Comp::read_from("M-D"), Ok((Comp::MMinusD, "", 3)));
+  /// assert_eq!(Comp::read_from("D&M"), Ok((Comp::DAndM,   "", 3)));
+  /// assert_eq!(Comp::read_from("D|M"), Ok((Comp::DOrM,    "", 3)));
+  ///
+  /// assert_eq!(Comp::read_from("0;"),   Ok((Comp::Zero,    ";", 1)));
+  /// assert_eq!(Comp::read_from("1;"),   Ok((Comp::One,     ";", 1)));
+  /// assert_eq!(Comp::read_from("-1;"),  Ok((Comp::Neg1,    ";", 2)));
+  /// assert_eq!(Comp::read_from("D;"),   Ok((Comp::D,       ";", 1)));
+  /// assert_eq!(Comp::read_from("A;"),   Ok((Comp::A,       ";", 1)));
+  /// assert_eq!(Comp::read_from("!D;"),  Ok((Comp::NotD,    ";", 2)));
+  /// assert_eq!(Comp::read_from("!A;"),  Ok((Comp::NotA,    ";", 2)));
+  /// assert_eq!(Comp::read_from("-D;"),  Ok((Comp::NegD,    ";", 2)));
+  /// assert_eq!(Comp::read_from("-A;"),  Ok((Comp::NegA,    ";", 2)));
+  /// assert_eq!(Comp::read_from("D+1;"), Ok((Comp::DPlus1,  ";", 3)));
+  /// assert_eq!(Comp::read_from("A+1;"), Ok((Comp::APlus1,  ";", 3)));
+  /// assert_eq!(Comp::read_from("D-1;"), Ok((Comp::DMinus1, ";", 3)));
+  /// assert_eq!(Comp::read_from("A-1;"), Ok((Comp::AMinus1, ";", 3)));
+  /// assert_eq!(Comp::read_from("D+A;"), Ok((Comp::DPlusA,  ";", 3)));
+  /// assert_eq!(Comp::read_from("D-A;"), Ok((Comp::DMinusA, ";", 3)));
+  /// assert_eq!(Comp::read_from("A-D;"), Ok((Comp::AMinusD, ";", 3)));
+  /// assert_eq!(Comp::read_from("D&A;"), Ok((Comp::DAndA,   ";", 3)));
+  /// assert_eq!(Comp::read_from("D|A;"), Ok((Comp::DOrA,    ";", 3)));
+  /// assert_eq!(Comp::read_from("M;"),   Ok((Comp::M,       ";", 1)));
+  /// assert_eq!(Comp::read_from("!M;"),  Ok((Comp::NotM,    ";", 2)));
+  /// assert_eq!(Comp::read_from("-M;"),  Ok((Comp::NegM,    ";", 2)));
+  /// assert_eq!(Comp::read_from("M+1;"), Ok((Comp::MPlus1,  ";", 3)));
+  /// assert_eq!(Comp::read_from("M-1;"), Ok((Comp::MMinus1, ";", 3)));
+  /// assert_eq!(Comp::read_from("D+M;"), Ok((Comp::DPlusM,  ";", 3)));
+  /// assert_eq!(Comp::read_from("D-M;"), Ok((Comp::DMinusM, ";", 3)));
+  /// assert_eq!(Comp::read_from("M-D;"), Ok((Comp::MMinusD, ";", 3)));
+  /// assert_eq!(Comp::read_from("D&M;"), Ok((Comp::DAndM,   ";", 3)));
+  /// assert_eq!(Comp::read_from("D|M;"), Ok((Comp::DOrM,    ";", 3)));
+  /// ```
+  pub fn read_from(buf: &str) -> Result<(Self, &str, usize), ()> {
+    let p = |c| {
+      c == '0'
+        || c == '1'
+        || c == 'A'
+        || c == 'M'
+        || c == 'D'
+        || c == '+'
+        || c == '-'
+        || c == '!'
+        || c == '&'
+        || c == '|'
+    };
+
+    let (s, rem) = utils::read_while(buf, p);
+    let res = Self::from_str(s).map_err(|_| ())?;
+    Ok((res, rem, s.len()))
+  }
+}
+
 /// A jump as defined by the HACK assembly reference.
+///
+/// A jump object can be parsed using [Jump::read_from].
 ///
 /// # impl `Into<u16>`
 ///
 /// The binary representation is 3 bits wide representing the bits
 /// `j1`, `j2` and `j3` in an [instruction](Inst).
 ///
-/// ## Examples:
+/// ## Examples
 ///
 /// ```
 /// use has::inst::Jump;
@@ -510,31 +526,7 @@ impl fmt::Display for Comp {
 /// assert_eq!(u16::from(Jump::JMP),  0b111);
 /// ```
 ///
-/// # impl `TryFrom<&[u8]>` (`type Error = ()`)
-///
-/// A [Jump] object can be created from a slice of bytes. A
-/// `Result::Err(())` is returned if the input sequence is not
-/// recognized.
-///
-/// ## Examples
-///
-/// ```
-/// use has::inst::Jump;
-/// use std::convert::TryFrom;
-///
-/// assert_eq!(Jump::try_from(&b""[..]),    Err(()));
-/// assert_eq!(Jump::try_from(&b"Foo"[..]), Err(()));
-///
-/// assert_eq!(Jump::try_from(&b"JGT"[..]), Ok(Jump::JGT));
-/// assert_eq!(Jump::try_from(&b"JEQ"[..]), Ok(Jump::JEQ));
-/// assert_eq!(Jump::try_from(&b"JGE"[..]), Ok(Jump::JGE));
-/// assert_eq!(Jump::try_from(&b"JLT"[..]), Ok(Jump::JLT));
-/// assert_eq!(Jump::try_from(&b"JNE"[..]), Ok(Jump::JNE));
-/// assert_eq!(Jump::try_from(&b"JLE"[..]), Ok(Jump::JLE));
-/// assert_eq!(Jump::try_from(&b"JMP"[..]), Ok(Jump::JMP));
-/// ```
-///
-/// # impl `Display` examples
+/// # impl `Display`
 ///
 /// ```
 /// use has::inst::Jump;
@@ -583,19 +575,18 @@ impl From<Jump> for u16 {
   }
 }
 
-impl TryFrom<&[u8]> for Jump {
-  type Error = ();
+impl FromStr for Jump {
+  type Err = ();
 
-  fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-    dbg!(bytes);
-    match bytes {
-      b"JGT" => Ok(Jump::JGT),
-      b"JEQ" => Ok(Jump::JEQ),
-      b"JGE" => Ok(Jump::JGE),
-      b"JLT" => Ok(Jump::JLT),
-      b"JNE" => Ok(Jump::JNE),
-      b"JLE" => Ok(Jump::JLE),
-      b"JMP" => Ok(Jump::JMP),
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s {
+      "JGT" => Ok(Jump::JGT),
+      "JEQ" => Ok(Jump::JEQ),
+      "JGE" => Ok(Jump::JGE),
+      "JLT" => Ok(Jump::JLT),
+      "JNE" => Ok(Jump::JNE),
+      "JLE" => Ok(Jump::JLE),
+      "JMP" => Ok(Jump::JMP),
       _ => Err(()),
     }
   }
@@ -617,6 +608,50 @@ impl fmt::Display for Jump {
 }
 
 impl Jump {
+  /// Read a jump object from a string.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use has::inst::Jump;
+  ///
+  /// assert_eq!(Jump::read_from(""), Err(()));
+  /// assert_eq!(Jump::read_from("Foo"), Err(()));
+  ///
+  /// assert_eq!(Jump::read_from("JGT"), Ok((Jump::JGT, "", 3)));
+  /// assert_eq!(Jump::read_from("JEQ"), Ok((Jump::JEQ, "", 3)));
+  /// assert_eq!(Jump::read_from("JGE"), Ok((Jump::JGE, "", 3)));
+  /// assert_eq!(Jump::read_from("JLT"), Ok((Jump::JLT, "", 3)));
+  /// assert_eq!(Jump::read_from("JNE"), Ok((Jump::JNE, "", 3)));
+  /// assert_eq!(Jump::read_from("JLE"), Ok((Jump::JLE, "", 3)));
+  /// assert_eq!(Jump::read_from("JMP"), Ok((Jump::JMP, "", 3)));
+  ///
+  /// assert_eq!(Jump::read_from("JGT //"), Ok((Jump::JGT, " //", 3)));
+  /// assert_eq!(Jump::read_from("JEQ //"), Ok((Jump::JEQ, " //", 3)));
+  /// assert_eq!(Jump::read_from("JGE //"), Ok((Jump::JGE, " //", 3)));
+  /// assert_eq!(Jump::read_from("JLT //"), Ok((Jump::JLT, " //", 3)));
+  /// assert_eq!(Jump::read_from("JNE //"), Ok((Jump::JNE, " //", 3)));
+  /// assert_eq!(Jump::read_from("JLE //"), Ok((Jump::JLE, " //", 3)));
+  /// assert_eq!(Jump::read_from("JMP //"), Ok((Jump::JMP, " //", 3)));
+  /// ```
+  pub fn read_from(buf: &str) -> Result<(Self, &str, usize), ()> {
+    let p = |c| {
+      c == 'J'
+        || c == 'G'
+        || c == 'T'
+        || c == 'E'
+        || c == 'L'
+        || c == 'N'
+        || c == 'M'
+        || c == 'P'
+        || c == 'Q'
+    };
+
+    let (s, rem) = utils::read_while(buf, p);
+    let res = Self::from_str(s).map_err(|_| ())?;
+    Ok((res, rem, s.len()))
+  }
+
   /// Whether the [jump](Jump) object is null.
   ///
   /// # Examples
@@ -799,7 +834,7 @@ impl Jump {
 /// The binary representation is 15 bits wide as defined by
 /// A-instructions in the HACK assembly language.
 ///
-/// ## Examples:
+/// ## Examples
 ///
 /// ```
 /// use has::inst::Predef;
@@ -869,7 +904,7 @@ impl Jump {
 /// assert_eq!(Predef::try_from(&b"KBD"[..]),    Ok(Predef::KBD));
 /// ```
 ///
-/// # impl `Display` examples
+/// # impl `Display`
 ///
 /// ```
 /// use has::inst::Predef;
@@ -1062,7 +1097,7 @@ impl fmt::Display for Predef {
 /// assert_eq!(Label::try_from(&b"foobar1"[..]).unwrap().label(), &b"foobar1"[..]);
 /// ```
 ///
-/// # impl `Display` examples
+/// # impl `Display`
 ///
 /// ```
 /// use has::inst::Label;
