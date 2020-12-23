@@ -1,31 +1,21 @@
-use std::str::FromStr;
-
-/// Reads an object of type `T` from an input buffer.
+/// Splits a string `s` at the point when `p` returns false for a character.
 ///
-/// Returns a parsed object of type `T`, the remainder of the input
-/// buffer and the number of characters that have been consumed during
-/// the parse.
-///
-/// Once an unrecognized character has been reached, `read_from` will
-/// create the object using its `FromStr` implementation. `Err(E)` is
-/// returned if that fails.
+/// Returns the parsed string and the remainder.
 ///
 /// # Arguments
 ///
-/// * `buf` - The input buffer.
+/// * `s` - The input string.
 ///
-/// * `p` - The alphabet predicate. Must return true if the input
-///         character is part of the alphabet.
-pub fn read_from<T, E, F>(buf: &str, p: F) -> Result<(T, &str, usize), E>
+/// * `p` - A predicate that should return true as long as
+///         `read_while` should continue to consume input.
+pub fn read_while<P>(s: &str, p: P) -> (&str, &str)
 where
-  T: FromStr<Err = E>,
-  F: Fn(char) -> bool,
+  P: Fn(char) -> bool,
 {
-  let split = buf
+  let split = s
     .char_indices()
     .find_map(|(i, c)| if p(c) { None } else { Some(i) })
-    .unwrap_or_else(|| buf.len());
+    .unwrap_or_else(|| s.len());
 
-  let dest = T::from_str(&buf[..split]).map_err(|e| e)?;
-  Ok((dest, &buf[split..], split))
+  (&s[..split], &s[split..])
 }
