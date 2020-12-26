@@ -4,7 +4,10 @@
 //! used to parse HACK programs.
 
 use crate::inst;
+use crate::utils;
 use crate::utils::Buf;
+
+use std::convert::TryFrom;
 
 /// Parser state for parsing HACK programs.
 ///
@@ -24,12 +27,15 @@ use crate::utils::Buf;
 /// ```
 /// use has::parser::Parser;
 /// use has::parser::Token;
+/// use has::parser::TokenKind;
 /// use has::inst;
 /// use std::convert::TryFrom;
 ///
 /// let prog = "(FOO)\n@FOO\nD=D+A;JMP".as_bytes();
 /// let mut parser = Parser::from(prog);
-/// assert_eq!(parser.next(), Some(Ok(Token::Label(inst::Label::try_from("FOO".as_bytes()).unwrap()))));
+/// assert_eq!(parser.next(), Some(Ok(Token::new(0,
+///   TokenKind::Label(inst::Label::try_from("FOO".as_bytes()).unwrap()),
+/// ))));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parser<'b> {
@@ -44,14 +50,29 @@ impl<'b> From<Buf<'b>> for Parser<'b> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token<'b> {
+pub enum TokenKind<'b> {
   Label(inst::Label<'b>),
   Addr(inst::Addr<'b>),
   Inst(inst::Inst),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Token<'b> {
+  index: usize,
+  kind: TokenKind<'b>,
+}
+
+impl<'b> Token<'b> {
+  pub fn new(index: usize, kind: TokenKind<'b>) -> Self {
+    Self { index, kind }
+  }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ErrKind {}
+pub enum ErrKind {
+  ExpectedComment,
+  InvalidLabel,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Err {
@@ -59,13 +80,54 @@ pub struct Err {
   kind: ErrKind,
 }
 
+impl Err {
+  fn new(index: usize, kind: ErrKind) -> Self {
+    Self { index, kind }
+  }
+}
+
 impl<'b> Iterator for Parser<'b> {
   type Item = Result<Token<'b>, Err>;
 
   fn next(&mut self) -> Option<Self::Item> {
-    let b = if let Some(b) = self.buf.get(0)?;
+    let &b = self.buf.get(0)?;
 
-    if b.is_ascii_whitespace() {}
+    'MAIN: loop {
+      if b.is_ascii_whitespace() {
+        let (ws, rem) = utils::read_while(self.buf, |b| b.is_ascii_whitespace());
+        self.index += ws.len();
+        self.buf = rem;
+        continue 'MAIN;
+      } else if b == b'/' {
+        match self.buf.get(0) {
+          Some(b'/') => {}
+          Some(_) => {
+            return Some(Err(Err::new(self.index + 1, ErrKind::ExpectedComment)))
+          }
+          None => return Some(Err(Err::new(self.index + 1, ErrKind::ExpectedComment))),
+        }
+
+        let (com, rem) = utils::read_while(self.buf, |b| b != b'\n');
+        self.index += com.len();
+        self.buf = rem;
+        continue 'MAIN;
+      } else if b == b'(' {
+        let index = self.index;
+        let (txt, rem) = utils::read_while(&self.buf[1..], |b| b != b')');
+        let label = match inst::Label::try_from(txt) {
+          Ok(label) => label,
+          Err(_) => return Some(Err(Err::new(self.index, ErrKind::InvalidLabel))),
+        };
+        self.buf = match utils::read_one(rem, |b| b == b')') {
+          Some((_, rem)) => rem,
+          None => {
+            return Some(Err(Err::new(self.index + txt.len(), ErrKind::InvalidLabel)));
+          }
+        };
+        self.index += txt.len() + 1;
+        return Some(Ok(Token { index, kind: TokenKind::Label(label) }));
+      }
+    }
 
     None
   }
