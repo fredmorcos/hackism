@@ -3,10 +3,12 @@
 //! An [instruction](Inst) can represent different types of commands
 //! in the HACK assembly language.
 
+use std::convert::TryFrom;
 use std::fmt;
-use std::{convert::TryFrom, str::FromStr};
 
 use crate::utils::{self, Buf};
+
+use atoi::FromRadix10Checked;
 
 /// A destination as defined by the HACK assembly reference.
 ///
@@ -99,8 +101,8 @@ impl fmt::Display for Dest {
 impl TryFrom<Buf<'_>> for Dest {
   type Error = ();
 
-  fn try_from(b: Buf) -> Result<Self, Self::Error> {
-    match b {
+  fn try_from(buf: Buf) -> Result<Self, Self::Error> {
+    match buf {
       b"M" => Ok(Dest::M),
       b"D" => Ok(Dest::D),
       b"MD" => Ok(Dest::MD),
@@ -140,9 +142,9 @@ impl Dest {
   /// assert_eq!(Dest::read_from("AD=".as_bytes()),  Ok((Dest::AD,  "=".as_bytes(), 2)));
   /// assert_eq!(Dest::read_from("AMD=".as_bytes()), Ok((Dest::AMD, "=".as_bytes(), 3)));
   /// ```
-  pub fn read_from(b: Buf) -> Result<(Self, Buf, usize), ()> {
+  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
     let p = |b| b"AMD".contains(&b);
-    let (b, rem) = utils::read_while(b, p);
+    let (b, rem) = utils::read_while(buf, p);
     let res = Self::try_from(b).map_err(|_| ())?;
     Ok((res, rem, b.len()))
   }
@@ -342,8 +344,8 @@ impl From<Comp> for u16 {
 impl TryFrom<Buf<'_>> for Comp {
   type Error = ();
 
-  fn try_from(b: Buf) -> Result<Self, Self::Error> {
-    match b {
+  fn try_from(buf: Buf) -> Result<Self, Self::Error> {
+    match buf {
       b"0" => Ok(Comp::Zero),
       b"1" => Ok(Comp::One),
       b"-1" => Ok(Comp::Neg1),
@@ -481,9 +483,9 @@ impl Comp {
   /// assert_eq!(Comp::read_from("D&M;".as_bytes()), Ok((Comp::DAndM,   ";".as_bytes(), 3)));
   /// assert_eq!(Comp::read_from("D|M;".as_bytes()), Ok((Comp::DOrM,    ";".as_bytes(), 3)));
   /// ```
-  pub fn read_from(b: Buf) -> Result<(Self, Buf, usize), ()> {
+  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
     let p = |b| b"01AMD+-!&|".contains(&b);
-    let (b, rem) = utils::read_while(b, p);
+    let (b, rem) = utils::read_while(buf, p);
     let res = Self::try_from(b).map_err(|_| ())?;
     Ok((res, rem, b.len()))
   }
@@ -565,8 +567,8 @@ impl From<Jump> for u16 {
 impl TryFrom<Buf<'_>> for Jump {
   type Error = ();
 
-  fn try_from(b: Buf) -> Result<Self, Self::Error> {
-    match b {
+  fn try_from(buf: Buf) -> Result<Self, Self::Error> {
+    match buf {
       b"JGT" => Ok(Jump::JGT),
       b"JEQ" => Ok(Jump::JEQ),
       b"JGE" => Ok(Jump::JGE),
@@ -621,9 +623,9 @@ impl Jump {
   /// assert_eq!(Jump::read_from("JLE //".as_bytes()), Ok((Jump::JLE, " //".as_bytes(), 3)));
   /// assert_eq!(Jump::read_from("JMP //".as_bytes()), Ok((Jump::JMP, " //".as_bytes(), 3)));
   /// ```
-  pub fn read_from(b: Buf) -> Result<(Self, Buf, usize), ()> {
+  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
     let p = |b| b"JGTELNMPQ".contains(&b);
-    let (b, rem) = utils::read_while(b, p);
+    let (b, rem) = utils::read_while(buf, p);
     let res = Self::try_from(b).map_err(|_| ())?;
     Ok((res, rem, b.len()))
   }
@@ -692,123 +694,101 @@ impl fmt::Display for Inst {
 }
 
 impl Inst {
+  /// Create a new instruction object.
   pub fn new(dest: Dest, comp: Comp, jump: Jump) -> Self {
     Self { dest, comp, jump }
+  }
+
+  /// Returns the [destination](Dest) of an instruction object.
+  pub fn dest(&self) -> Dest {
+    self.dest
+  }
+
+  /// Returns the [computation](Comp) of an instruction object.
+  pub fn comp(&self) -> Comp {
+    self.comp
+  }
+
+  /// Returns the [jump](Jump) of an instruction object.
+  pub fn jump(&self) -> Jump {
+    self.jump
   }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstErr {
-  CompOnly,
-  Dest,
-  Comp,
-  Jump,
+  MissingDest,
+  InvalidComp,
+  InvalidJump,
 }
 
-// }
+impl Inst {
+  /// Read an instruction object from a buffer.
+  ///
+  /// Returns an instruction object, the remainder of the input buffer
+  /// and the number of bytes that have been consumed for parsing.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use has::inst::Dest;
+  /// use has::inst::Comp;
+  /// use has::inst::Jump;
+  /// use has::inst::Inst;
+  /// use has::inst::InstErr;
+  ///
+  /// assert_eq!(Inst::read_from("".as_bytes()), Err(InstErr::InvalidComp));
+  /// assert_eq!(Inst::read_from("Foo".as_bytes()), Err(InstErr::InvalidComp));
+  /// assert_eq!(Inst::read_from("D|A".as_bytes()), Err(InstErr::MissingDest));
+  /// assert_eq!(Inst::read_from("D|A;".as_bytes()), Err(InstErr::InvalidJump));
+  /// assert_eq!(Inst::read_from("D|A;JJJ".as_bytes()), Err(InstErr::InvalidJump));
+  ///
+  /// assert_eq!(Inst::read_from("D=D+A;JGT".as_bytes()),
+  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::JGT), "".as_bytes(), 9)));
+  /// assert_eq!(Inst::read_from("D+A;JGT".as_bytes()),
+  ///            Ok((Inst::new(Dest::Null, Comp::DPlusA, Jump::JGT), "".as_bytes(), 7)));
+  /// assert_eq!(Inst::read_from("D=D+A".as_bytes()),
+  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::Null), "".as_bytes(), 5)));
+  /// ```
+  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), InstErr> {
+    let mut inst_len = 0;
 
-// impl Inst {
-//   pub fn new(dest: Dest, comp: Comp, jump: Jump) -> Self {
-//     Self { dest, comp, jump }
-//   }
+    let (dest, buf, _) = if let Ok((dest, rem, len)) = Dest::read_from(buf) {
+      if let Some((_, rem)) = utils::read_one(rem, |b| b == b'=') {
+        inst_len += len + 1;
+        (dest, rem, len)
+      } else {
+        (Dest::Null, buf, 0)
+      }
+    } else {
+      (Dest::Null, buf, 0)
+    };
 
-//   pub fn from_buf(buf: &mut &[u8]) -> Result<Self, InstErr> {
-//     let dest = Inst::dest_from_buf(buf)?;
-//     let dest_null = dest.is_null();
+    let (comp, buf, _) = if let Ok((comp, rem, len)) = Comp::read_from(buf) {
+      inst_len += len;
+      (comp, rem, len)
+    } else {
+      return Err(InstErr::InvalidComp);
+    };
 
-//     if !dest_null {
-//       if buf.is_empty() || unsafe { *buf.get_unchecked(0) } != b'=' {
-//         return Err(InstErr::Dest);
-//       }
+    let buf = if let Some((_, buf)) = utils::read_one(buf, |b| b == b';') {
+      if let Ok((jump, rem, len)) = Jump::read_from(buf) {
+        inst_len += len + 1;
+        return Ok((Inst::new(dest, comp, jump), rem, inst_len));
+      } else {
+        return Err(InstErr::InvalidJump);
+      }
+    } else {
+      buf
+    };
 
-//       *buf = &buf[1..];
-//     }
+    if dest == Dest::Null {
+      return Err(InstErr::MissingDest);
+    }
 
-//     let comp = Inst::comp_from_buf(buf)?;
-
-//     let jump = if !buf.is_empty() && unsafe { *buf.get_unchecked(0) } == b';' {
-//       *buf = &buf[1..];
-//       Inst::jump_from_buf(buf)?
-//     } else {
-//       Jump::Null
-//     };
-
-//     if dest_null && jump.is_null() {
-//       return Err(InstErr::NoDestNoJump);
-//     }
-
-//     Ok(Self { dest, comp, jump })
-//   }
-
-//   fn dest_from_buf(buf: &mut &[u8]) -> Result<Dest, InstErr> {
-//     for (i, &b) in buf.iter().enumerate() {
-//       if b == b'=' {
-//         let dest = Dest::try_from(&buf[..i]).map_err(|_| InstErr::Dest)?;
-//         *buf = &buf[i..];
-//         return Ok(dest);
-//       } else if b == b';' {
-//         return Ok(Dest::Null);
-//       } else if b != b'A' && b != b'M' && b != b'D' {
-//         break;
-//       }
-//     }
-
-//     Err(InstErr::Dest)
-//   }
-
-//   fn comp_from_buf(buf: &mut &[u8]) -> Result<Comp, InstErr> {
-//     let len = buf.len();
-
-//     for (i, &b) in buf.iter().enumerate() {
-//       if b == b';' || b.is_ascii_whitespace() || i == len {
-//         let comp = Comp::try_from(&buf[..i]).map_err(|_| InstErr::Comp)?;
-//         *buf = &buf[i..];
-//         return Ok(comp);
-//       } else if b != b'0'
-//         && b != b'1'
-//         && b != b'A'
-//         && b != b'M'
-//         && b != b'D'
-//         && b != b'+'
-//         && b != b'-'
-//         && b != b'!'
-//         && b != b'&'
-//         && b != b'|'
-//       {
-//         break;
-//       }
-//     }
-
-//     Err(InstErr::Comp)
-//   }
-
-//   fn jump_from_buf(buf: &mut &[u8]) -> Result<Jump, InstErr> {
-//     let len = buf.len();
-
-//     for (i, &b) in buf.iter().enumerate() {
-//       if b.is_ascii_whitespace() || i == len {
-//         let jump = Jump::try_from(&buf[..i]).map_err(|_| InstErr::Jump)?;
-//         *buf = &buf[i..];
-//         return Ok(jump);
-//       } else if b != b'J'
-//         && b != b'G'
-//         && b != b'T'
-//         && b != b'E'
-//         && b != b'Q'
-//         && b != b'L'
-//         && b != b'N'
-//         && b != b'M'
-//         && b != b'P'
-//       {
-//         dbg!(b);
-//         break;
-//       }
-//     }
-
-//     dbg!(buf);
-//     Err(InstErr::Jump)
-//   }
-// }
+    Ok((Inst::new(dest, comp, Jump::Null), buf, inst_len))
+  }
+}
 
 /// An encoding for predefined symbols as defined by the HACK assembly
 /// reference.
@@ -997,11 +977,11 @@ impl From<Predef> for u16 {
   }
 }
 
-impl TryFrom<&[u8]> for Predef {
+impl TryFrom<Buf<'_>> for Predef {
   type Error = ();
 
-  fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-    match bytes {
+  fn try_from(buf: Buf) -> Result<Self, Self::Error> {
+    match buf {
       b"SP" => Ok(Predef::SP),
       b"LCL" => Ok(Predef::LCL),
       b"ARG" => Ok(Predef::ARG),
@@ -1155,11 +1135,11 @@ mod label_tests {
   }
 }
 
-impl<'b> TryFrom<&'b [u8]> for Label<'b> {
+impl<'b> TryFrom<Buf<'b>> for Label<'b> {
   type Error = ();
 
-  fn try_from(bytes: &'b [u8]) -> Result<Self, Self::Error> {
-    let c0 = if let Some(&c0) = bytes.get(0) {
+  fn try_from(buf: Buf<'b>) -> Result<Self, Self::Error> {
+    let c0 = if let Some(&c0) = buf.get(0) {
       c0
     } else {
       return Err(());
@@ -1169,13 +1149,13 @@ impl<'b> TryFrom<&'b [u8]> for Label<'b> {
       return Err(());
     }
 
-    for &c in &bytes[1..] {
+    for &c in &buf[1..] {
       if !Label::is_label_byte(c) {
         return Err(());
       }
     }
 
-    Ok(Self(bytes))
+    Ok(Self(buf))
   }
 }
 
@@ -1279,48 +1259,71 @@ impl fmt::Display for Addr<'_> {
   }
 }
 
-// impl TryFrom<Text> for Addr {
-//   type Error = AddrErr;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddrErr {
+  InvalidNum,
+  InvalidLabel,
+}
 
-//   fn try_from(v: Text) -> Result<Self, Self::Error> {
-//     if v.is_empty() {
-//       return Err(AddrErr::Empty);
-//     }
+impl<'b> Addr<'b> {
+  /// Read an address object from a buffer.
+  ///
+  /// Returns an address object, the remainder of the input buffer and
+  /// the number of bytes that have been consumed for parsing.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use has::inst::Addr;
+  /// use has::inst::Label;
+  /// use has::inst::Predef;
+  /// use has::inst::AddrErr;
+  /// use std::convert::TryFrom;
+  ///
+  /// assert_eq!(Addr::read_from("".as_bytes()), Err(AddrErr::InvalidLabel));
+  /// assert_eq!(Addr::read_from("123Foo".as_bytes()), Err(AddrErr::InvalidNum));
+  /// assert_eq!(Addr::read_from("%Foo".as_bytes()), Err(AddrErr::InvalidLabel));
+  ///
+  /// assert_eq!(Addr::read_from("123".as_bytes()),
+  ///            Ok((Addr::Num(123), "".as_bytes(), 3)));
+  /// assert_eq!(Addr::read_from("Foo".as_bytes()),
+  ///            Ok((Addr::Label(Label::try_from("Foo".as_bytes()).unwrap()), "".as_bytes(), 3)));
+  /// assert_eq!(Addr::read_from("F_B".as_bytes()),
+  ///            Ok((Addr::Label(Label::try_from("F_B".as_bytes()).unwrap()), "".as_bytes(), 3)));
+  /// assert_eq!(Addr::read_from("_FB".as_bytes()),
+  ///            Ok((Addr::Label(Label::try_from("_FB".as_bytes()).unwrap()), "".as_bytes(), 3)));
+  ///
+  /// assert_eq!(Addr::read_from("LCL".as_bytes()),
+  ///            Ok((Addr::Predef(Predef::try_from("LCL".as_bytes()).unwrap()), "".as_bytes(), 3)));
+  /// assert_eq!(Addr::read_from("R0".as_bytes()),
+  ///            Ok((Addr::Predef(Predef::try_from("R0".as_bytes()).unwrap()), "".as_bytes(), 2)));
+  /// ```
+  pub fn read_from(buf: Buf<'b>) -> Result<(Self, Buf<'b>, usize), AddrErr> {
+    if let Some((_, _)) = utils::read_one(buf, |b| b.is_ascii_digit()) {
+      let (num, rem) = utils::read_while(buf, |b| !b.is_ascii_whitespace());
 
-//     let c0 = unsafe { v.get_unchecked(0) };
+      match u16::from_radix_10_checked(num) {
+        (Some(addr), used) if used == num.len() => {
+          return Ok((
+            Self::try_from(addr).map_err(|_| AddrErr::InvalidNum)?,
+            rem,
+            num.len(),
+          ))
+        }
+        (_, _) => return Err(AddrErr::InvalidNum),
+      }
+    }
 
-//     if !c0.is_ascii_digit() {
-//       if let Ok(predef) = Predef::try_from(&v) {
-//         return Ok(Self::Predef(predef));
-//       }
+    let (txt, rem) = utils::read_while(buf, |b| !b.is_ascii_whitespace());
 
-//       return match Label::try_from(v) {
-//         Ok(label) => Ok(Self::Label(label)),
-//         Err(e) => Err(AddrErr::Other(Box::new(e))),
-//       };
-//     }
+    if let Ok(predef) = Predef::try_from(txt) {
+      return Ok((Self::from(predef), rem, txt.len()));
+    }
 
-//     for c in &v[1..] {
-//       if !c.is_ascii_digit() {
-//         return Err(AddrErr::NotDigit { byte: *c });
-//       }
-//     }
+    if let Ok(label) = Label::try_from(txt) {
+      return Ok((Self::from(label), rem, txt.len()));
+    }
 
-//     if let Some(addr) = u16::from_radix_10_checked(&v).0 {
-//       // 32767 (15 bits of address value)
-//       if addr <= 32767 {
-//         return Ok(Self::Num(addr));
-//       }
-//     }
-
-//     Err(AddrErr::Range { addr: v, max: 32767 })
-//   }
-// }
-
-// #[derive(Debug, PartialEq, Eq)]
-// pub enum Inst<'b> {
-//   Addr(Addr<'b>),
-//   Stmt(Dest, Comp, Jump),
-// }
-
-//  Label(Label<'b>),
+    Err(AddrErr::InvalidLabel)
+  }
+}
