@@ -1,50 +1,75 @@
-// use atoi::FromRadix10Checked;
-// use std::convert::TryFrom;
-// use std::io::{self, Bytes, Read};
-// // use crate::inst::Dest;
-// use crate::inst::Label;
-// // use crate::inst::{Addr, Inst};
-// // use crate::inst::{Comp, Label};
-// use crate::loc::Loc;
-// use crate::loc::SrcLoc;
-// use crate::srcloc;
+//! Structures to be used for parsing HACK programs.
+//!
+//! [Parser] is the primary structure in this module that should be
+//! used to parse HACK programs.
 
-// pub struct Lex<'b> {
-//   buf: &'b [u8],
-//   loc: Loc,
-// }
+use crate::inst;
+use crate::utils::Buf;
 
-// impl<'b> From<&'b [u8]> for Lex<'b> {
-//   fn from(buf: &'b [u8]) -> Self {
-//     Self { buf, loc: Loc::default() }
-//   }
-// }
+/// Parser state for parsing HACK programs.
+///
+/// # impl `From<Buf>`
+///
+/// A parser object can be created using [Parser::from].
+///
+/// # impl `Iterator`
+///
+/// The parse tree of HACK programs is a flat list. A parser object
+/// returns [tokens](Token) when iterated over. Perhaps at a later
+/// point a conversion to an abstract syntax tree could reflect the
+/// structure of labels and jumps in the program.
+///
+/// ## Examples
+///
+/// ```
+/// use has::parser::Parser;
+/// use has::parser::Token;
+/// use has::inst;
+/// use std::convert::TryFrom;
+///
+/// let prog = "(FOO)\n@FOO\nD=D+A;JMP".as_bytes();
+/// let mut parser = Parser::from(prog);
+/// assert_eq!(parser.next(), Some(Ok(Token::Label(inst::Label::try_from("FOO".as_bytes()).unwrap()))));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Parser<'b> {
+  buf: Buf<'b>,
+  index: usize,
+}
 
-// #[derive(Debug, PartialEq, Eq)]
-// pub enum ErrKind {
-//   IO(io::ErrorKind),
-//   CommentEOF,
-//   CommentByte(u8),
-//   AddrEOF,
-//   AddrNumByte(u8),
-//   AddrOutOfRange(u16),
-// }
+impl<'b> From<Buf<'b>> for Parser<'b> {
+  fn from(buf: Buf<'b>) -> Self {
+    Self { buf, index: 0 }
+  }
+}
 
-// #[derive(Debug, PartialEq, Eq)]
-// pub struct Err {
-//   srcloc: SrcLoc,
-//   loc: Loc,
-//   kind: ErrKind,
-// }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Token<'b> {
+  Label(inst::Label<'b>),
+  Addr(inst::Addr<'b>),
+  Inst(inst::Inst),
+}
 
-// impl Err {
-//   pub fn new(srcloc: SrcLoc, loc: Loc, kind: ErrKind) -> Self {
-//     Self { srcloc, loc, kind }
-//   }
-// }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrKind {}
 
-// #[derive(Debug, PartialEq, Eq)]
-// pub struct Tok<'b>(Loc, Inst<'b>);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Err {
+  index: usize,
+  kind: ErrKind,
+}
+
+impl<'b> Iterator for Parser<'b> {
+  type Item = Result<Token<'b>, Err>;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    let b = if let Some(b) = self.buf.get(0)?;
+
+    if b.is_ascii_whitespace() {}
+
+    None
+  }
+}
 
 // impl<'b> Iterator for Lex<'b> {
 //   type Item = Result<Tok<'b>, Err>;

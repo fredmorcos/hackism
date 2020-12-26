@@ -7,8 +7,8 @@
 //! assembler translates HACK assembly code to HACK machine code.
 
 pub mod inst;
+pub mod parser;
 pub mod utils;
 
 mod gen;
-mod lex;
 mod prog;
