@@ -16,6 +16,31 @@ use atoi::FromRadix10Checked;
 /// signify an A-instruction and the effective addressing width is the
 /// remaining 15 bits.
 ///
+/// # impl `TryInto<u16>`
+///
+/// The binary representation is 16 bits wide where the most
+/// significant bit is `0` and the remaining 15 bits are the binary
+/// representations of the address.
+///
+/// User-defined labels cannot be directly represented without more
+/// context (namely a symbol table) and that is why the implementation
+/// is a `TryInto<u16>` rather than an `Into<u16>`. In the case that
+/// an address refers to a user-defined label, the implementation
+/// returns `Err(())`.
+///
+/// ## Examples
+///
+/// ```
+/// use has::addr::Addr;
+/// use has::symbol::Symbol;
+/// use has::label::Label;
+/// use std::convert::TryFrom;
+///
+/// assert_eq!(u16::try_from(Addr::Num(5)), Ok(5));
+/// assert_eq!(u16::try_from(Addr::Symbol(Symbol::LCL)), Ok(0x0001));
+/// assert_eq!(u16::try_from(Addr::Label(Label::try_from(&b"FOO"[..]).unwrap())), Err(()));
+/// ```
+///
 /// # impl `TryFrom<u16>` (`type Error = ()`)
 ///
 /// Creates an [Addr::Num] object from a [u16].
@@ -65,6 +90,18 @@ pub enum Addr<'b> {
   Num(u16),
   Label(Label<'b>),
   Symbol(Symbol),
+}
+
+impl TryFrom<Addr<'_>> for u16 {
+  type Error = ();
+
+  fn try_from(addr: Addr<'_>) -> Result<Self, Self::Error> {
+    match addr {
+      Addr::Num(num) => Ok(num),
+      Addr::Label(_) => Err(()),
+      Addr::Symbol(symbol) => Ok(u16::from(symbol)),
+    }
+  }
 }
 
 impl TryFrom<u16> for Addr<'_> {

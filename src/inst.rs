@@ -16,6 +16,32 @@ use std::fmt;
 /// An instruction consists of a [destination](Dest), a
 /// [computation](Comp) and a [jump](Jump).
 ///
+/// # impl `Into<u16>`
+///
+/// The binary representation is 16 bits wide where the three most
+/// significant bits are `1` and the remaining 12 bits are the binary
+/// representations of [dest::Dest], [comp::Comp] and [jump::Jump]
+/// (from most significant to least significant).
+///
+/// ## Examples
+///
+/// ```
+/// use has::inst::Inst;
+/// use has::dest::Dest;
+/// use has::comp::Comp;
+/// use has::jump::Jump;
+///
+/// assert_eq!(
+///   u16::from(Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap()),
+///   0b111_011111_010_000);
+/// assert_eq!(
+///   u16::from(Inst::new(Dest::Null, Comp::DPlus1, Jump::JEQ).unwrap()),
+///   0b111_011111_000_010);
+/// assert_eq!(
+///   u16::from(Inst::new(Dest::D, Comp::DPlus1, Jump::JEQ).unwrap()),
+///   0b111_011111_010_010);
+/// ```
+///
 /// # impl `Display`
 ///
 /// ```
@@ -32,6 +58,15 @@ pub struct Inst {
   dest: Dest,
   comp: Comp,
   jump: Jump,
+}
+
+impl From<Inst> for u16 {
+  fn from(inst: Inst) -> Self {
+    0b111 << 0xC
+      | u16::from(inst.comp()) << 0x6
+      | u16::from(inst.dest()) << 0x3
+      | u16::from(inst.jump())
+  }
 }
 
 impl fmt::Display for Inst {
