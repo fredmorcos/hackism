@@ -6,7 +6,6 @@
 use crate::inst;
 use crate::utils;
 use crate::utils::Buf;
-use crate::utils::Byte;
 
 use std::convert::TryFrom;
 
@@ -57,40 +56,18 @@ impl<'b> From<Buf<'b>> for Parser<'b> {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Loc {
-  line: usize,
-  col: usize,
-}
-
-impl Default for Loc {
-  fn default() -> Self {
-    Self { line: 1, col: 0 }
-  }
-}
-
-impl Loc {
-  pub fn new(line: usize, col: usize) -> Self {
-    Self { line, col }
-  }
-
-  pub fn inc(&mut self, b: Byte) {
-    if b == b'\n' {
-      self.line += 1;
-      self.col = 0;
-    } else {
-      self.col += 1;
-    }
-  }
-}
-
 impl Parser<'_> {
-  pub fn loc(&self, tok: &Token) -> Loc {
+  pub fn loc(&self, tok: &Token) -> (usize, usize) {
     let index = tok.index();
-    let mut loc = Loc::default();
+    let mut loc = (1, 1);
 
-    for &i in &self.orig[..index] {
-      loc.inc(i);
+    for &b in &self.orig[..index] {
+      if b == b'\n' {
+        loc.0 += 1;
+        loc.1 = 1;
+      } else {
+        loc.1 += 1;
+      }
     }
 
     loc
@@ -117,6 +94,10 @@ impl<'b> Token<'b> {
 
   pub fn index(&self) -> usize {
     self.index
+  }
+
+  pub fn kind(&self) -> &TokenKind {
+    &self.kind
   }
 }
 
@@ -207,8 +188,14 @@ impl<'b> Iterator for Parser<'b> {
 
 #[cfg(test)]
 mod tests {
-  use super::Loc;
   use super::Parser;
+  use super::TokenKind;
+  use crate::inst;
+  use crate::inst::Comp;
+  use crate::inst::Dest;
+  use crate::inst::Inst;
+  use crate::inst::Jump;
+  use std::convert::TryFrom;
 
   macro_rules! parser {
     ($f:expr) => {
@@ -217,154 +204,100 @@ mod tests {
   }
 
   macro_rules! next {
-    ($parser:expr, $inst:expr) => {
-      assert_eq!($parser.next(), Some(Ok($inst)));
-    };
+    ($parser:expr, $loc:expr, $kind:path, $inst:expr) => {{
+      let tok = $parser.next().unwrap().unwrap();
+      assert_eq!(tok.kind(), &$kind($inst));
+      assert_eq!($parser.loc(&tok), $loc);
+    }};
   }
 
   #[test]
   fn empty() {
-    let mut parser = parser!("empty");
-    assert_eq!(parser.next(), None);
+    let mut p = parser!("empty");
+    assert_eq!(p.next(), None);
   }
 
   #[test]
   fn spaces() {
-    let mut parser = parser!("spaces");
-    assert_eq!(parser.next(), None);
+    let mut p = parser!("spaces");
+    assert_eq!(p.next(), None);
   }
 
   #[test]
   fn comments() {
-    let mut parser = parser!("comments");
-    assert_eq!(parser.next(), None);
+    let mut p = parser!("comments");
+    assert_eq!(p.next(), None);
   }
 
   #[test]
   fn addr_nums() {
-    let mut parser = parser!("addr_nums");
-    next!(parser, Tok(loc!(3, 5), Inst::Addr(Addr::Num(8192))));
-    next!(parser, Tok(loc!(5, 1), Inst::Addr(Addr::Num(123))));
-    next!(parser, Tok(loc!(9, 5), Inst::Addr(Addr::Num(556))));
-    assert_eq!(parser.next(), None);
+    let mut p = parser!("addr_nums");
+    next!(p, (3, 5), TokenKind::Addr, inst::Addr::Num(8192));
+    next!(p, (5, 1), TokenKind::Addr, inst::Addr::Num(123));
+    next!(p, (9, 5), TokenKind::Addr, inst::Addr::Num(556));
+    assert_eq!(p.next(), None);
   }
 
   macro_rules! label {
-    ($label:path, $line:expr, $col:expr, $text:expr) => {
-      $label(loc!($line, $col), Text::from_slice($text))
+    ($txt:expr) => {
+      inst::Label::try_from(&$txt[..]).unwrap()
     };
   }
 
   #[test]
   fn address_labels() {
-    let mut parser = parser!("addr_labels");
-    next!(parser, label!(Inst::AddrLabel, 3, 5, b"FOO"));
-    next!(parser, label!(Inst::AddrLabel, 5, 1, b"BARBAZ"));
-    next!(parser, Inst::AddrKBD(loc!(9, 5)));
-    next!(parser, label!(Inst::AddrLabel, 11, 1, b"BAZOO"));
-    next!(parser, Inst::AddrLCL(loc!(13, 1)));
-    next!(parser, label!(Inst::AddrLabel, 13, 6, b"LCLCL"));
-    next!(parser, Inst::AddrSCREEN(loc!(14, 1)));
-    next!(parser, Inst::AddrSP(loc!(14, 9)));
-    next!(parser, label!(Inst::AddrLabel, 14, 13, b"SPP"));
-    next!(parser, Inst::AddrARG(loc!(15, 1)));
-    next!(parser, label!(Inst::AddrLabel, 15, 6, b"ARG0"));
-    next!(parser, Inst::AddrTHIS(loc!(16, 1)));
-    next!(parser, Inst::AddrTHAT(loc!(16, 7)));
-    next!(parser, label!(Inst::AddrLabel, 16, 13, b"THOSE"));
-    next!(parser, Inst::AddrR0(loc!(17, 1)));
-    next!(parser, Inst::AddrR1(loc!(17, 5)));
-    next!(parser, Inst::AddrR11(loc!(17, 9)));
-    next!(parser, label!(Inst::AddrLabel, 17, 14, b"R1_hello"));
-    next!(parser, label!(Inst::AddrLabel, 17, 24, b"R11_hello"));
-    assert_eq!(parser.next(), None);
+    let mut p = parser!("addr_labels");
+    next!(p, (3, 5), TokenKind::Addr, inst::Addr::Label(label!(b"FOO")));
+    next!(p, (5, 1), TokenKind::Addr, inst::Addr::Label(label!(b"BARBAZ")));
+    next!(p, (9, 5), TokenKind::Addr, inst::Addr::Predef(inst::Predef::KBD));
+    next!(p, (11, 1), TokenKind::Addr, inst::Addr::Label(label!(b"BAZOO")));
+    next!(p, (13, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::LCL));
+    next!(p, (13, 6), TokenKind::Addr, inst::Addr::Label(label!(b"LCLCL")));
+    next!(p, (14, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::SCREEN));
+    next!(p, (14, 9), TokenKind::Addr, inst::Addr::Predef(inst::Predef::SP));
+    next!(p, (14, 13), TokenKind::Addr, inst::Addr::Label(label!(b"SPP")));
+    next!(p, (15, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::ARG));
+    next!(p, (15, 6), TokenKind::Addr, inst::Addr::Label(label!(b"ARG0")));
+    next!(p, (16, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::THIS));
+    next!(p, (16, 7), TokenKind::Addr, inst::Addr::Predef(inst::Predef::THAT));
+    next!(p, (16, 13), TokenKind::Addr, inst::Addr::Label(label!(b"THOSE")));
+    next!(p, (17, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::R0));
+    next!(p, (17, 5), TokenKind::Addr, inst::Addr::Predef(inst::Predef::R1));
+    next!(p, (17, 9), TokenKind::Addr, inst::Addr::Predef(inst::Predef::R11));
+    next!(p, (17, 14), TokenKind::Addr, inst::Addr::Label(label!(b"R1_hello")));
+    next!(p, (17, 24), TokenKind::Addr, inst::Addr::Label(label!(b"R11_hello")));
+    assert_eq!(p.next(), None);
   }
 
   #[test]
   fn label() {
-    let mut parser = parser!("label");
-    next!(parser, label!(Inst::AddrLabel, 3, 5, b"FOO"));
-    next!(parser, label!(Inst::Label, 5, 1, b"LABEL"));
-    next!(parser, label!(Inst::AddrLabel, 9, 5, b"LABEL"));
-    next!(parser, label!(Inst::AddrLabel, 11, 1, b"BAR"));
-    next!(parser, label!(Inst::Label, 13, 1, b"BAR"));
-    next!(parser, label!(Inst::AddrLabel, 15, 1, b"LAB0"));
-    next!(parser, label!(Inst::Label, 17, 1, b"LAB0"));
-    assert_eq!(parser.next(), None);
-  }
-
-  #[test]
-  fn assignments() {
-    let mut parser = parser!("assignments");
-    assert_next!(
-      parser,
-      Token::Assignment(Destination::A, Computation::MMinus1),
-      Location::new(1, 1)
-    );
-    assert_next!(
-      parser,
-      Token::Assignment(Destination::AM, Computation::DOrA),
-      Location::new(2, 1)
-    );
-    assert_next!(
-      parser,
-      Token::Assignment(Destination::AMD, Computation::APlus1),
-      Location::new(3, 1)
-    );
-    assert_eq!(parser.next(), None);
-  }
-
-  #[test]
-  fn branches() {
-    let mut parser = parser!("branches");
-    assert_next!(parser, tbuf, Token::Comp(Comp::MMinus1));
-    assert_eq!(parser.token_pos(), Location::new(1, 1));
-    assert_next!(parser, tbuf, Token::Semi);
-    assert_eq!(parser.token_pos(), Location::new(1, 4));
-    assert_next!(parser, tbuf, Token::Jump(Jump::JEQ));
-    assert_eq!(parser.token_pos(), Location::new(1, 5));
-    assert_next!(parser, tbuf, Token::Comp(Comp::DOrA));
-    assert_eq!(parser.token_pos(), Location::new(2, 1));
-    assert_next!(parser, tbuf, Token::Semi);
-    assert_eq!(parser.token_pos(), Location::new(2, 4));
-    assert_next!(parser, tbuf, Token::Jump(Jump::JNE));
-    assert_eq!(parser.token_pos(), Location::new(2, 5));
-    assert_next!(parser, tbuf, Token::Comp(Comp::APlus1));
-    assert_eq!(parser.token_pos(), Location::new(3, 1));
-    assert_next!(parser, tbuf, Token::Semi);
-    assert_eq!(parser.token_pos(), Location::new(3, 4));
-    assert_next!(parser, tbuf, Token::Jump(Jump::JMP));
-    assert_eq!(parser.token_pos(), Location::new(3, 5));
-    assert_eq!(parser.next(), None);
+    let mut p = parser!("label");
+    next!(p, (3, 5), TokenKind::Addr, inst::Addr::Label(label!(b"FOO")));
+    next!(p, (5, 1), TokenKind::Label, label!(b"LABEL"));
+    next!(p, (9, 5), TokenKind::Addr, inst::Addr::Label(label!(b"LABEL")));
+    next!(p, (11, 1), TokenKind::Addr, inst::Addr::Label(label!(b"BAR")));
+    next!(p, (13, 1), TokenKind::Label, inst::Label::try_from(&b"BAR"[..]).unwrap());
+    next!(p, (15, 1), TokenKind::Addr, inst::Addr::Label(label!(b"LAB0")));
+    next!(p, (17, 1), TokenKind::Label, label!(b"LAB0"));
+    assert_eq!(p.next(), None);
   }
 
   #[test]
   fn instructions() {
-    let mut parser = parser!("instructions");
-    assert_next!(parser, tbuf, Token::Dest(Dest::A));
-    assert_eq!(parser.token_pos(), Location::new(1, 1));
-    assert_next!(parser, tbuf, Token::Comp(Comp::MMinus1));
-    assert_eq!(parser.token_pos(), Location::new(1, 3));
-    assert_next!(parser, tbuf, Token::Semi);
-    assert_eq!(parser.token_pos(), Location::new(1, 6));
-    assert_next!(parser, tbuf, Token::Jump(Jump::JEQ));
-    assert_eq!(parser.token_pos(), Location::new(1, 7));
-    assert_next!(parser, tbuf, Token::Dest(Dest::AM));
-    assert_eq!(parser.token_pos(), Location::new(2, 1));
-    assert_next!(parser, tbuf, Token::Comp(Comp::DOrA));
-    assert_eq!(parser.token_pos(), Location::new(2, 4));
-    assert_next!(parser, tbuf, Token::Semi);
-    assert_eq!(parser.token_pos(), Location::new(2, 7));
-    assert_next!(parser, tbuf, Token::Jump(Jump::JNE));
-    assert_eq!(parser.token_pos(), Location::new(2, 8));
-    assert_next!(parser, tbuf, Token::Dest(Dest::AMD));
-    assert_eq!(parser.token_pos(), Location::new(3, 1));
-    assert_next!(parser, tbuf, Token::Comp(Comp::APlus1));
-    assert_eq!(parser.token_pos(), Location::new(3, 5));
-    assert_next!(parser, tbuf, Token::Semi);
-    assert_eq!(parser.token_pos(), Location::new(3, 8));
-    assert_next!(parser, tbuf, Token::Jump(Jump::JMP));
-    assert_eq!(parser.token_pos(), Location::new(3, 9));
-    assert_eq!(parser.next(), None);
+    let mut p = parser!("instructions");
+
+    next!(p, (1, 1), TokenKind::Inst, Inst::new(Dest::A, Comp::MMinus1, Jump::Null));
+    next!(p, (2, 1), TokenKind::Inst, Inst::new(Dest::AM, Comp::DOrA, Jump::Null));
+    next!(p, (3, 1), TokenKind::Inst, Inst::new(Dest::AMD, Comp::APlus1, Jump::Null));
+
+    next!(p, (4, 1), TokenKind::Inst, Inst::new(Dest::Null, Comp::MMinus1, Jump::JEQ));
+    next!(p, (5, 1), TokenKind::Inst, Inst::new(Dest::Null, Comp::DOrA, Jump::JNE));
+    next!(p, (6, 1), TokenKind::Inst, Inst::new(Dest::Null, Comp::APlus1, Jump::JMP));
+
+    next!(p, (7, 1), TokenKind::Inst, Inst::new(Dest::A, Comp::MMinus1, Jump::JEQ));
+    next!(p, (8, 1), TokenKind::Inst, Inst::new(Dest::AM, Comp::DOrA, Jump::JNE));
+    next!(p, (9, 1), TokenKind::Inst, Inst::new(Dest::AMD, Comp::APlus1, Jump::JMP));
+
+    assert_eq!(p.next(), None);
   }
 }
