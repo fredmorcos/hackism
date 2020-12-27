@@ -3,16 +3,13 @@
 //! An [instruction](Inst) can represent different types of commands
 //! in the HACK assembly language.
 
-use std::convert::TryFrom;
-use std::fmt;
-
 use crate::comp::Comp;
 use crate::dest::Dest;
 use crate::jump::Jump;
 use crate::utils;
 use crate::utils::Buf;
 
-use atoi::FromRadix10Checked;
+use std::fmt;
 
 /// An instruction as defined by the HACK assembly reference.
 ///
@@ -27,7 +24,7 @@ use atoi::FromRadix10Checked;
 /// use has::comp::Comp;
 /// use has::jump::Jump;
 ///
-/// let inst = Inst::new(Dest::MD, Comp::DPlusA, Jump::JGT);
+/// let inst = Inst::new(Dest::MD, Comp::DPlusA, Jump::JGT).unwrap();
 /// assert_eq!(format!("{}", inst), "MD=D+A;JGT");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,10 +50,25 @@ impl fmt::Display for Inst {
   }
 }
 
+/// Error parsing or creating an instruction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Err {
+  /// An instruction must at least have a destination or a jump.
+  MissingDestJump,
+  /// Invalid computation.
+  InvalidComp,
+  /// Invalid jump.
+  InvalidJump,
+}
+
 impl Inst {
   /// Create a new instruction object.
-  pub fn new(dest: Dest, comp: Comp, jump: Jump) -> Self {
-    Self { dest, comp, jump }
+  pub fn new(dest: Dest, comp: Comp, jump: Jump) -> Result<Self, Err> {
+    if dest == Dest::Null && jump == Jump::Null {
+      return Err(Err::MissingDestJump);
+    }
+
+    Ok(Self { dest, comp, jump })
   }
 
   /// Returns the [destination](Dest) of an instruction object.
@@ -73,20 +85,6 @@ impl Inst {
   pub fn jump(&self) -> Jump {
     self.jump
   }
-}
-
-/// Error parsing an instruction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Err {
-  /// A destination is missing.
-  ///
-  /// This means that, in an instruction without a jump, it's invalid
-  /// to also not have a destination.
-  MissingDest,
-  /// Invalid computation.
-  InvalidComp,
-  /// Invalid jump.
-  InvalidJump,
 }
 
 impl Inst {
@@ -106,16 +104,16 @@ impl Inst {
   ///
   /// assert_eq!(Inst::read_from("".as_bytes()), Err(inst::Err::InvalidComp));
   /// assert_eq!(Inst::read_from("Foo".as_bytes()), Err(inst::Err::InvalidComp));
-  /// assert_eq!(Inst::read_from("D|A".as_bytes()), Err(inst::Err::MissingDest));
+  /// assert_eq!(Inst::read_from("D|A".as_bytes()), Err(inst::Err::MissingDestJump));
   /// assert_eq!(Inst::read_from("D|A;".as_bytes()), Err(inst::Err::InvalidJump));
   /// assert_eq!(Inst::read_from("D|A;JJJ".as_bytes()), Err(inst::Err::InvalidJump));
   ///
   /// assert_eq!(Inst::read_from("D=D+A;JGT".as_bytes()),
-  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::JGT), "".as_bytes(), 9)));
+  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::JGT).unwrap(), "".as_bytes(), 9)));
   /// assert_eq!(Inst::read_from("D+A;JGT".as_bytes()),
-  ///            Ok((Inst::new(Dest::Null, Comp::DPlusA, Jump::JGT), "".as_bytes(), 7)));
+  ///            Ok((Inst::new(Dest::Null, Comp::DPlusA, Jump::JGT).unwrap(), "".as_bytes(), 7)));
   /// assert_eq!(Inst::read_from("D=D+A".as_bytes()),
-  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::Null), "".as_bytes(), 5)));
+  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::Null).unwrap(), "".as_bytes(), 5)));
   /// ```
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let mut inst_len = 0;
@@ -141,7 +139,7 @@ impl Inst {
     let buf = if let Some((_, buf)) = utils::read_one(buf, |b| b == b';') {
       if let Ok((jump, rem, len)) = Jump::read_from(buf) {
         inst_len += len + 1;
-        return Ok((Inst::new(dest, comp, jump), rem, inst_len));
+        return Ok((Inst::new(dest, comp, jump)?, rem, inst_len));
       } else {
         return Err(Err::InvalidJump);
       }
@@ -149,10 +147,6 @@ impl Inst {
       buf
     };
 
-    if dest == Dest::Null {
-      return Err(Err::MissingDest);
-    }
-
-    Ok((Inst::new(dest, comp, Jump::Null), buf, inst_len))
+    Ok((Inst::new(dest, comp, Jump::Null)?, buf, inst_len))
   }
 }

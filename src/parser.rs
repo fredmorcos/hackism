@@ -339,21 +339,27 @@ mod tests {
     assert_eq!(p.next(), None);
   }
 
+  macro_rules! inst {
+    ($dest:expr, $comp:expr, $jump:expr) => {
+      Inst::new($dest, $comp, $jump).unwrap()
+    };
+  }
+
   #[test]
   fn instructions() {
     let mut p = parser!("instructions");
 
-    next!(p, (1, 1), TokenKind::Inst, Inst::new(Dest::A, Comp::MMinus1, Jump::Null));
-    next!(p, (2, 1), TokenKind::Inst, Inst::new(Dest::AM, Comp::DOrA, Jump::Null));
-    next!(p, (3, 1), TokenKind::Inst, Inst::new(Dest::AMD, Comp::APlus1, Jump::Null));
+    next!(p, (1, 1), TokenKind::Inst, inst!(Dest::A, Comp::MMinus1, Jump::Null));
+    next!(p, (2, 1), TokenKind::Inst, inst!(Dest::AM, Comp::DOrA, Jump::Null));
+    next!(p, (3, 1), TokenKind::Inst, inst!(Dest::AMD, Comp::APlus1, Jump::Null));
 
-    next!(p, (4, 1), TokenKind::Inst, Inst::new(Dest::Null, Comp::MMinus1, Jump::JEQ));
-    next!(p, (5, 1), TokenKind::Inst, Inst::new(Dest::Null, Comp::DOrA, Jump::JNE));
-    next!(p, (6, 1), TokenKind::Inst, Inst::new(Dest::Null, Comp::APlus1, Jump::JMP));
+    next!(p, (4, 1), TokenKind::Inst, inst!(Dest::Null, Comp::MMinus1, Jump::JEQ));
+    next!(p, (5, 1), TokenKind::Inst, inst!(Dest::Null, Comp::DOrA, Jump::JNE));
+    next!(p, (6, 1), TokenKind::Inst, inst!(Dest::Null, Comp::APlus1, Jump::JMP));
 
-    next!(p, (7, 1), TokenKind::Inst, Inst::new(Dest::A, Comp::MMinus1, Jump::JEQ));
-    next!(p, (8, 1), TokenKind::Inst, Inst::new(Dest::AM, Comp::DOrA, Jump::JNE));
-    next!(p, (9, 1), TokenKind::Inst, Inst::new(Dest::AMD, Comp::APlus1, Jump::JMP));
+    next!(p, (7, 1), TokenKind::Inst, inst!(Dest::A, Comp::MMinus1, Jump::JEQ));
+    next!(p, (8, 1), TokenKind::Inst, inst!(Dest::AM, Comp::DOrA, Jump::JNE));
+    next!(p, (9, 1), TokenKind::Inst, inst!(Dest::AMD, Comp::APlus1, Jump::JMP));
 
     assert_eq!(p.next(), None);
   }
