@@ -1,56 +1,55 @@
-// use std::collections::HashMap as Map;
-// use std::fmt;
+use std::collections::HashMap as Map;
+use std::convert::TryFrom;
 
-// use crate::gen::Gen;
+use crate::inst;
+use crate::parser;
+use crate::parser::Parser;
+use crate::utils::Buf;
 
-// pub struct Prog {
-//   st: Map<Txt, SymInfo>,
-//   stmts: Vec<Stmt>,
-//   idx: usize,
-//   gen: Gen,
-// }
+use either::Either;
 
-// #[derive(Debug)]
-// pub enum Err {
-//   Parse(parse::Err),
-// }
+pub struct Prog<'b> {
+  symtable: Map<inst::Label<'b>, u16>,
+  instructions: Vec<Either<inst::Addr<'b>, inst::Inst>>,
+}
 
-// impl fmt::Display for Err {
-//   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//     match self {
-//       Err::Parse(e) => write!(f, "Parsing error: {}", e),
-//     }
-//   }
-// }
+pub enum Err {
+  Parser(parser::Err),
+  DuplicateLabel(u16),
+}
 
-// impl Prog {
-//   pub fn try_from(buf: &[u8]) -> Result<Self, Err> {
-//     let mut st = Map::new();
-//     let mut stmts = Vec::new();
-//     let mut parse = Parse::new(buf, &mut st);
+impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
+  type Error = Err;
 
-//     while let Some(stmt) = parse.next() {
-//       let stmt = stmt.map_err(Err::Parse)?;
-//       stmts.push(stmt);
-//     }
+  fn try_from(buf: Buf<'b>) -> Result<Self, Self::Error> {
+    let mut symtable = Map::new();
+    let mut instructions = Vec::new();
+    let parser = Parser::from(buf);
+    let mut index = 0;
 
-//     Ok(Self { st, stmts, idx: 0, gen: Gen::default() })
-//   }
-// }
+    for token in parser {
+      let token = token.map_err(Err::Parser)?;
 
-// impl Iterator for Prog {
-//   type Item = u16;
+      match token.kind() {
+        parser::TokenKind::Label(label) => {
+          if symtable.insert(label, index).is_some() {
+            return Err(Err::DuplicateLabel(index));
+          }
+        }
+        parser::TokenKind::Addr(addr) => {
+          instructions.push(Either::Left(addr));
+          index += 1;
+        }
+        parser::TokenKind::Inst(inst) => {
+          instructions.push(Either::Right(inst));
+          index += 1;
+        }
+      }
+    }
 
-//   fn next(&mut self) -> Option<Self::Item> {
-//     if let Some(stmt) = self.stmts.get(self.idx) {
-//       self.idx += 1;
-//       Some(self.gen.encode(stmt, &mut self.st))
-//     } else {
-//       self.idx = 0;
-//       None
-//     }
-//   }
-// }
+    Ok(Self { symtable, instructions })
+  }
+}
 
 // impl Prog {
 //   pub fn text_encode(val: u16) -> [u8; 16] {

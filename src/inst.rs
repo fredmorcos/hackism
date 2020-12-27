@@ -1076,7 +1076,7 @@ impl fmt::Display for Predef {
 ///
 /// assert_eq!(format!("{}", Label::try_from(&b"foobar"[..]).unwrap()), "foobar");
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Label<'b>(&'b [u8]);
 
 impl Label<'_> {

@@ -8,7 +8,7 @@
 
 pub mod inst;
 pub mod parser;
+pub mod prog;
 pub mod utils;
 
 mod gen;
-mod prog;
