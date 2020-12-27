@@ -1,3 +1,8 @@
+//! Structures for dealing with HACK assembly programs.
+//!
+//! [Prog] can be used to represent the (flat) parse tree of a HACK
+//! assembly program.
+
 use std::collections::HashMap as Map;
 use std::convert::TryFrom;
 
@@ -8,13 +13,27 @@ use crate::utils::Buf;
 
 use either::Either;
 
+/// A HACK assembly program.
+///
+/// Contains the symbol table for declared labels and the list (flat
+/// tree) of A- and C- instructions in the program.
+///
+/// # `impl TryFrom<Buf>`
+///
+/// A program can be created from an input buffer. This internally
+/// [parses](has::parser::Parser) the input buffer.
 pub struct Prog<'b> {
   symtable: Map<inst::Label<'b>, u16>,
   instructions: Vec<Either<inst::Addr<'b>, inst::Inst>>,
 }
 
+/// Possible errors returned from loading a HACK assembly program.
 pub enum Err {
+  /// Parse errors.
   Parser(parser::Err),
+  /// A duplicate label was found.
+  ///
+  /// Contains the index of the duplicate label in the input buffer.
   DuplicateLabel(u16),
 }
 
