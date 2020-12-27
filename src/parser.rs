@@ -57,6 +57,10 @@ impl<'b> From<Buf<'b>> for Parser<'b> {
 }
 
 impl Parser<'_> {
+  /// Calculate the line and column of a [Token].
+  ///
+  /// Returns a tuple `(line, column)` corresponding to the location
+  /// of a [Token] in the original input buffer.
   pub fn loc(&self, tok: &Token) -> (usize, usize) {
     let index = tok.index();
     let mut loc = (1, 1);
@@ -74,13 +78,19 @@ impl Parser<'_> {
   }
 }
 
+/// The kind of a [Token].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind<'b> {
+  /// A label as defined by the HACK assembly reference: `(FOO)`.
   Label(inst::Label<'b>),
+  /// An address as defined by the HACK assembly reference: `@FOO`.
   Addr(inst::Addr<'b>),
+  /// An instruction as defined by the HACK assembly reference:
+  /// `D=A+1;JMP`.
   Inst(inst::Inst),
 }
 
+/// Units returned by iterating over a [Parser].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token<'b> {
   index: usize,
@@ -88,27 +98,44 @@ pub struct Token<'b> {
 }
 
 impl<'b> Token<'b> {
+  /// Create a new token.
+  ///
+  /// # Arguments
+  ///
+  /// * `index` - The token's index.
+  ///
+  /// * `kind` - The token's kind.
   pub fn new(index: usize, kind: TokenKind<'b>) -> Self {
     Self { index, kind }
   }
 
+  /// Returns the index in the buffer the token was created from.
   pub fn index(&self) -> usize {
     self.index
   }
 
+  /// Returns the kind of token.
   pub fn kind(&self) -> &TokenKind {
     &self.kind
   }
 }
 
+/// Kind of parsing error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrKind {
+  /// Expected a second `/` to form a comment.
   ExpectedComment,
+  /// Parsed a label that was invalid.
+  ///
+  /// Either the label text was invalid or a closing ')' was missing.
   InvalidLabel,
+  /// Invalid address.
   InvalidAddr(inst::AddrErr),
+  /// Invalid instruction.
   InvalidInst(inst::InstErr),
 }
 
+/// Error during parsing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Err {
   index: usize,
@@ -116,8 +143,26 @@ pub struct Err {
 }
 
 impl Err {
+  /// Create a new parsing error.
+  ///
+  /// # Arguments
+  ///
+  /// * `index` - The index in the buffer at which the error occurred.
+  ///
+  /// * `kind` - The kind if parsing error.
   fn new(index: usize, kind: ErrKind) -> Self {
     Self { index, kind }
+  }
+
+  /// Returns the index in the input buffer at which the error
+  /// occurred.
+  pub fn index(&self) -> usize {
+    self.index
+  }
+
+  /// Returns the kind of parsing error.
+  pub fn kind(&self) -> ErrKind {
+    self.kind
   }
 }
 
