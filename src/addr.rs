@@ -163,23 +163,29 @@ impl<'b> Addr<'b> {
   /// use has::symbol::Symbol;
   /// use std::convert::TryFrom;
   ///
-  /// assert_eq!(Addr::read_from("".as_bytes()), Err(addr::Err::InvalidLabel));
-  /// assert_eq!(Addr::read_from("123Foo".as_bytes()), Err(addr::Err::InvalidNum));
-  /// assert_eq!(Addr::read_from("%Foo".as_bytes()), Err(addr::Err::InvalidLabel));
+  /// assert_eq!(Addr::read_from(&b""[..]), Err(addr::Err::InvalidLabel));
+  /// assert_eq!(Addr::read_from(&b"123Foo"[..]), Err(addr::Err::InvalidNum));
+  /// assert_eq!(Addr::read_from(&b"%Foo"[..]), Err(addr::Err::InvalidLabel));
   ///
-  /// assert_eq!(Addr::read_from("123".as_bytes()),
-  ///            Ok((Addr::Num(123), "".as_bytes(), 3)));
-  /// assert_eq!(Addr::read_from("Foo".as_bytes()),
-  ///            Ok((Addr::Label(Label::try_from("Foo".as_bytes()).unwrap()), "".as_bytes(), 3)));
-  /// assert_eq!(Addr::read_from("F_B".as_bytes()),
-  ///            Ok((Addr::Label(Label::try_from("F_B".as_bytes()).unwrap()), "".as_bytes(), 3)));
-  /// assert_eq!(Addr::read_from("_FB".as_bytes()),
-  ///            Ok((Addr::Label(Label::try_from("_FB".as_bytes()).unwrap()), "".as_bytes(), 3)));
+  /// assert_eq!(
+  ///   Addr::read_from(&b"123"[..]),
+  ///   Ok((Addr::Num(123), &b""[..], 3)));
+  /// assert_eq!(
+  ///   Addr::read_from(&b"Foo"[..]),
+  ///   Ok((Addr::Label(Label::try_from(&b"Foo"[..]).unwrap()), &b""[..], 3)));
+  /// assert_eq!(
+  ///   Addr::read_from(&b"F_B"[..]),
+  ///   Ok((Addr::Label(Label::try_from(&b"F_B"[..]).unwrap()), &b""[..], 3)));
+  /// assert_eq!(
+  ///   Addr::read_from(&b"_FB"[..]),
+  ///   Ok((Addr::Label(Label::try_from(&b"_FB"[..]).unwrap()), &b""[..], 3)));
   ///
-  /// assert_eq!(Addr::read_from("LCL".as_bytes()),
-  ///            Ok((Addr::Symbol(Symbol::try_from("LCL".as_bytes()).unwrap()), "".as_bytes(), 3)));
-  /// assert_eq!(Addr::read_from("R0".as_bytes()),
-  ///            Ok((Addr::Symbol(Symbol::try_from("R0".as_bytes()).unwrap()), "".as_bytes(), 2)));
+  /// assert_eq!(
+  ///   Addr::read_from(&b"LCL"[..]),
+  ///   Ok((Addr::Symbol(Symbol::try_from(&b"LCL"[..]).unwrap()), &b""[..], 3)));
+  /// assert_eq!(
+  ///   Addr::read_from(&b"R0"[..]),
+  ///   Ok((Addr::Symbol(Symbol::try_from(&b"R0"[..]).unwrap()), &b""[..], 2)));
   /// ```
   pub fn read_from(buf: Buf<'b>) -> Result<(Self, Buf<'b>, usize), Err> {
     if let Some((_, _)) = utils::read_one(buf, |b| b.is_ascii_digit()) {
