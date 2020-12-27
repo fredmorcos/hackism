@@ -115,8 +115,8 @@ impl<'b> Token<'b> {
   }
 
   /// Returns the kind of token.
-  pub fn kind(&self) -> &TokenKind {
-    &self.kind
+  pub fn kind(self) -> TokenKind<'b> {
+    self.kind
   }
 }
 
@@ -251,8 +251,8 @@ mod tests {
   macro_rules! next {
     ($parser:expr, $loc:expr, $kind:path, $inst:expr) => {{
       let tok = $parser.next().unwrap().unwrap();
-      assert_eq!(tok.kind(), &$kind($inst));
       assert_eq!($parser.loc(&tok), $loc);
+      assert_eq!(tok.kind(), $kind($inst));
     }};
   }
 
