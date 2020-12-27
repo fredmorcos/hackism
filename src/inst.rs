@@ -715,10 +715,17 @@ impl Inst {
   }
 }
 
+/// Error parsing an instruction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstErr {
+  /// A destination is missing.
+  ///
+  /// This means that, in an instruction without a jump, it's invalid
+  /// to also not have a destination.
   MissingDest,
+  /// Invalid computation.
   InvalidComp,
+  /// Invalid jump.
   InvalidJump,
 }
 
@@ -1259,9 +1266,12 @@ impl fmt::Display for Addr<'_> {
   }
 }
 
+/// Errors when parsing addresses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AddrErr {
+  /// Value is not a number or is out of the 15-bits range.
   InvalidNum,
+  /// Invalid label name.
   InvalidLabel,
 }
 
