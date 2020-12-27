@@ -3,7 +3,11 @@
 //! [Parser] is the primary structure in this module that should be
 //! used to parse HACK programs.
 
+use crate::addr;
+use crate::addr::Addr;
 use crate::inst;
+use crate::inst::Inst;
+use crate::label::Label;
 use crate::utils;
 use crate::utils::Buf;
 
@@ -29,18 +33,22 @@ use std::convert::TryFrom;
 /// use has::parser::Token;
 /// use has::parser::TokenKind;
 /// use has::inst;
+/// use has::inst::Inst;
+/// use has::addr::Addr;
+/// use has::label::Label;
+///
 /// use std::convert::TryFrom;
 ///
 /// let prog = "(FOO)\n@FOO\nD=D+A;JMP".as_bytes();
 /// let mut parser = Parser::from(prog);
 /// assert_eq!(parser.next(), Some(Ok(Token::new(0,
-///   TokenKind::Label(inst::Label::try_from("FOO".as_bytes()).unwrap()),
+///   TokenKind::Label(Label::try_from("FOO".as_bytes()).unwrap()),
 /// ))));
 /// assert_eq!(parser.next(), Some(Ok(Token::new(6,
-///   TokenKind::Addr(inst::Addr::read_from("FOO".as_bytes()).unwrap().0),
+///   TokenKind::Addr(Addr::read_from("FOO".as_bytes()).unwrap().0),
 /// ))));
 /// assert_eq!(parser.next(), Some(Ok(Token::new(11,
-///   TokenKind::Inst(inst::Inst::read_from("D=D+A;JMP".as_bytes()).unwrap().0),
+///   TokenKind::Inst(Inst::read_from("D=D+A;JMP".as_bytes()).unwrap().0),
 /// ))));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,12 +90,12 @@ impl Parser<'_> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind<'b> {
   /// A label as defined by the HACK assembly reference: `(FOO)`.
-  Label(inst::Label<'b>),
+  Label(Label<'b>),
   /// An address as defined by the HACK assembly reference: `@FOO`.
-  Addr(inst::Addr<'b>),
+  Addr(Addr<'b>),
   /// An instruction as defined by the HACK assembly reference:
   /// `D=A+1;JMP`.
-  Inst(inst::Inst),
+  Inst(Inst),
 }
 
 /// Units returned by iterating over a [Parser].
@@ -130,9 +138,9 @@ pub enum ErrKind {
   /// Either the label text was invalid or a closing ')' was missing.
   InvalidLabel,
   /// Invalid address.
-  InvalidAddr(inst::AddrErr),
+  InvalidAddr(addr::Err),
   /// Invalid instruction.
-  InvalidInst(inst::InstErr),
+  InvalidInst(inst::Err),
 }
 
 /// Error during parsing.
@@ -194,7 +202,7 @@ impl<'b> Iterator for Parser<'b> {
       } else if b == b'(' {
         let index = self.index;
         let (txt, rem) = utils::read_while(&self.buf[1..], |b| b != b')');
-        let label = match inst::Label::try_from(txt) {
+        let label = match Label::try_from(txt) {
           Ok(label) => label,
           Err(_) => return Some(Err(Err::new(self.index, ErrKind::InvalidLabel))),
         };
@@ -208,7 +216,7 @@ impl<'b> Iterator for Parser<'b> {
         return Some(Ok(Token { index, kind: TokenKind::Label(label) }));
       } else if b == b'@' {
         let index = self.index;
-        match inst::Addr::read_from(&self.buf[1..]) {
+        match Addr::read_from(&self.buf[1..]) {
           Ok((addr, rem, len)) => {
             self.buf = rem;
             self.index += len + 1;
@@ -218,7 +226,7 @@ impl<'b> Iterator for Parser<'b> {
         }
       } else {
         let index = self.index;
-        match inst::Inst::read_from(self.buf) {
+        match Inst::read_from(self.buf) {
           Ok((inst, rem, len)) => {
             self.buf = rem;
             self.index += len;
@@ -235,11 +243,15 @@ impl<'b> Iterator for Parser<'b> {
 mod tests {
   use super::Parser;
   use super::TokenKind;
-  use crate::inst;
-  use crate::inst::Comp;
-  use crate::inst::Dest;
+
+  use crate::addr::Addr;
+  use crate::comp::Comp;
+  use crate::dest::Dest;
   use crate::inst::Inst;
-  use crate::inst::Jump;
+  use crate::jump::Jump;
+  use crate::label::Label;
+  use crate::symbol::Symbol;
+
   use std::convert::TryFrom;
 
   macro_rules! parser {
@@ -277,52 +289,52 @@ mod tests {
   #[test]
   fn addr_nums() {
     let mut p = parser!("addr_nums");
-    next!(p, (3, 5), TokenKind::Addr, inst::Addr::Num(8192));
-    next!(p, (5, 1), TokenKind::Addr, inst::Addr::Num(123));
-    next!(p, (9, 5), TokenKind::Addr, inst::Addr::Num(556));
+    next!(p, (3, 5), TokenKind::Addr, Addr::Num(8192));
+    next!(p, (5, 1), TokenKind::Addr, Addr::Num(123));
+    next!(p, (9, 5), TokenKind::Addr, Addr::Num(556));
     assert_eq!(p.next(), None);
   }
 
   macro_rules! label {
     ($txt:expr) => {
-      inst::Label::try_from(&$txt[..]).unwrap()
+      Label::try_from(&$txt[..]).unwrap()
     };
   }
 
   #[test]
   fn address_labels() {
     let mut p = parser!("addr_labels");
-    next!(p, (3, 5), TokenKind::Addr, inst::Addr::Label(label!(b"FOO")));
-    next!(p, (5, 1), TokenKind::Addr, inst::Addr::Label(label!(b"BARBAZ")));
-    next!(p, (9, 5), TokenKind::Addr, inst::Addr::Predef(inst::Predef::KBD));
-    next!(p, (11, 1), TokenKind::Addr, inst::Addr::Label(label!(b"BAZOO")));
-    next!(p, (13, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::LCL));
-    next!(p, (13, 6), TokenKind::Addr, inst::Addr::Label(label!(b"LCLCL")));
-    next!(p, (14, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::SCREEN));
-    next!(p, (14, 9), TokenKind::Addr, inst::Addr::Predef(inst::Predef::SP));
-    next!(p, (14, 13), TokenKind::Addr, inst::Addr::Label(label!(b"SPP")));
-    next!(p, (15, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::ARG));
-    next!(p, (15, 6), TokenKind::Addr, inst::Addr::Label(label!(b"ARG0")));
-    next!(p, (16, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::THIS));
-    next!(p, (16, 7), TokenKind::Addr, inst::Addr::Predef(inst::Predef::THAT));
-    next!(p, (16, 13), TokenKind::Addr, inst::Addr::Label(label!(b"THOSE")));
-    next!(p, (17, 1), TokenKind::Addr, inst::Addr::Predef(inst::Predef::R0));
-    next!(p, (17, 5), TokenKind::Addr, inst::Addr::Predef(inst::Predef::R1));
-    next!(p, (17, 9), TokenKind::Addr, inst::Addr::Predef(inst::Predef::R11));
-    next!(p, (17, 14), TokenKind::Addr, inst::Addr::Label(label!(b"R1_hello")));
-    next!(p, (17, 24), TokenKind::Addr, inst::Addr::Label(label!(b"R11_hello")));
+    next!(p, (3, 5), TokenKind::Addr, Addr::Label(label!(b"FOO")));
+    next!(p, (5, 1), TokenKind::Addr, Addr::Label(label!(b"BARBAZ")));
+    next!(p, (9, 5), TokenKind::Addr, Addr::Symbol(Symbol::KBD));
+    next!(p, (11, 1), TokenKind::Addr, Addr::Label(label!(b"BAZOO")));
+    next!(p, (13, 1), TokenKind::Addr, Addr::Symbol(Symbol::LCL));
+    next!(p, (13, 6), TokenKind::Addr, Addr::Label(label!(b"LCLCL")));
+    next!(p, (14, 1), TokenKind::Addr, Addr::Symbol(Symbol::SCREEN));
+    next!(p, (14, 9), TokenKind::Addr, Addr::Symbol(Symbol::SP));
+    next!(p, (14, 13), TokenKind::Addr, Addr::Label(label!(b"SPP")));
+    next!(p, (15, 1), TokenKind::Addr, Addr::Symbol(Symbol::ARG));
+    next!(p, (15, 6), TokenKind::Addr, Addr::Label(label!(b"ARG0")));
+    next!(p, (16, 1), TokenKind::Addr, Addr::Symbol(Symbol::THIS));
+    next!(p, (16, 7), TokenKind::Addr, Addr::Symbol(Symbol::THAT));
+    next!(p, (16, 13), TokenKind::Addr, Addr::Label(label!(b"THOSE")));
+    next!(p, (17, 1), TokenKind::Addr, Addr::Symbol(Symbol::R0));
+    next!(p, (17, 5), TokenKind::Addr, Addr::Symbol(Symbol::R1));
+    next!(p, (17, 9), TokenKind::Addr, Addr::Symbol(Symbol::R11));
+    next!(p, (17, 14), TokenKind::Addr, Addr::Label(label!(b"R1_hello")));
+    next!(p, (17, 24), TokenKind::Addr, Addr::Label(label!(b"R11_hello")));
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn label() {
     let mut p = parser!("label");
-    next!(p, (3, 5), TokenKind::Addr, inst::Addr::Label(label!(b"FOO")));
+    next!(p, (3, 5), TokenKind::Addr, Addr::Label(label!(b"FOO")));
     next!(p, (5, 1), TokenKind::Label, label!(b"LABEL"));
-    next!(p, (9, 5), TokenKind::Addr, inst::Addr::Label(label!(b"LABEL")));
-    next!(p, (11, 1), TokenKind::Addr, inst::Addr::Label(label!(b"BAR")));
-    next!(p, (13, 1), TokenKind::Label, inst::Label::try_from(&b"BAR"[..]).unwrap());
-    next!(p, (15, 1), TokenKind::Addr, inst::Addr::Label(label!(b"LAB0")));
+    next!(p, (9, 5), TokenKind::Addr, Addr::Label(label!(b"LABEL")));
+    next!(p, (11, 1), TokenKind::Addr, Addr::Label(label!(b"BAR")));
+    next!(p, (13, 1), TokenKind::Label, Label::try_from(&b"BAR"[..]).unwrap());
+    next!(p, (15, 1), TokenKind::Addr, Addr::Label(label!(b"LAB0")));
     next!(p, (17, 1), TokenKind::Label, label!(b"LAB0"));
     assert_eq!(p.next(), None);
   }

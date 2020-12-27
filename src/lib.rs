@@ -6,9 +6,13 @@
 //! only contains a HACK assembler and few library utilities. The HACK
 //! assembler translates HACK assembly code to HACK machine code.
 
+pub mod addr;
+pub mod comp;
+pub mod dest;
 pub mod inst;
+pub mod jump;
+pub mod label;
 pub mod parser;
 pub mod prog;
+pub mod symbol;
 pub mod utils;
-
-mod gen;
