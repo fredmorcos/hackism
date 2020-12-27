@@ -11,6 +11,7 @@ use crate::inst::Inst;
 use crate::label::Label;
 use crate::parser;
 use crate::parser::Parser;
+use crate::utils;
 use crate::utils::Buf;
 
 use either::Either;
@@ -72,16 +73,26 @@ impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
   }
 }
 
-// impl Prog {
-//   pub fn text_encode(val: u16) -> [u8; 16] {
-//     Gen::text_encode(val)
-//   }
+pub struct EncodeErr<'p, 'b>(&'p Label<'b>);
 
-//   pub fn num_statements(&self) -> usize {
-//     self.stmts.len()
-//   }
+impl<'b> Prog<'b> {
+  pub fn encoder<'p>(
+    &'p self,
+  ) -> impl Iterator<Item = Result<u16, EncodeErr<'p, 'b>>> + 'p {
+    self.instructions.iter().map(move |item| match item {
+      Either::Left(Addr::Num(addr)) => Ok(*addr),
+      Either::Left(Addr::Symbol(symbol)) => Ok(u16::from(*symbol)),
+      Either::Left(Addr::Label(label)) => match self.symtable.get(label) {
+        Some(addr) => Ok(*addr),
+        None => Err(EncodeErr(label)),
+      },
+      Either::Right(inst) => Ok(u16::from(*inst)),
+    })
+  }
 
-//   pub fn num_labels(&self) -> usize {
-//     self.st.len()
-//   }
-// }
+  pub fn text_encoder<'p>(
+    &'p self,
+  ) -> impl Iterator<Item = Result<[u8; 16], EncodeErr<'p, 'b>>> + 'p {
+    self.encoder().map(|v| v.map(utils::u16_bintext))
+  }
+}

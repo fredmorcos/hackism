@@ -107,6 +107,6 @@ pub fn u16_bintext(val: u16) -> [u8; 16] {
     VALS[(val >> 0x3 & 1) as usize],
     VALS[(val >> 0x2 & 1) as usize],
     VALS[(val >> 0x1 & 1) as usize],
-    VALS[(val >> 0x0 & 1) as usize],
+    VALS[(val & 1) as usize],
   ]
 }
