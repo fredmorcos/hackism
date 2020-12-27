@@ -30,6 +30,39 @@ where
   (&buf[..split], &buf[split..])
 }
 
+/// Consume whitespace from `buf`.
+///
+/// Returns the number of consumed whitespace bytes and the remainder
+/// of the buffer.
+///
+/// # Arguments
+///
+/// * `buf` - The input buffer.
+pub fn read_ws(buf: Buf) -> (usize, Buf) {
+  let (ws, rem) = read_while(buf, |b| b.is_ascii_whitespace());
+  (ws.len(), rem)
+}
+
+/// Consume input until a newline.
+///
+/// Returns the consumed part of the input and the remainder of the
+/// buffer.
+///
+/// * `buf` - The input buffer.
+pub fn read_until_nl(buf: Buf) -> (Buf, Buf) {
+  read_while(buf, |b| b != b'\n')
+}
+
+/// Consume input until whitespace.
+///
+/// Returns the consumed part of the input and the remainder of the
+/// buffer.
+///
+/// * `buf` - The input buffer.
+pub fn read_until_ws(buf: Buf) -> (Buf, Buf) {
+  read_while(buf, |b| !b.is_ascii_whitespace())
+}
+
 /// Removes a byte (the head) of `buf` if it passes the predicate
 /// `pred`.
 ///

@@ -174,8 +174,8 @@ impl<'b> Iterator for Parser<'b> {
       let &b = self.buf.get(0)?;
 
       if b.is_ascii_whitespace() {
-        let (ws, rem) = utils::read_while(self.buf, |b| b.is_ascii_whitespace());
-        self.index += ws.len();
+        let (len, rem) = utils::read_ws(self.buf);
+        self.index += len;
         self.buf = rem;
         continue 'MAIN;
       } else if b == b'/' {
@@ -187,7 +187,7 @@ impl<'b> Iterator for Parser<'b> {
           None => return Some(Err(Err::new(self.index + 1, ErrKind::ExpectedComment))),
         }
 
-        let (com, rem) = utils::read_while(self.buf, |b| b != b'\n');
+        let (com, rem) = utils::read_until_nl(self.buf);
         self.index += com.len();
         self.buf = rem;
         continue 'MAIN;

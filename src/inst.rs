@@ -1310,7 +1310,7 @@ impl<'b> Addr<'b> {
   /// ```
   pub fn read_from(buf: Buf<'b>) -> Result<(Self, Buf<'b>, usize), AddrErr> {
     if let Some((_, _)) = utils::read_one(buf, |b| b.is_ascii_digit()) {
-      let (num, rem) = utils::read_while(buf, |b| !b.is_ascii_whitespace());
+      let (num, rem) = utils::read_until_ws(buf);
 
       match u16::from_radix_10_checked(num) {
         (Some(addr), used) if used == num.len() => {
@@ -1324,7 +1324,7 @@ impl<'b> Addr<'b> {
       }
     }
 
-    let (txt, rem) = utils::read_while(buf, |b| !b.is_ascii_whitespace());
+    let (txt, rem) = utils::read_until_ws(buf);
 
     if let Ok(predef) = Predef::try_from(txt) {
       return Ok((Self::from(predef), rem, txt.len()));
