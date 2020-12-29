@@ -1,5 +1,9 @@
 #![warn(clippy::all)]
 
+use has::prog;
+use has::prog::Prog;
+
+use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
 use std::io::BufWriter;
@@ -8,8 +12,6 @@ use std::io::{self, Read};
 use std::path::PathBuf;
 
 use derive_more::From;
-// use has::prog;
-// use has::prog::Prog;
 use log::{debug, info, trace};
 use structopt::StructOpt;
 
@@ -34,14 +36,16 @@ struct HasOptions {
 #[derive(From)]
 enum Err {
   Io(io::Error),
-  // Prog(prog::Err),
+  Prog(prog::Err),
+  Encode(prog::EncodeErr),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Err::Io(e) => write!(f, "IO error: {}", e),
-      // Err::Prog(e) => write!(f, "Program error: {}", e),
+      Err::Prog(e) => write!(f, "Program error: {}", e),
+      Err::Encode(e) => write!(f, "Encoding error: {}", e),
     }
   }
 }
@@ -84,24 +88,25 @@ fn main() -> Result<(), Err> {
     )));
   }
 
+  info!("Parsing {}", opt.file.display());
+  let mut prog = Prog::try_from(buf.as_slice())?;
+
   let output = File::create(&opt.out)?;
   let mut writer = BufWriter::new(output);
   info!("Writing to file {}", opt.out.display());
 
-  // let mut prog = Prog::try_from(buf.as_slice())?;
-  // info!(
-  //   "Program has {} statements and {} labels",
-  //   prog.num_statements(),
-  //   prog.num_labels()
-  // );
-  // for inst in &mut prog {
-  //   if opt.text {
-  //     writer.write_all(&Prog::text_encode(inst))?;
-  //     writer.write_all(&[b'\n'])?;
-  //   } else {
-  //     writer.write_all(&[(inst >> 8) as u8, inst as u8])?;
-  //   }
-  // }
+  if opt.text {
+    for inst in prog.text_encoder() {
+      let inst = &inst?;
+      writer.write_all(inst)?;
+      writer.write_all(&[b'\n'])?;
+    }
+  } else {
+    for inst in prog.encoder() {
+      let inst = inst?;
+      writer.write_all(&inst)?;
+    }
+  }
 
   Ok(())
 }

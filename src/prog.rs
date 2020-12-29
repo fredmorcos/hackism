@@ -3,9 +3,6 @@
 //! [Prog] can be used to represent the (flat) parse tree of a HACK
 //! assembly program.
 
-use std::collections::HashMap as Map;
-use std::convert::TryFrom;
-
 use crate::addr::Addr;
 use crate::inst::Inst;
 use crate::label::Label;
@@ -13,6 +10,10 @@ use crate::parser;
 use crate::parser::Parser;
 use crate::utils;
 use crate::utils::Buf;
+
+use std::collections::HashMap as Map;
+use std::convert::TryFrom;
+use std::fmt;
 
 use either::Either;
 
@@ -83,26 +84,78 @@ impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
   }
 }
 
-pub struct EncodeErr<'p, 'b>(&'p Label<'b>);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EncodeErr {
+  TooManySymbols,
+}
+
+impl fmt::Display for EncodeErr {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      EncodeErr::TooManySymbols => write!(f, "too many symbols"),
+    }
+  }
+}
+
+pub struct ProgEncoder<'b, 'p> {
+  prog: &'p mut Prog<'b>,
+  index: usize,
+  var_index: usize,
+}
+
+impl Iterator for ProgEncoder<'_, '_> {
+  type Item = Result<[u8; 2], EncodeErr>;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    let inst = self.prog.instructions.get(self.index)?;
+    self.index += 1;
+
+    let v = match inst {
+      Either::Right(inst) => u16::from(*inst),
+      Either::Left(Addr::Num(addr)) => *addr,
+      Either::Left(Addr::Symbol(symbol)) => u16::from(*symbol),
+      Either::Left(Addr::Label(label)) => {
+        if let Some(v) = self.prog.symtable.get(label) {
+          *v
+        } else {
+          if self.var_index > u16::MAX as usize {
+            return Some(Err(EncodeErr::TooManySymbols));
+          }
+
+          let current_var_index = self.var_index as u16;
+          self.var_index += 1;
+
+          self.prog.symtable.insert(label.clone(), current_var_index);
+          current_var_index
+        }
+      }
+    };
+
+    Some(Ok([(v >> 8) as u8, v as u8]))
+  }
+}
+
+pub struct ProgEncoderText<'b, 'p> {
+  encoder: ProgEncoder<'b, 'p>,
+}
+
+impl Iterator for ProgEncoderText<'_, '_> {
+  type Item = Result<[u8; 16], EncodeErr>;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    match self.encoder.next()? {
+      Ok(v) => Some(Ok(utils::u16_bintext(u16::from(v[0]) << 8 | u16::from(v[1])))),
+      Err(e) => Some(Err(e)),
+    }
+  }
+}
 
 impl<'b> Prog<'b> {
-  pub fn encoder<'p>(
-    &'p self,
-  ) -> impl Iterator<Item = Result<u16, EncodeErr<'p, 'b>>> + 'p {
-    self.instructions.iter().map(move |item| match item {
-      Either::Left(Addr::Num(addr)) => Ok(*addr),
-      Either::Left(Addr::Symbol(symbol)) => Ok(u16::from(*symbol)),
-      Either::Left(Addr::Label(label)) => match self.symtable.get(label) {
-        Some(addr) => Ok(*addr),
-        None => Err(EncodeErr(label)),
-      },
-      Either::Right(inst) => Ok(u16::from(*inst)),
-    })
+  pub fn encoder<'p>(&'p mut self) -> ProgEncoder<'b, 'p> {
+    ProgEncoder { prog: self, index: 0, var_index: 16 }
   }
 
-  pub fn text_encoder<'p>(
-    &'p self,
-  ) -> impl Iterator<Item = Result<[u8; 16], EncodeErr<'p, 'b>>> + 'p {
-    self.encoder().map(|v| v.map(utils::u16_bintext))
+  pub fn text_encoder<'p>(&'p mut self) -> ProgEncoderText<'b, 'p> {
+    ProgEncoderText { encoder: ProgEncoder { prog: self, index: 0, var_index: 16 } }
   }
 }
