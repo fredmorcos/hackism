@@ -33,13 +33,13 @@ use std::fmt;
 ///
 /// assert_eq!(
 ///   u16::from(Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap()),
-///   0b111_011111_010_000);
+///   0b111_0011111_010_000);
 /// assert_eq!(
 ///   u16::from(Inst::new(Dest::Null, Comp::DPlus1, Jump::JEQ).unwrap()),
-///   0b111_011111_000_010);
+///   0b111_0011111_000_010);
 /// assert_eq!(
 ///   u16::from(Inst::new(Dest::D, Comp::DPlus1, Jump::JEQ).unwrap()),
-///   0b111_011111_010_010);
+///   0b111_0011111_010_010);
 /// ```
 ///
 /// # impl `Display`
@@ -62,7 +62,7 @@ pub struct Inst {
 
 impl From<Inst> for u16 {
   fn from(inst: Inst) -> Self {
-    0b111 << 0xC
+    0b111 << 0xD
       | u16::from(inst.comp()) << 0x6
       | u16::from(inst.dest()) << 0x3
       | u16::from(inst.jump())
