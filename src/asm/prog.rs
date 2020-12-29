@@ -32,6 +32,7 @@ pub struct Prog<'b> {
 }
 
 /// Possible errors returned from loading a HACK assembly program.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Err {
   /// Parse errors.
   Parser(parser::Err),
