@@ -12,5 +12,5 @@ $(TMP):
 	mkdir -p $@
 
 $(TMP)/%.hack: tests/fixtures/%.asm tests/fixtures/%.hack $(TMP)
-	cargo run -q -- --text -o $@ $<
+	cargo run -q -- asm --text -o $@ $<
 	diff $@ $(patsubst %.asm,%.hack,$<)
