@@ -96,6 +96,16 @@ pub enum Err {
   InvalidJump,
 }
 
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::MissingDestJump => write!(f, "missing destination or jump"),
+      Err::InvalidComp => write!(f, "invalid computation"),
+      Err::InvalidJump => write!(f, "invalid jump"),
+    }
+  }
+}
+
 impl Inst {
   /// Create a new instruction object.
   pub fn new(dest: Dest, comp: Comp, jump: Jump) -> Result<Self, Err> {

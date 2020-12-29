@@ -37,7 +37,16 @@ pub enum Err {
   /// A duplicate label was found.
   ///
   /// Contains the index of the duplicate label in the input buffer.
-  DuplicateLabel(u16),
+  DuplicateLabel(usize),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::Parser(e) => write!(f, "parse error: {}", e),
+      Err::DuplicateLabel(index) => write!(f, "Duplicate label at index: {}", index),
+    }
+  }
 }
 
 impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
@@ -51,11 +60,12 @@ impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
 
     for token in parser {
       let token = token.map_err(Err::Parser)?;
+      let token_index = token.index();
 
       match token.kind() {
         parser::TokenKind::Label(label) => {
           if symtable.insert(label, index).is_some() {
-            return Err(Err::DuplicateLabel(index));
+            return Err(Err::DuplicateLabel(token_index));
           }
         }
         parser::TokenKind::Addr(addr) => {

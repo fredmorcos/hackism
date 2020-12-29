@@ -12,6 +12,7 @@ use crate::utils;
 use crate::utils::Buf;
 
 use std::convert::TryFrom;
+use std::fmt;
 
 /// Parser state for parsing HACK programs.
 ///
@@ -143,11 +144,28 @@ pub enum ErrKind {
   InvalidInst(inst::Err),
 }
 
+impl fmt::Display for ErrKind {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      ErrKind::ExpectedComment => write!(f, "expected comment"),
+      ErrKind::InvalidLabel => write!(f, "invalid label"),
+      ErrKind::InvalidAddr(e) => write!(f, "invalid address: {}", e),
+      ErrKind::InvalidInst(e) => write!(f, "invalid instruction: {}", e),
+    }
+  }
+}
+
 /// Error during parsing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Err {
   index: usize,
   kind: ErrKind,
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "index {}: {}", self.index, self.kind)
+  }
 }
 
 impl Err {

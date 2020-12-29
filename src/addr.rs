@@ -111,6 +111,15 @@ pub enum Err {
   InvalidLabel,
 }
 
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::InvalidNum => write!(f, "invalid numerical address"),
+      Err::InvalidLabel => write!(f, "invalid label address"),
+    }
+  }
+}
+
 impl<'b> Addr<'b> {
   /// Read an address object from a buffer.
   ///
