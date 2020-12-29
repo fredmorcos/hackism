@@ -16,7 +16,7 @@ use crate::utils::Buf;
 /// ## Examples
 ///
 /// ```
-/// use has::jump::Jump;
+/// use has::asm::jump::Jump;
 ///
 /// assert_eq!(u16::from(Jump::Null), 0b000);
 /// assert_eq!(u16::from(Jump::JGT),  0b001);
@@ -31,7 +31,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::jump::Jump;
+/// use has::asm::jump::Jump;
 ///
 /// assert_eq!(format!("{}", Jump::Null), "");
 /// assert_eq!(format!("{}", Jump::JGT),  "JGT");
@@ -115,26 +115,53 @@ impl Jump {
   /// # Examples
   ///
   /// ```
-  /// use has::jump::Jump;
+  /// use has::asm::jump::Jump;
   ///
   /// assert_eq!(Jump::read_from("".as_bytes()), Err(()));
   /// assert_eq!(Jump::read_from("Foo".as_bytes()), Err(()));
   ///
-  /// assert_eq!(Jump::read_from("JGT".as_bytes()), Ok((Jump::JGT, "".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JEQ".as_bytes()), Ok((Jump::JEQ, "".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JGE".as_bytes()), Ok((Jump::JGE, "".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JLT".as_bytes()), Ok((Jump::JLT, "".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JNE".as_bytes()), Ok((Jump::JNE, "".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JLE".as_bytes()), Ok((Jump::JLE, "".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JMP".as_bytes()), Ok((Jump::JMP, "".as_bytes(), 3)));
+  /// let expected = (Jump::JGT, "".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JGT".as_bytes()), Ok(expected));
   ///
-  /// assert_eq!(Jump::read_from("JGT //".as_bytes()), Ok((Jump::JGT, " //".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JEQ //".as_bytes()), Ok((Jump::JEQ, " //".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JGE //".as_bytes()), Ok((Jump::JGE, " //".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JLT //".as_bytes()), Ok((Jump::JLT, " //".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JNE //".as_bytes()), Ok((Jump::JNE, " //".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JLE //".as_bytes()), Ok((Jump::JLE, " //".as_bytes(), 3)));
-  /// assert_eq!(Jump::read_from("JMP //".as_bytes()), Ok((Jump::JMP, " //".as_bytes(), 3)));
+  /// let expected = (Jump::JEQ, "".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JEQ".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JGE, "".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JGE".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JLT, "".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JLT".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JNE, "".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JNE".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JLE, "".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JLE".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JMP, "".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JMP".as_bytes()), Ok(expected));
+  ///
+  ///
+  /// let expected = (Jump::JGT, " //".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JGT //".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JEQ, " //".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JEQ //".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JGE, " //".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JGE //".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JLT, " //".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JLT //".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JNE, " //".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JNE //".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JLE, " //".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JLE //".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Jump::JMP, " //".as_bytes(), 3);
+  /// assert_eq!(Jump::read_from("JMP //".as_bytes()), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
     let p = |b| b"JGTELNMPQ".contains(&b);
@@ -148,7 +175,7 @@ impl Jump {
   /// # Examples
   ///
   /// ```
-  /// use has::jump::Jump;
+  /// use has::asm::jump::Jump;
   ///
   /// assert!(Jump::Null.is_null());
   /// assert!(!Jump::JGT.is_null());

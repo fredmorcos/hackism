@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::label::Label;
-use crate::symbol::Symbol;
+use crate::asm::label::Label;
+use crate::asm::symbol::Symbol;
 use crate::utils;
 use crate::utils::Buf;
 
@@ -26,7 +26,8 @@ use atoi::FromRadix10Checked;
 /// ## Examples
 ///
 /// ```
-/// use has::addr::Addr;
+/// use has::asm::addr::Addr;
+///
 /// use std::convert::TryFrom;
 ///
 /// assert_eq!(Addr::try_from(25), Ok(Addr::Num(25)));
@@ -40,12 +41,13 @@ use atoi::FromRadix10Checked;
 /// ## Examples
 ///
 /// ```
-/// use has::addr::Addr;
-/// use has::label::Label;
+/// use has::asm::addr::Addr;
+/// use has::asm::label::Label;
+///
 /// use std::convert::TryFrom;
 ///
-/// assert_eq!(Addr::from(Label::try_from(&b"foobar1"[..]).unwrap()),
-///            Addr::Label(Label::try_from(&b"foobar1"[..]).unwrap()));
+/// let label = Label::try_from(&b"foobar1"[..]).unwrap();
+/// assert_eq!(Addr::from(label.clone()), Addr::Label(label));
 /// ```
 ///
 /// # impl `From<Symbol>`
@@ -55,8 +57,8 @@ use atoi::FromRadix10Checked;
 /// ## Examples
 ///
 /// ```
-/// use has::addr::Addr;
-/// use has::symbol::Symbol;
+/// use has::asm::addr::Addr;
+/// use has::asm::symbol::Symbol;
 ///
 /// assert_eq!(Addr::from(Symbol::LCL), Addr::Symbol(Symbol::LCL));
 /// ```
@@ -129,35 +131,39 @@ impl<'b> Addr<'b> {
   /// # Examples
   ///
   /// ```
-  /// use has::addr;
-  /// use has::addr::Addr;
-  /// use has::label::Label;
-  /// use has::symbol::Symbol;
+  /// use has::asm::addr;
+  /// use has::asm::addr::Addr;
+  /// use has::asm::label::Label;
+  /// use has::asm::symbol::Symbol;
+  ///
   /// use std::convert::TryFrom;
   ///
   /// assert_eq!(Addr::read_from(&b""[..]), Err(addr::Err::InvalidLabel));
   /// assert_eq!(Addr::read_from(&b"123Foo"[..]), Err(addr::Err::InvalidNum));
   /// assert_eq!(Addr::read_from(&b"%Foo"[..]), Err(addr::Err::InvalidLabel));
   ///
-  /// assert_eq!(
-  ///   Addr::read_from(&b"123"[..]),
-  ///   Ok((Addr::Num(123), &b""[..], 3)));
-  /// assert_eq!(
-  ///   Addr::read_from(&b"Foo"[..]),
-  ///   Ok((Addr::Label(Label::try_from(&b"Foo"[..]).unwrap()), &b""[..], 3)));
-  /// assert_eq!(
-  ///   Addr::read_from(&b"F_B"[..]),
-  ///   Ok((Addr::Label(Label::try_from(&b"F_B"[..]).unwrap()), &b""[..], 3)));
-  /// assert_eq!(
-  ///   Addr::read_from(&b"_FB"[..]),
-  ///   Ok((Addr::Label(Label::try_from(&b"_FB"[..]).unwrap()), &b""[..], 3)));
+  /// let expected = (Addr::Num(123), &b""[..], 3);
+  /// assert_eq!(Addr::read_from(&b"123"[..]), Ok(expected));
   ///
-  /// assert_eq!(
-  ///   Addr::read_from(&b"LCL"[..]),
-  ///   Ok((Addr::Symbol(Symbol::try_from(&b"LCL"[..]).unwrap()), &b""[..], 3)));
-  /// assert_eq!(
-  ///   Addr::read_from(&b"R0"[..]),
-  ///   Ok((Addr::Symbol(Symbol::try_from(&b"R0"[..]).unwrap()), &b""[..], 2)));
+  /// let label = Label::try_from(&b"Foo"[..]).unwrap();
+  /// let expected = (Addr::Label(label), &b""[..], 3);
+  /// assert_eq!(Addr::read_from(&b"Foo"[..]), Ok(expected));
+  ///
+  /// let label = Label::try_from(&b"F_B"[..]).unwrap();
+  /// let expected = (Addr::Label(label), &b""[..], 3);
+  /// assert_eq!(Addr::read_from(&b"F_B"[..]), Ok(expected));
+  ///
+  /// let label = Label::try_from(&b"_FB"[..]).unwrap();
+  /// let expected = (Addr::Label(label), &b""[..], 3);
+  /// assert_eq!(Addr::read_from(&b"_FB"[..]), Ok(expected));
+  ///
+  /// let symbol = Symbol::try_from(&b"LCL"[..]).unwrap();
+  /// let expected = (Addr::Symbol(symbol), &b""[..], 3);
+  /// assert_eq!(Addr::read_from(&b"LCL"[..]), Ok(expected));
+  ///
+  /// let symbol = Symbol::try_from(&b"R0"[..]).unwrap();
+  /// let expected = (Addr::Symbol(symbol), &b""[..], 2);
+  /// assert_eq!(Addr::read_from(&b"R0"[..]), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf<'b>) -> Result<(Self, Buf<'b>, usize), Err> {
     if let Some((_, _)) = utils::read_one(buf, |b| b.is_ascii_digit()) {

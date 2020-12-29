@@ -17,7 +17,7 @@ use crate::utils::Buf;
 /// ## Examples
 ///
 /// ```
-/// use has::comp::Comp;
+/// use has::asm::comp::Comp;
 ///
 /// assert_eq!(u16::from(Comp::Zero),    0b0101010);
 /// assert_eq!(u16::from(Comp::One),     0b0111111);
@@ -52,7 +52,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::comp::Comp;
+/// use has::asm::comp::Comp;
 ///
 /// assert_eq!(format!("{}", Comp::Zero),    "0");
 /// assert_eq!(format!("{}", Comp::One),     "1");
@@ -257,68 +257,179 @@ impl Comp {
   /// # Examples
   ///
   /// ```
-  /// use has::comp::Comp;
+  /// use has::asm::comp::Comp;
   ///
   /// assert_eq!(Comp::read_from("".as_bytes()), Err(()));
   /// assert_eq!(Comp::read_from("Foo".as_bytes()), Err(()));
   ///
-  /// assert_eq!(Comp::read_from("0".as_bytes()),   Ok((Comp::Zero,    "".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("1".as_bytes()),   Ok((Comp::One,     "".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("-1".as_bytes()),  Ok((Comp::Neg1,    "".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("D".as_bytes()),   Ok((Comp::D,       "".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("A".as_bytes()),   Ok((Comp::A,       "".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("!D".as_bytes()),  Ok((Comp::NotD,    "".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("!A".as_bytes()),  Ok((Comp::NotA,    "".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("-D".as_bytes()),  Ok((Comp::NegD,    "".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("-A".as_bytes()),  Ok((Comp::NegA,    "".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("D+1".as_bytes()), Ok((Comp::DPlus1,  "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("A+1".as_bytes()), Ok((Comp::APlus1,  "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D-1".as_bytes()), Ok((Comp::DMinus1, "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("A-1".as_bytes()), Ok((Comp::AMinus1, "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D+A".as_bytes()), Ok((Comp::DPlusA,  "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D-A".as_bytes()), Ok((Comp::DMinusA, "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("A-D".as_bytes()), Ok((Comp::AMinusD, "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D&A".as_bytes()), Ok((Comp::DAndA,   "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D|A".as_bytes()), Ok((Comp::DOrA,    "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("M".as_bytes()),   Ok((Comp::M,       "".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("!M".as_bytes()),  Ok((Comp::NotM,    "".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("-M".as_bytes()),  Ok((Comp::NegM,    "".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("M+1".as_bytes()), Ok((Comp::MPlus1,  "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("M-1".as_bytes()), Ok((Comp::MMinus1, "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D+M".as_bytes()), Ok((Comp::DPlusM,  "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D-M".as_bytes()), Ok((Comp::DMinusM, "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("M-D".as_bytes()), Ok((Comp::MMinusD, "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D&M".as_bytes()), Ok((Comp::DAndM,   "".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D|M".as_bytes()), Ok((Comp::DOrM,    "".as_bytes(), 3)));
+  /// let expected = (Comp::Zero, "".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("0".as_bytes()), Ok(expected));
   ///
-  /// assert_eq!(Comp::read_from("0;".as_bytes()),   Ok((Comp::Zero,    ";".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("1;".as_bytes()),   Ok((Comp::One,     ";".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("-1;".as_bytes()),  Ok((Comp::Neg1,    ";".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("D;".as_bytes()),   Ok((Comp::D,       ";".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("A;".as_bytes()),   Ok((Comp::A,       ";".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("!D;".as_bytes()),  Ok((Comp::NotD,    ";".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("!A;".as_bytes()),  Ok((Comp::NotA,    ";".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("-D;".as_bytes()),  Ok((Comp::NegD,    ";".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("-A;".as_bytes()),  Ok((Comp::NegA,    ";".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("D+1;".as_bytes()), Ok((Comp::DPlus1,  ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("A+1;".as_bytes()), Ok((Comp::APlus1,  ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D-1;".as_bytes()), Ok((Comp::DMinus1, ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("A-1;".as_bytes()), Ok((Comp::AMinus1, ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D+A;".as_bytes()), Ok((Comp::DPlusA,  ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D-A;".as_bytes()), Ok((Comp::DMinusA, ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("A-D;".as_bytes()), Ok((Comp::AMinusD, ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D&A;".as_bytes()), Ok((Comp::DAndA,   ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D|A;".as_bytes()), Ok((Comp::DOrA,    ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("M;".as_bytes()),   Ok((Comp::M,       ";".as_bytes(), 1)));
-  /// assert_eq!(Comp::read_from("!M;".as_bytes()),  Ok((Comp::NotM,    ";".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("-M;".as_bytes()),  Ok((Comp::NegM,    ";".as_bytes(), 2)));
-  /// assert_eq!(Comp::read_from("M+1;".as_bytes()), Ok((Comp::MPlus1,  ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("M-1;".as_bytes()), Ok((Comp::MMinus1, ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D+M;".as_bytes()), Ok((Comp::DPlusM,  ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D-M;".as_bytes()), Ok((Comp::DMinusM, ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("M-D;".as_bytes()), Ok((Comp::MMinusD, ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D&M;".as_bytes()), Ok((Comp::DAndM,   ";".as_bytes(), 3)));
-  /// assert_eq!(Comp::read_from("D|M;".as_bytes()), Ok((Comp::DOrM,    ";".as_bytes(), 3)));
+  /// let expected = (Comp::One, "".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::Neg1, "".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::D, "".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("D".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::A, "".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NotD, "".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("!D".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NotA, "".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("!A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NegD, "".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-D".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NegA, "".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DPlus1, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D+1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::APlus1, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("A+1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DMinus1, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D-1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::AMinus1, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("A-1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DPlusA, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D+A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DMinusA, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D-A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::AMinusD, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("A-D".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DAndA, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D&A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DOrA, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D|A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::M, "".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("M".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NotM, "".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("!M".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NegM, "".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-M".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::MPlus1, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("M+1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::MMinus1, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("M-1".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DPlusM, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D+M".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DMinusM, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D-M".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::MMinusD, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("M-D".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DAndM, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D&M".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DOrM, "".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D|M".as_bytes()), Ok(expected));
+  ///
+  ///
+  /// let expected = (Comp::Zero, ";".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("0;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::One, ";".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::Neg1, ";".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::D, ";".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("D;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::A, ";".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("A;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NotD, ";".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("!D;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NotA, ";".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("!A;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NegD, ";".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-D;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NegA, ";".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-A;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DPlus1, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D+1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::APlus1, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("A+1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DMinus1, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D-1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::AMinus1, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("A-1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DPlusA, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D+A;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DMinusA, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D-A;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::AMinusD, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("A-D;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DAndA, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D&A;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DOrA, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D|A;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::M, ";".as_bytes(), 1);
+  /// assert_eq!(Comp::read_from("M;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NotM, ";".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("!M;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::NegM, ";".as_bytes(), 2);
+  /// assert_eq!(Comp::read_from("-M;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::MPlus1, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("M+1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::MMinus1, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("M-1;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DPlusM, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D+M;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DMinusM, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D-M;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::MMinusD, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("M-D;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DAndM, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D&M;".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Comp::DOrM, ";".as_bytes(), 3);
+  /// assert_eq!(Comp::read_from("D|M;".as_bytes()), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
     let p = |b| b"01AMD+-!&|".contains(&b);

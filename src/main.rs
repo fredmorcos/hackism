@@ -1,7 +1,6 @@
 #![warn(clippy::all)]
 
-use has::prog;
-use has::prog::Prog;
+use has::asm;
 
 use std::convert::TryFrom;
 use std::fmt;
@@ -18,8 +17,8 @@ use structopt::StructOpt;
 #[derive(From)]
 enum Err {
   Io(io::Error),
-  Prog(prog::Err),
-  Encode(prog::EncodeErr),
+  Prog(asm::prog::Err),
+  Encode(asm::prog::EncodeErr),
 }
 
 impl fmt::Display for Err {
@@ -84,7 +83,7 @@ impl Command {
         }
 
         info!("Parsing {}", file.display());
-        let mut prog = Prog::try_from(buf.as_slice())?;
+        let mut prog = asm::prog::Prog::try_from(buf.as_slice())?;
 
         let output = File::create(&out)?;
         let mut writer = BufWriter::new(output);

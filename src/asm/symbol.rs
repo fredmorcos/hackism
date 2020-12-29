@@ -14,7 +14,7 @@ use crate::utils::Buf;
 /// ## Examples
 ///
 /// ```
-/// use has::symbol::Symbol;
+/// use has::asm::symbol::Symbol;
 ///
 /// assert_eq!(u16::from(Symbol::SP),     0x0000);
 /// assert_eq!(u16::from(Symbol::LCL),    0x0001);
@@ -50,7 +50,8 @@ use crate::utils::Buf;
 /// ## Examples
 ///
 /// ```
-/// use has::symbol::Symbol;
+/// use has::asm::symbol::Symbol;
+///
 /// use std::convert::TryFrom;
 ///
 /// assert_eq!(Symbol::try_from(&b""[..]),    Err(()));
@@ -84,7 +85,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::symbol::Symbol;
+/// use has::asm::symbol::Symbol;
 ///
 /// assert_eq!(format!("{}", Symbol::SP),     "SP");
 /// assert_eq!(format!("{}", Symbol::LCL),    "LCL");

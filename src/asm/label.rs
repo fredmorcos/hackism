@@ -14,23 +14,27 @@ use crate::utils::Buf;
 /// ## Examples
 ///
 /// ```
-/// use has::label::Label;
+/// use has::asm::label::Label;
+///
 /// use std::convert::TryFrom;
 ///
 /// assert_eq!(Label::try_from(&b"@foobar"[..]), Err(()));
 /// assert_eq!(Label::try_from(&b"foobar@"[..]), Err(()));
 /// assert_eq!(Label::try_from(&b"1foobar"[..]), Err(()));
 ///
-/// assert_eq!(Label::try_from(&b"foobar1"[..]).unwrap().label(), &b"foobar1"[..]);
+/// let label = Label::try_from(&b"foobar1"[..]).unwrap();
+/// assert_eq!(label.label(), &b"foobar1"[..]);
 /// ```
 ///
 /// # impl `Display`
 ///
 /// ```
-/// use has::label::Label;
+/// use has::asm::label::Label;
+///
 /// use std::convert::TryFrom;
 ///
-/// assert_eq!(format!("{}", Label::try_from(&b"foobar"[..]).unwrap()), "foobar");
+/// let label = Label::try_from(&b"foobar"[..]).unwrap();
+/// assert_eq!(format!("{}", label), "foobar");
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Label<'b>(&'b [u8]);
@@ -66,10 +70,12 @@ impl Label<'_> {
   /// # Examples
   ///
   /// ```
-  /// use has::label::Label;
+  /// use has::asm::label::Label;
+  ///
   /// use std::convert::TryFrom;
   ///
-  /// assert_eq!(Label::try_from(&b"foobar1"[..]).unwrap().label(), &b"foobar1"[..]);
+  /// let label = Label::try_from(&b"foobar1"[..]).unwrap();
+  /// assert_eq!(label.label(), &b"foobar1"[..]);
   pub fn label(&self) -> &[u8] {
     self.0
   }

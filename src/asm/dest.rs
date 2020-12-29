@@ -16,7 +16,7 @@ use crate::utils::Buf;
 /// ## Examples
 ///
 /// ```
-/// use has::dest::Dest;
+/// use has::asm::dest::Dest;
 ///
 /// assert_eq!(u16::from(Dest::Null), 0b000);
 /// assert_eq!(u16::from(Dest::M),    0b001);
@@ -31,7 +31,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::dest::Dest;
+/// use has::asm::dest::Dest;
 ///
 /// assert_eq!(format!("{}", Dest::Null), "");
 /// assert_eq!(format!("{}", Dest::M),    "M");
@@ -115,26 +115,53 @@ impl Dest {
   /// # Examples
   ///
   /// ```
-  /// use has::dest::Dest;
+  /// use has::asm::dest::Dest;
   ///
   /// assert_eq!(Dest::read_from("".as_bytes()), Err(()));
   /// assert_eq!(Dest::read_from("Foo".as_bytes()), Err(()));
   ///
-  /// assert_eq!(Dest::read_from("M".as_bytes()),   Ok((Dest::M,   "".as_bytes(), 1)));
-  /// assert_eq!(Dest::read_from("D".as_bytes()),   Ok((Dest::D,   "".as_bytes(), 1)));
-  /// assert_eq!(Dest::read_from("MD".as_bytes()),  Ok((Dest::MD,  "".as_bytes(), 2)));
-  /// assert_eq!(Dest::read_from("A".as_bytes()),   Ok((Dest::A,   "".as_bytes(), 1)));
-  /// assert_eq!(Dest::read_from("AM".as_bytes()),  Ok((Dest::AM,  "".as_bytes(), 2)));
-  /// assert_eq!(Dest::read_from("AD".as_bytes()),  Ok((Dest::AD,  "".as_bytes(), 2)));
-  /// assert_eq!(Dest::read_from("AMD".as_bytes()), Ok((Dest::AMD, "".as_bytes(), 3)));
+  /// let expected = (Dest::M, "".as_bytes(), 1);
+  /// assert_eq!(Dest::read_from("M".as_bytes()), Ok(expected));
   ///
-  /// assert_eq!(Dest::read_from("M=".as_bytes()),   Ok((Dest::M,   "=".as_bytes(), 1)));
-  /// assert_eq!(Dest::read_from("D=".as_bytes()),   Ok((Dest::D,   "=".as_bytes(), 1)));
-  /// assert_eq!(Dest::read_from("MD=".as_bytes()),  Ok((Dest::MD,  "=".as_bytes(), 2)));
-  /// assert_eq!(Dest::read_from("A=".as_bytes()),   Ok((Dest::A,   "=".as_bytes(), 1)));
-  /// assert_eq!(Dest::read_from("AM=".as_bytes()),  Ok((Dest::AM,  "=".as_bytes(), 2)));
-  /// assert_eq!(Dest::read_from("AD=".as_bytes()),  Ok((Dest::AD,  "=".as_bytes(), 2)));
-  /// assert_eq!(Dest::read_from("AMD=".as_bytes()), Ok((Dest::AMD, "=".as_bytes(), 3)));
+  /// let expected = (Dest::D, "".as_bytes(), 1);
+  /// assert_eq!(Dest::read_from("D".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::MD, "".as_bytes(), 2);
+  /// assert_eq!(Dest::read_from("MD".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::A, "".as_bytes(), 1);
+  /// assert_eq!(Dest::read_from("A".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::AM, "".as_bytes(), 2);
+  /// assert_eq!(Dest::read_from("AM".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::AD, "".as_bytes(), 2);
+  /// assert_eq!(Dest::read_from("AD".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::AMD, "".as_bytes(), 3);
+  /// assert_eq!(Dest::read_from("AMD".as_bytes()), Ok(expected));
+  ///
+  ///
+  /// let expected = (Dest::M, "=".as_bytes(), 1);
+  /// assert_eq!(Dest::read_from("M=".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::D, "=".as_bytes(), 1);
+  /// assert_eq!(Dest::read_from("D=".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::MD, "=".as_bytes(), 2);
+  /// assert_eq!(Dest::read_from("MD=".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::A, "=".as_bytes(), 1);
+  /// assert_eq!(Dest::read_from("A=".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::AM, "=".as_bytes(), 2);
+  /// assert_eq!(Dest::read_from("AM=".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::AD, "=".as_bytes(), 2);
+  /// assert_eq!(Dest::read_from("AD=".as_bytes()), Ok(expected));
+  ///
+  /// let expected = (Dest::AMD, "=".as_bytes(), 3);
+  /// assert_eq!(Dest::read_from("AMD=".as_bytes()), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
     let p = |b| b"AMD".contains(&b);
@@ -148,7 +175,7 @@ impl Dest {
   /// # Examples
   ///
   /// ```
-  /// use has::dest::Dest;
+  /// use has::asm::dest::Dest;
   ///
   /// assert!(Dest::Null.is_null());
   /// assert!(!Dest::D.is_null());

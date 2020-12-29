@@ -3,9 +3,9 @@
 //! An [instruction](Inst) can represent different types of commands
 //! in the HACK assembly language.
 
-use crate::comp::Comp;
-use crate::dest::Dest;
-use crate::jump::Jump;
+use crate::asm::comp::Comp;
+use crate::asm::dest::Dest;
+use crate::asm::jump::Jump;
 use crate::utils;
 use crate::utils::Buf;
 
@@ -26,29 +26,28 @@ use std::fmt;
 /// ## Examples
 ///
 /// ```
-/// use has::inst::Inst;
-/// use has::dest::Dest;
-/// use has::comp::Comp;
-/// use has::jump::Jump;
+/// use has::asm::inst::Inst;
+/// use has::asm::dest::Dest;
+/// use has::asm::comp::Comp;
+/// use has::asm::jump::Jump;
 ///
-/// assert_eq!(
-///   u16::from(Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap()),
-///   0b111_0011111_010_000);
-/// assert_eq!(
-///   u16::from(Inst::new(Dest::Null, Comp::DPlus1, Jump::JEQ).unwrap()),
-///   0b111_0011111_000_010);
-/// assert_eq!(
-///   u16::from(Inst::new(Dest::D, Comp::DPlus1, Jump::JEQ).unwrap()),
-///   0b111_0011111_010_010);
+/// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap();
+/// assert_eq!(u16::from(inst), 0b111_0011111_010_000);
+///
+/// let inst = Inst::new(Dest::Null, Comp::DPlus1, Jump::JEQ).unwrap();
+/// assert_eq!(u16::from(inst), 0b111_0011111_000_010);
+///
+/// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::JEQ).unwrap();
+/// assert_eq!(u16::from(inst), 0b111_0011111_010_010);
 /// ```
 ///
 /// # impl `Display`
 ///
 /// ```
-/// use has::inst::Inst;
-/// use has::dest::Dest;
-/// use has::comp::Comp;
-/// use has::jump::Jump;
+/// use has::asm::inst::Inst;
+/// use has::asm::dest::Dest;
+/// use has::asm::comp::Comp;
+/// use has::asm::jump::Jump;
 ///
 /// let inst = Inst::new(Dest::MD, Comp::DPlusA, Jump::JGT).unwrap();
 /// assert_eq!(format!("{}", inst), "MD=D+A;JGT");
@@ -141,11 +140,11 @@ impl Inst {
   /// # Examples
   ///
   /// ```
-  /// use has::dest::Dest;
-  /// use has::comp::Comp;
-  /// use has::jump::Jump;
-  /// use has::inst;
-  /// use has::inst::Inst;
+  /// use has::asm::dest::Dest;
+  /// use has::asm::comp::Comp;
+  /// use has::asm::jump::Jump;
+  /// use has::asm::inst;
+  /// use has::asm::inst::Inst;
   ///
   /// assert_eq!(Inst::read_from("".as_bytes()), Err(inst::Err::InvalidComp));
   /// assert_eq!(Inst::read_from("Foo".as_bytes()), Err(inst::Err::InvalidComp));
@@ -153,12 +152,17 @@ impl Inst {
   /// assert_eq!(Inst::read_from("D|A;".as_bytes()), Err(inst::Err::InvalidJump));
   /// assert_eq!(Inst::read_from("D|A;JJJ".as_bytes()), Err(inst::Err::InvalidJump));
   ///
-  /// assert_eq!(Inst::read_from("D=D+A;JGT".as_bytes()),
-  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::JGT).unwrap(), "".as_bytes(), 9)));
-  /// assert_eq!(Inst::read_from("D+A;JGT".as_bytes()),
-  ///            Ok((Inst::new(Dest::Null, Comp::DPlusA, Jump::JGT).unwrap(), "".as_bytes(), 7)));
-  /// assert_eq!(Inst::read_from("D=D+A".as_bytes()),
-  ///            Ok((Inst::new(Dest::D, Comp::DPlusA, Jump::Null).unwrap(), "".as_bytes(), 5)));
+  /// let inst = Inst::new(Dest::D, Comp::DPlusA, Jump::JGT).unwrap();
+  /// let expected = (inst, "".as_bytes(), 9);
+  /// assert_eq!(Inst::read_from("D=D+A;JGT".as_bytes()), Ok(expected));
+  ///
+  /// let inst = Inst::new(Dest::Null, Comp::DPlusA, Jump::JGT).unwrap();
+  /// let expected = (inst, "".as_bytes(), 7);
+  /// assert_eq!(Inst::read_from("D+A;JGT".as_bytes()), Ok(expected));
+  ///
+  /// let inst = Inst::new(Dest::D, Comp::DPlusA, Jump::Null).unwrap();
+  /// let expected = (inst, "".as_bytes(), 5);
+  /// assert_eq!(Inst::read_from("D=D+A".as_bytes()), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let mut inst_len = 0;

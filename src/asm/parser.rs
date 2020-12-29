@@ -3,11 +3,11 @@
 //! [Parser] is the primary structure in this module that should be
 //! used to parse HACK programs.
 
-use crate::addr;
-use crate::addr::Addr;
-use crate::inst;
-use crate::inst::Inst;
-use crate::label::Label;
+use crate::asm::addr;
+use crate::asm::addr::Addr;
+use crate::asm::inst;
+use crate::asm::inst::Inst;
+use crate::asm::label::Label;
 use crate::utils;
 use crate::utils::Buf;
 
@@ -30,27 +30,30 @@ use std::fmt;
 /// ## Examples
 ///
 /// ```
-/// use has::parser::Parser;
-/// use has::parser::Token;
-/// use has::parser::TokenKind;
-/// use has::inst;
-/// use has::inst::Inst;
-/// use has::addr::Addr;
-/// use has::label::Label;
+/// use has::asm::parser::Parser;
+/// use has::asm::parser::Token;
+/// use has::asm::parser::TokenKind;
+/// use has::asm::inst;
+/// use has::asm::inst::Inst;
+/// use has::asm::addr::Addr;
+/// use has::asm::label::Label;
 ///
 /// use std::convert::TryFrom;
 ///
 /// let prog = "(FOO)\n@FOO\nD=D+A;JMP".as_bytes();
 /// let mut parser = Parser::from(prog);
-/// assert_eq!(parser.next(), Some(Ok(Token::new(0,
-///   TokenKind::Label(Label::try_from("FOO".as_bytes()).unwrap()),
-/// ))));
-/// assert_eq!(parser.next(), Some(Ok(Token::new(6,
-///   TokenKind::Addr(Addr::read_from("FOO".as_bytes()).unwrap().0),
-/// ))));
-/// assert_eq!(parser.next(), Some(Ok(Token::new(11,
-///   TokenKind::Inst(Inst::read_from("D=D+A;JMP".as_bytes()).unwrap().0),
-/// ))));
+///
+/// let label = Label::try_from("FOO".as_bytes()).unwrap();
+/// let label = Token::new(0, TokenKind::Label(label));
+/// assert_eq!(parser.next(), Some(Ok(label)));
+///
+/// let addr = Addr::read_from("FOO".as_bytes()).unwrap().0;
+/// let addr = Token::new(6, TokenKind::Addr(addr));
+/// assert_eq!(parser.next(), Some(Ok(addr)));
+///
+/// let inst = Inst::read_from("D=D+A;JMP".as_bytes()).unwrap().0;
+/// let inst = Token::new(11, TokenKind::Inst(inst));
+/// assert_eq!(parser.next(), Some(Ok(inst)));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parser<'b> {
@@ -262,19 +265,19 @@ mod tests {
   use super::Parser;
   use super::TokenKind;
 
-  use crate::addr::Addr;
-  use crate::comp::Comp;
-  use crate::dest::Dest;
-  use crate::inst::Inst;
-  use crate::jump::Jump;
-  use crate::label::Label;
-  use crate::symbol::Symbol;
+  use crate::asm::addr::Addr;
+  use crate::asm::comp::Comp;
+  use crate::asm::dest::Dest;
+  use crate::asm::inst::Inst;
+  use crate::asm::jump::Jump;
+  use crate::asm::label::Label;
+  use crate::asm::symbol::Symbol;
 
   use std::convert::TryFrom;
 
   macro_rules! parser {
     ($f:expr) => {
-      Parser::from(&include_bytes!(concat!("../tests/data/", $f))[..])
+      Parser::from(&include_bytes!(concat!("../../tests/data/", $f))[..])
     };
   }
 
