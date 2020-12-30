@@ -6,6 +6,7 @@ on:
     branches: [master]
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
 jobs:
   lint:
     name: Lint and format on ${{matrix.os}}, with ${{matrix.toolchain}}
@@ -25,11 +26,10 @@ jobs:
       - uses: actions/checkout@v2
       - name: Lint and format with ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
-        env:
-          RUSTFLAGS: "-D warnings"
         with:
           profile: minimal
           toolchain: ${{matrix.toolchain}}
+          override: true
           components: rustfmt, clippy
   check:
     name: Check on ${{matrix.os}}, with ${{matrix.toolchain}}
@@ -52,10 +52,9 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{matrix.toolchain}}
+          override: true
       - name: Check with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: "-D warnings"
         with:
           command: check
           args: --all-features
@@ -80,10 +79,9 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{matrix.toolchain}}
+          override: true
       - name: Test with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: "-D warnings"
         with:
           command: test
           args: --all-features
@@ -108,10 +106,9 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{matrix.toolchain}}
+          override: true
       - name: Documentation build with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: "-D warnings"
         with:
           command: doc
           args: --all-features --no-deps
@@ -136,10 +133,9 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{matrix.toolchain}}
+          override: true
       - name: Release build with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: "-D warnings"
         with:
           command: build
           args: --all-features --release
