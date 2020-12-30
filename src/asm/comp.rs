@@ -12,7 +12,7 @@ use crate::utils::Buf;
 ///
 /// The binary representation is 7 bits wide representing the bits
 /// `a`, `c1`, `c2`, `c3`, `c4`, `c5` and `c6` in an
-/// [instruction](Inst).
+/// [instruction](crate::asm::inst::Inst).
 ///
 /// ## Examples
 ///

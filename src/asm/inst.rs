@@ -20,8 +20,8 @@ use std::fmt;
 ///
 /// The binary representation is 16 bits wide where the three most
 /// significant bits are `1` and the remaining 12 bits are the binary
-/// representations of [dest::Dest], [comp::Comp] and [jump::Jump]
-/// (from most significant to least significant).
+/// representations of [Dest], [Comp] and [Jump] (from most
+/// significant to least significant).
 ///
 /// ## Examples
 ///

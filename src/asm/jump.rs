@@ -11,7 +11,7 @@ use crate::utils::Buf;
 /// # impl `Into<u16>`
 ///
 /// The binary representation is 3 bits wide representing the bits
-/// `j1`, `j2` and `j3` in an [instruction](Inst).
+/// `j1`, `j2` and `j3` in an [instruction](crate::asm::inst::Inst).
 ///
 /// ## Examples
 ///

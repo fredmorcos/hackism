@@ -25,7 +25,7 @@ use either::Either;
 /// # `impl TryFrom<Buf>`
 ///
 /// A program can be created from an input buffer. This internally
-/// [parses](has::parser::Parser) the input buffer.
+/// [parses](Parser) the input buffer.
 pub struct Prog<'b> {
   symtable: Map<Label<'b>, u16>,
   instructions: Vec<Either<Addr<'b>, Inst>>,
