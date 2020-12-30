@@ -19,6 +19,8 @@ mod asm_fixtures {
       let file_ext = file_path.extension().unwrap().to_str().unwrap();
 
       if file_ext == "asm" {
+        println!("Testing fixture {}", file_path.display());
+
         let mut input = Vec::with_capacity(1024);
         File::open(&file_path).unwrap().read_to_end(&mut input).unwrap();
         let mut prog = asm::prog::Prog::try_from(input.as_slice()).unwrap();
