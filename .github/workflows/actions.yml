@@ -119,6 +119,8 @@ jobs:
           override: true
       - name: Documentation build with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
+        env:
+          RUSTDOCFLAGS: -Dwarnings
         with:
           command: doc
           args: --all-features --no-deps
