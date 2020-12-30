@@ -251,16 +251,25 @@ impl fmt::Display for Comp {
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Err {
+  Unknown,
+}
+
 impl Comp {
   /// Read a computation object from a buffer.
   ///
   /// # Examples
   ///
   /// ```
+  /// use has::asm::comp;
   /// use has::asm::comp::Comp;
   ///
-  /// assert_eq!(Comp::read_from("".as_bytes()), Err(()));
-  /// assert_eq!(Comp::read_from("Foo".as_bytes()), Err(()));
+  /// let comp = Comp::read_from("".as_bytes());
+  /// assert_eq!(comp, Err(comp::Err::Unknown));
+  ///
+  /// let comp = Comp::read_from("Foo".as_bytes());
+  /// assert_eq!(comp, Err(comp::Err::Unknown));
   ///
   /// let expected = (Comp::Zero, "".as_bytes(), 1);
   /// assert_eq!(Comp::read_from("0".as_bytes()), Ok(expected));
@@ -431,10 +440,10 @@ impl Comp {
   /// let expected = (Comp::DOrM, ";".as_bytes(), 3);
   /// assert_eq!(Comp::read_from("D|M;".as_bytes()), Ok(expected));
   /// ```
-  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
+  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let p = |b| b"01AMD+-!&|".contains(&b);
     let (b, rem) = utils::read_while(buf, p);
-    let res = Self::try_from(b).map_err(|_| ())?;
+    let res = Self::try_from(b).map_err(|_| Err::Unknown)?;
     Ok((res, rem, b.len()))
   }
 }

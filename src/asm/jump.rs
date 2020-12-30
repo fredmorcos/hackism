@@ -109,16 +109,25 @@ impl fmt::Display for Jump {
   }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Err {
+  Unknown,
+}
+
 impl Jump {
   /// Read a jump object from a buffer.
   ///
   /// # Examples
   ///
   /// ```
+  /// use has::asm::jump;
   /// use has::asm::jump::Jump;
   ///
-  /// assert_eq!(Jump::read_from("".as_bytes()), Err(()));
-  /// assert_eq!(Jump::read_from("Foo".as_bytes()), Err(()));
+  /// let jump = Jump::read_from("".as_bytes());
+  /// assert_eq!(jump, Err(jump::Err::Unknown));
+  ///
+  /// let jump = Jump::read_from("Foo".as_bytes());
+  /// assert_eq!(jump, Err(jump::Err::Unknown));
   ///
   /// let expected = (Jump::JGT, "".as_bytes(), 3);
   /// assert_eq!(Jump::read_from("JGT".as_bytes()), Ok(expected));
@@ -163,10 +172,10 @@ impl Jump {
   /// let expected = (Jump::JMP, " //".as_bytes(), 3);
   /// assert_eq!(Jump::read_from("JMP //".as_bytes()), Ok(expected));
   /// ```
-  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), ()> {
+  pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let p = |b| b"JGTELNMPQ".contains(&b);
     let (b, rem) = utils::read_while(buf, p);
-    let res = Self::try_from(b).map_err(|_| ())?;
+    let res = Self::try_from(b).map_err(|_| Err::Unknown)?;
     Ok((res, rem, b.len()))
   }
 
