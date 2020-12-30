@@ -22,11 +22,11 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
-      - env:
-          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Lint and format with ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           profile: minimal
           toolchain: ${{matrix.toolchain}}
@@ -46,8 +46,6 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
-      - env:
-          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -56,6 +54,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
       - name: Check with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           command: check
           args: --all-features
@@ -74,8 +74,6 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
-      - env:
-          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -84,6 +82,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
       - name: Test with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           command: test
           args: --all-features
@@ -102,8 +102,6 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
-      - env:
-          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -112,6 +110,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
       - name: Documentation build with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           command: doc
           args: --all-features --no-deps
@@ -130,8 +130,6 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
-      - env:
-          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -140,6 +138,8 @@ jobs:
           toolchain: ${{matrix.toolchain}}
       - name: Release build with ${{matrix.toolchain}}
         uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           command: build
           args: --all-features --release
