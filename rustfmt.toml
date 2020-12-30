@@ -5,5 +5,5 @@ max_width = 90
 use_small_heuristics = "Max"
 tab_spaces = 2
 edition = "2018"
-newline_style = "Unix"
+# newline_style = "Unix"
 use_field_init_shorthand = true
