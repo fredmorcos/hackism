@@ -1,0 +1,52 @@
+name: HAS
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  lint:
+    name: Lint and format on ${{ matrix.os }}, toolchain ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, ubuntu-18.04, ubuntu-16.04, windows-latest, windows-2019, macos-latest, macos-10.15 ]
+        toolchain: [stable, nightly]
+    steps:
+      - name: Lint and format on toolchain ${{ matrix.toolchain }}
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.toolchain }}
+          components: rustfmt, clippy
+  test:
+    name: Test on ${{ matrix.os }}, toolchain ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, ubuntu-18.04, ubuntu-16.04, windows-latest, windows-2019, macos-latest, macos-10.15 ]
+        toolchain: [stable, nightly]
+    steps:
+      - name: Test on toolchain ${{ matrix.toolchain }}
+      - uses: actions/checkout@v2
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+  release:
+    name: Release build on ${{ matrix.os }}, toolchain ${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, ubuntu-18.04, ubuntu-16.04, windows-latest, windows-2019, macos-latest, macos-10.15 ]
+        toolchain: [stable, nightly]
+    steps:
+      - name: Release build on toolchain ${{ matrix.toolchain }}
+      - uses: actions/checkout@v2
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --all-features --release
