@@ -29,6 +29,31 @@ jobs:
           profile: minimal
           toolchain: ${{matrix.toolchain}}
           components: rustfmt, clippy
+  check:
+    name: Check on ${{matrix.os}}, toolchain ${{matrix.toolchain}}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-18.04
+          - ubuntu-16.04
+          - windows-latest
+          - windows-2019
+          - macos-latest
+          - macos-10.15
+        toolchain: [stable, nightly]
+    steps:
+      # - name: Lint and format on toolchain ${{matrix.toolchain}}
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all-features
   test:
     name: Test on ${{matrix.os}}, toolchain ${{matrix.toolchain}}
     runs-on: ${{matrix.os}}
@@ -46,6 +71,10 @@ jobs:
     steps:
       # - name: Test on toolchain ${{matrix.toolchain}}
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -67,6 +96,10 @@ jobs:
     steps:
       # - name: Documentation build on toolchain ${{matrix.toolchain}}
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
       - uses: actions-rs/cargo@v1
         with:
           command: doc
@@ -88,6 +121,10 @@ jobs:
     steps:
       # - name: Release build on toolchain ${{matrix.toolchain}}
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
       - uses: actions-rs/cargo@v1
         with:
           command: build
