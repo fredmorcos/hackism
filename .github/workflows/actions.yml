@@ -22,6 +22,8 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
+      - env:
+          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Lint and format with ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -44,6 +46,8 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
+      - env:
+          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -70,6 +74,8 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
+      - env:
+          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -96,6 +102,8 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
+      - env:
+          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
@@ -122,6 +130,8 @@ jobs:
           - macos-10.15
         toolchain: [stable, nightly]
     steps:
+      - env:
+          RUSTFLAGS: "-D warnings"
       - uses: actions/checkout@v2
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
