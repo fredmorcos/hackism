@@ -1,4 +1,4 @@
-name: HAS
+name: CI
 on:
   push:
     branches: [master]
