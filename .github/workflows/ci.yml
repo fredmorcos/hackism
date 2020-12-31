@@ -1,12 +1,16 @@
 name: CI
+
 on:
   push:
     branches: [master]
+
   pull_request:
     branches: [master]
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -Dwarnings
+
 jobs:
   lint:
     name: Lint and format on ${{matrix.os}}, with ${{matrix.toolchain}}
@@ -41,6 +45,7 @@ jobs:
         with:
           command: fmt
           args: --all -- --check -l
+
   check:
     name: Check on ${{matrix.os}}, with ${{matrix.toolchain}}
     runs-on: ${{matrix.os}}
@@ -68,6 +73,7 @@ jobs:
         with:
           command: check
           args: --all-targets --all-features
+  
   test:
     name: Test on ${{matrix.os}}, with ${{matrix.toolchain}}
     runs-on: ${{matrix.os}}
@@ -95,6 +101,7 @@ jobs:
         with:
           command: test
           args: --all-features
+  
   docs:
     name: Documentation build on ${{matrix.os}}, with ${{matrix.toolchain}}
     runs-on: ${{matrix.os}}
@@ -124,7 +131,8 @@ jobs:
         with:
           command: doc
           args: --all-features --no-deps
-  release:
+  
+  release-build:
     name: Release build on ${{matrix.os}}, with ${{matrix.toolchain}}
     runs-on: ${{matrix.os}}
     strategy:
