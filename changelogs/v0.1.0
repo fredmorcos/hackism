@@ -1,0 +1,4 @@
+* Includes a well documented `HAS` assembler which can be used to
+  assemble `HACK` assembly files into their binary representation as
+  well as the latter's textual representation. The produced files can
+  be used with the CPU emulator provided by Nand2Tetris.
