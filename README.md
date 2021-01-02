@@ -1,5 +1,12 @@
 # `HAS`: The HACK Application Suite
 
+https://github.com/fredmorcos/has
+
+`HAS` is MIT licensed (see the `LICENSE` file) unless otherwise stated
+at the top of a file.
+
+## About
+
 The HACK Application Suite is a library and a program for handling
 various tasks related to the HACK CPU and instruction set as well as
 the JACK programming language. HAS currently consists of the
