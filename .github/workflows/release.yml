@@ -1,0 +1,199 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  lint:
+    name: Lint and format on ${{matrix.os}}, with ${{matrix.toolchain}}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        toolchain: [stable]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain ${{matrix.toolchain}}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
+          override: true
+          components: rustfmt, clippy
+      - name: Lint with ${{matrix.toolchain}}
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-targets --all-features
+      - name: Format with ${{matrix.toolchain}}
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check -l
+
+  check:
+    name: Check on ${{matrix.os}}, with ${{matrix.toolchain}}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        toolchain: [stable]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain ${{matrix.toolchain}}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
+          override: true
+      - name: Check with ${{matrix.toolchain}}
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all-targets --all-features
+
+  test:
+    name: Test on ${{matrix.os}}, with ${{matrix.toolchain}}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        toolchain: [stable]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain ${{matrix.toolchain}}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
+          override: true
+      - name: Test with ${{matrix.toolchain}}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  docs:
+    name: Documentation build on ${{matrix.os}}, with ${{matrix.toolchain}}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        toolchain: [stable]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain ${{matrix.toolchain}}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
+          override: true
+
+  release-build:
+    needs: [lint, check, docs, test]
+    name: Release build on ${{matrix.os}}, with ${{matrix.toolchain}}
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        toolchain: [stable]
+        include:
+          - os: ubuntu-latest
+            release-file: target/release/has
+            debug-file: target/debug/has
+            strip: true
+            tarball: has-${{github.event.release.tag_name}}-linux.tar.bz2
+          - os: windows-latest
+            release-file: target\release\has.exe
+            debug-file: target\debug\has.exe
+            strip: false
+            tarball: has-${{github.event.release.tag_name}}-windows.zip
+          - os: macos-latest
+            release-file: target/release/has
+            debug-file: target/debug/has
+            strip: true
+            tarball: has-${{github.event.release.tag_name}}-mac.tar.bz2
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain ${{matrix.toolchain}}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{matrix.toolchain}}
+          override: true
+      - name: Documentation build with ${{matrix.toolchain}}
+        uses: actions-rs/cargo@v1
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+        with:
+          command: doc
+          args: --all-features --no-deps
+      - name: Release build with ${{matrix.toolchain}}
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --all-features --release
+      - name: Debug build with ${{matrix.toolchain}}
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --all-features
+      - name: Strip + UPX release binary
+        uses: svenstaro/upx-action@v2
+        with:
+          file: ${{matrix.release-file}}
+          strip: ${{matrix.strip}}
+      - name: Build tarballs on ${{matrix.os}}
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cp ${{matrix.release-file}} has
+          cp ${{matrix.debug-file}} has-debug
+          cp -r target/doc docs
+          mkdir examples
+          cp tests/asm/fixtures/*.asm examples/
+          tar -c -f ${{matrix.tarball}} has has-debug examples docs LICENSE README.md
+      - name: Build tarballs on ${{matrix.os}}
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          Copy-Item -Path "${{matrix.release-file}}"
+          Copy-Item -Path "${{matrix.debug-file}}"
+          Copy-Item -Path "target\doc" -Destination "docs" -Recurse
+          Copy-Item -Path "tests\asm\fixtures\*.asm" -Destination "examples"
+          Compress-Archive -Path "has.exe" "has-debug.exe" "examples" "docs" "LICENSE" "README.md" -DestinationPath "${{matrix.tarball}}"
+      - name: Create a release on ${{matrix.os}}
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: ${{github.event.release.tag_name}}
+          release_name: has-${{github.event.release.tag_name}}
+          # body_path: # Use this when we have a changelog mechanism
+      - name: Upload tarball (${{matrix.os}})
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: ${{matrix.tarball}}
+          asset_name: ${{matrix.tarball}}
+          asset_content_type: application/zip
