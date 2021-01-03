@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 
 jobs:
   lint:
@@ -92,8 +92,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Get tag name
-        uses: olegtarasov/get-tag@v2
-        id: getTag
+        uses: dawidd6/action-get-tag@v1
+        id: tag
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -124,24 +124,24 @@ jobs:
           strip: true
       - name: Build tarball
         run: |
-          mkdir has-${{steps.getTag.outputs.tag}}-linux
-          cp target/release/has has-${{steps.getTag.outputs.tag}}-linux/has
-          cp target/debug/has has-${{steps.getTag.outputs.tag}}-linux/has-debug
-          cp -r target/doc has-${{steps.getTag.outputs.tag}}-linux/docs
-          mkdir has-${{steps.getTag.outputs.tag}}-linux/examples
-          cp tests/asm/fixtures/*.asm has-${{steps.getTag.outputs.tag}}-linux/examples/
-          cp LICENSE has-${{steps.getTag.outputs.tag}}-linux/LICENSE
-          cp README.md has-${{steps.getTag.outputs.tag}}-linux/README.md
-          tar -c -f has-${{steps.getTag.outputs.tag}}-linux.tar.bz2 has-${{steps.getTag.outputs.tag}}-linux
+          mkdir has-${{steps.tag.outputs.tag}}-linux
+          cp target/release/has has-${{steps.tag.outputs.tag}}-linux/has
+          cp target/debug/has has-${{steps.tag.outputs.tag}}-linux/has-debug
+          cp -r target/doc has-${{steps.tag.outputs.tag}}-linux/docs
+          mkdir has-${{steps.tag.outputs.tag}}-linux/examples
+          cp tests/asm/fixtures/*.asm has-${{steps.tag.outputs.tag}}-linux/examples/
+          cp LICENSE has-${{steps.tag.outputs.tag}}-linux/LICENSE
+          cp README.md has-${{steps.tag.outputs.tag}}-linux/README.md
+          tar -c -f has-${{steps.tag.outputs.tag}}-linux.tar.bz2 has-${{steps.tag.outputs.tag}}-linux
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
-          tag_name: ${{steps.getTag.outputs.tag}}
-          release_name: has-${{steps.getTag.outputs.tag}}-linux
-          body_path: changelogs/${{steps.getTag.outputs.tag}}
+          tag_name: ${{steps.tag.outputs.tag}}
+          release_name: has-${{steps.tag.outputs.tag}}-linux
+          body_path: changelogs/${{steps.tag.outputs.tag}}
       - name: Upload tarball
         # id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -149,8 +149,8 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: has-${{steps.getTag.outputs.tag}}-linux.tar.bz2
-          asset_name: has-${{steps.getTag.outputs.tag}}-linux.tar.bz2
+          asset_path: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
+          asset_name: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
           asset_content_type: application/x-bzip2
 
   macos-release:
@@ -161,8 +161,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Get tag name
-        uses: olegtarasov/get-tag@v2
-        id: getTag
+        uses: dawidd6/action-get-tag@v1
+        id: tag
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -193,24 +193,24 @@ jobs:
           strip: true
       - name: Build tarball
         run: |
-          mkdir has-${{steps.getTag.outputs.tag}}-macos
-          cp target/release/has has-${{steps.getTag.outputs.tag}}-macos/has
-          cp target/debug/has has-${{steps.getTag.outputs.tag}}-macos/has-debug
-          cp -r target/doc has-${{steps.getTag.outputs.tag}}-macos/docs
-          mkdir has-${{steps.getTag.outputs.tag}}-macos/examples
-          cp tests/asm/fixtures/*.asm has-${{steps.getTag.outputs.tag}}-macos/examples/
-          cp LICENSE has-${{steps.getTag.outputs.tag}}-macos/LICENSE
-          cp README.md has-${{steps.getTag.outputs.tag}}-macos/README.md
-          tar -c -f has-${{steps.getTag.outputs.tag}}-macos.tar.bz2 has-${{steps.getTag.outputs.tag}}-macos
+          mkdir has-${{steps.tag.outputs.tag}}-macos
+          cp target/release/has has-${{steps.tag.outputs.tag}}-macos/has
+          cp target/debug/has has-${{steps.tag.outputs.tag}}-macos/has-debug
+          cp -r target/doc has-${{steps.tag.outputs.tag}}-macos/docs
+          mkdir has-${{steps.tag.outputs.tag}}-macos/examples
+          cp tests/asm/fixtures/*.asm has-${{steps.tag.outputs.tag}}-macos/examples/
+          cp LICENSE has-${{steps.tag.outputs.tag}}-macos/LICENSE
+          cp README.md has-${{steps.tag.outputs.tag}}-macos/README.md
+          tar -c -f has-${{steps.tag.outputs.tag}}-macos.tar.bz2 has-${{steps.tag.outputs.tag}}-macos
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
-          tag_name: ${{steps.getTag.outputs.tag}}
-          release_name: has-${{steps.getTag.outputs.tag}}-macos
-          body_path: changelogs/${{steps.getTag.outputs.tag}}
+          tag_name: ${{steps.tag.outputs.tag}}
+          release_name: has-${{steps.tag.outputs.tag}}-macos
+          body_path: changelogs/${{steps.tag.outputs.tag}}
       - name: Upload tarball
         # id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -218,8 +218,8 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: has-${{steps.getTag.outputs.tag}}-macos.tar.bz2
-          asset_name: has-${{steps.getTag.outputs.tag}}-macos.tar.bz2
+          asset_path: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+          asset_name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
           asset_content_type: application/x-bzip2
 
   release-build:
@@ -230,8 +230,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Get tag name
-        uses: olegtarasov/get-tag@v2
-        id: getTag
+        uses: dawidd6/action-get-tag@v1
+        id: tag
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -263,23 +263,23 @@ jobs:
       - name: Build tarball
         shell: powershell
         run: |
-          New-Item -Path "has-${{steps.getTag.outputs.tag}}-windows" -ItemType Directory
-          Copy-Item -Path "target\release\has.exe" -Destination "has-${{steps.getTag.outputs.tag}}-windows\has.exe"
-          Copy-Item -Path "target\debug\has.exe" -Destination "has-${{steps.getTag.outputs.tag}}-windows\has-debug.exe"
-          Copy-Item -Path "target\doc" -Destination "has-${{steps.getTag.outputs.tag}}-windows\docs" -Recurse
-          Copy-Item -Path "tests\asm\fixtures\*.asm" -Destination "has-${{steps.getTag.outputs.tag}}-windows\examples"
-          Copy-Item -Path "LICENSE" -Destination "has-${{steps.getTag.outputs.tag}}-windows\LICENSE"
-          Copy-Item -Path "README.md" -Destination "has-${{steps.getTag.outputs.tag}}-windows\README.md"
-          Compress-Archive -Path "has-${{steps.getTag.outputs.tag}}-windows" -DestinationPath "has-${{steps.getTag.outputs.tag}}-windows.zip"
+          New-Item -Path "has-${{steps.tag.outputs.tag}}-windows" -ItemType Directory
+          Copy-Item -Path "target\release\has.exe" -Destination "has-${{steps.tag.outputs.tag}}-windows\has.exe"
+          Copy-Item -Path "target\debug\has.exe" -Destination "has-${{steps.tag.outputs.tag}}-windows\has-debug.exe"
+          Copy-Item -Path "target\doc" -Destination "has-${{steps.tag.outputs.tag}}-windows\docs" -Recurse
+          Copy-Item -Path "tests\asm\fixtures\*.asm" -Destination "has-${{steps.tag.outputs.tag}}-windows\examples"
+          Copy-Item -Path "LICENSE" -Destination "has-${{steps.tag.outputs.tag}}-windows\LICENSE"
+          Copy-Item -Path "README.md" -Destination "has-${{steps.tag.outputs.tag}}-windows\README.md"
+          Compress-Archive -Path "has-${{steps.tag.outputs.tag}}-windows" -DestinationPath "has-${{steps.tag.outputs.tag}}-windows.zip"
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
-          tag_name: ${{steps.getTag.outputs.tag}}
-          release_name: has-${{steps.getTag.outputs.tag}}-windows
-          body_path: changelogs\${{steps.getTag.outputs.tag}}
+          tag_name: ${{steps.tag.outputs.tag}}
+          release_name: has-${{steps.tag.outputs.tag}}-windows
+          body_path: changelogs\${{steps.tag.outputs.tag}}
       - name: Upload tarball
         # id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -287,6 +287,6 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: has-${{steps.getTag.outputs.tag}}-windows.zip
-          asset_name: has-${{steps.getTag.outputs.tag}}-windows.zip
+          asset_path: has-${{steps.tag.outputs.tag}}-windows.zip
+          asset_name: has-${{steps.tag.outputs.tag}}-windows.zip
           asset_content_type: application/zip
