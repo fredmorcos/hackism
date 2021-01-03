@@ -1,9 +1,17 @@
 [package]
 name = "has"
-description = "Assembler for the Hack machine"
 version = "0.1.0"
-authors = ["Fred Morcos <fm@fredmorcos.com>"]
+description = "HACK Application Suite"
 edition = "2018"
+authors = ["Fred Morcos <fm@fredmorcos.com>"]
+license-file = "LICENSE"
+license = "MIT"
+homepage = "https://github.com/fredmorcos/has"
+repository = "https://github.com/fredmorcos/has"
+readme = "README.md"
+# documentation =
+keywords = ["HACK", "JACK", "assembler", "emulator", "compiler"]
+categories = ["command-line-utilities", "emulators", "parser-implementations"]
 
 [lib]
 name = "has"
