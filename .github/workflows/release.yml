@@ -84,27 +84,8 @@ jobs:
           command: test
           args: --all-features
 
-  docs:
-    name: Documentation build on ${{matrix.os}}, with ${{matrix.toolchain}}
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
-        toolchain: [stable]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install toolchain ${{matrix.toolchain}}
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{matrix.toolchain}}
-          override: true
-
   release-build:
-    needs: [lint, check, docs, test]
+    needs: [lint, check, test]
     name: Release build on ${{matrix.os}}, with ${{matrix.toolchain}}
     runs-on: ${{matrix.os}}
     strategy:
@@ -119,19 +100,20 @@ jobs:
             release-file: target/release/has
             debug-file: target/debug/has
             strip: true
-            tarball: has-${{github.event.release.tag_name}}-linux.tar.bz2
           - os: windows-latest
             release-file: target\release\has.exe
             debug-file: target\debug\has.exe
             strip: false
-            tarball: has-${{github.event.release.tag_name}}-windows.zip
           - os: macos-latest
             release-file: target/release/has
             debug-file: target/debug/has
             strip: true
-            tarball: has-${{github.event.release.tag_name}}-mac.tar.bz2
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Get tag name
+        uses: olegtarasov/get-tag@v2
+        id: getTag
       - name: Install toolchain ${{matrix.toolchain}}
         uses: actions-rs/toolchain@v1
         with:
@@ -162,38 +144,53 @@ jobs:
           strip: ${{matrix.strip}}
       - name: Build tarballs on ${{matrix.os}}
         if: matrix.os == 'ubuntu-latest'
+        id: tarball-${{matrix.os}}
+        run: echo "::set-output name=tarball::has-${{steps.getTag.outputs.tag}}-linux.tar.bz2"
         run: |
           cp ${{matrix.release-file}} has
           cp ${{matrix.debug-file}} has-debug
           cp -r target/doc docs
           mkdir examples
           cp tests/asm/fixtures/*.asm examples/
-          tar -c -f ${{matrix.tarball}} has has-debug examples docs LICENSE README.md
+          tar -c -f has-${{steps.getTag.outputs.tag}}-linux.tar.bz2 has has-debug examples docs LICENSE README.md
+      - name: Build tarballs on ${{matrix.os}}
+        if: matrix.os == 'macos-latest'
+        id: tarball-${{matrix.os}}
+        run: echo "::set-output name=tarball::has-${{steps.getTag.outputs.tag}}-mac.tar.bz2"
+        run: |
+          cp ${{matrix.release-file}} has
+          cp ${{matrix.debug-file}} has-debug
+          cp -r target/doc docs
+          mkdir examples
+          cp tests/asm/fixtures/*.asm examples/
+          tar -c -f has-${{steps.getTag.outputs.tag}}-mac.tar.bz2 has has-debug examples docs LICENSE README.md
       - name: Build tarballs on ${{matrix.os}}
         if: matrix.os == 'windows-latest'
+        id: tarball-${{matrix.os}}
+        run: echo "::set-output name=tarball::has-${{steps.getTag.outputs.tag}}-windows.zip"
         shell: powershell
         run: |
           Copy-Item -Path "${{matrix.release-file}}"
           Copy-Item -Path "${{matrix.debug-file}}"
           Copy-Item -Path "target\doc" -Destination "docs" -Recurse
           Copy-Item -Path "tests\asm\fixtures\*.asm" -Destination "examples"
-          Compress-Archive -Path "has.exe" "has-debug.exe" "examples" "docs" "LICENSE" "README.md" -DestinationPath "${{matrix.tarball}}"
+          Compress-Archive -Path "has.exe" "has-debug.exe" "examples" "docs" "LICENSE" "README.md" -DestinationPath "has-${{steps.getTag.outputs.tag}}-windows.zip"
       - name: Create a release on ${{matrix.os}}
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
-          tag_name: ${{github.event.release.tag_name}}
-          release_name: has-${{github.event.release.tag_name}}
-          # body_path: # Use this when we have a changelog mechanism
-      - name: Upload tarball (${{matrix.os}})
-        id: upload-release-asset
+          tag_name: ${{steps.getTag.outputs.tag}}
+          release_name: has-${{steps.getTag.outputs.tag}}
+          body_path: changelogs/${{steps.getTag.outputs.tag}}
+      - name: Upload ${{matrix.os}} tarball
+        # id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: ${{matrix.tarball}}
-          asset_name: ${{matrix.tarball}}
+          asset_path: ${{steps.tarball-${{matrix.os}}.outputs.tarball}}
+          asset_name: ${{steps.tarball-${{matrix.os}}.outputs.tarball}}
           asset_content_type: application/zip
