@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "HACK Application Suite"
 edition = "2018"
 authors = ["Fred Morcos <fm@fredmorcos.com>"]
-license-file = "LICENSE"
 license = "MIT"
 homepage = "https://github.com/fredmorcos/has"
 repository = "https://github.com/fredmorcos/has"
