@@ -246,7 +246,7 @@ jobs:
       - name: Strip + UPX release binary
         uses: svenstaro/upx-action@v2
         with:
-          file: target/release/has
+          file: target/release/has.exe
           strip: false
       - name: Build tarball
         shell: bash
