@@ -177,8 +177,8 @@ jobs:
       - name: Upload tarball artifact
         uses: actions/upload-artifact@v2
         with:
-          name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
-          path: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+          name: has-${{steps.tag.outputs.tag}}-macos.dmg
+          path: has-${{steps.tag.outputs.tag}}-macos.dmg
 
   windows-build:
     name: Release build on Windows
@@ -285,7 +285,7 @@ jobs:
       - name: Download MacOS tarball
         uses: actions/download-artifact@v2
         with:
-          name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+          name: has-${{steps.tag.outputs.tag}}-macos.dmg
       - name: Download Windows tarball
         uses: actions/download-artifact@v2
         with:
@@ -316,8 +316,8 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
-          asset_name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+          asset_path: has-${{steps.tag.outputs.tag}}-macos.dmg
+          asset_name: has-${{steps.tag.outputs.tag}}-macos.dmg
           asset_content_type: application/x-bzip2
       - name: Upload Windows tarball
         # id: upload-release-asset-macos
