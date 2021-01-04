@@ -1,7 +1,7 @@
 # `HAS`: The HACK Application Suite
 
-![GitHub](https://img.shields.io/github/license/fredmorcos/has?style=for-the-badge)
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/fredmorcos/has?sort=semver&style=for-the-badge)
+[![GitHub](https://img.shields.io/github/license/fredmorcos/has?style=for-the-badge)](https://github.com/fredmorcos/has/blob/master/LICENSE)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/fredmorcos/has?sort=semver&style=for-the-badge)](https://github.com/fredmorcos/has/releases)
 
 https://github.com/fredmorcos/has
 
