@@ -244,6 +244,7 @@ jobs:
           cp target/release/has.exe $NAME/has.exe
           cp target/debug/has.exe $NAME/has-debug.exe
           cp -r target/doc $NAME/docs
+          mkdir $NAME/examples
           cp tests/asm/fixtures/*.asm $NAME/examples/
           cp LICENSE $NAME/LICENSE
           cp README.md $NAME/README.md
