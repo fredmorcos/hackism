@@ -123,16 +123,18 @@ jobs:
           file: target/release/has
           strip: true
       - name: Build tarball
+        shell: bash
         run: |
-          mkdir has-${{steps.tag.outputs.tag}}-linux
-          cp target/release/has has-${{steps.tag.outputs.tag}}-linux/has
-          cp target/debug/has has-${{steps.tag.outputs.tag}}-linux/has-debug
-          cp -r target/doc has-${{steps.tag.outputs.tag}}-linux/docs
-          mkdir has-${{steps.tag.outputs.tag}}-linux/examples
-          cp tests/asm/fixtures/*.asm has-${{steps.tag.outputs.tag}}-linux/examples/
-          cp LICENSE has-${{steps.tag.outputs.tag}}-linux/LICENSE
-          cp README.md has-${{steps.tag.outputs.tag}}-linux/README.md
-          tar -c -f has-${{steps.tag.outputs.tag}}-linux.tar.bz2 has-${{steps.tag.outputs.tag}}-linux
+          export NAME=has-${{steps.tag.outputs.tag}}-linux
+          mkdir $NAME
+          cp target/release/has $NAME/has
+          cp target/debug/has $NAME/has-debug
+          cp -r target/doc $NAME/docs
+          mkdir $NAME/examples
+          cp tests/asm/fixtures/*.asm $NAME/examples/
+          cp LICENSE $NAME/LICENSE
+          cp README.md $NAME/README.md
+          tar -c -f $NAME.tar.bz2 $NAME
       - name: Upload tarball artifact
         uses: actions/upload-artifact@v2
         with:
@@ -178,16 +180,18 @@ jobs:
           file: target/release/has
           strip: true
       - name: Build tarball
+        shell: bash
         run: |
-          mkdir has-${{steps.tag.outputs.tag}}-macos
-          cp target/release/has has-${{steps.tag.outputs.tag}}-macos/has
-          cp target/debug/has has-${{steps.tag.outputs.tag}}-macos/has-debug
-          cp -r target/doc has-${{steps.tag.outputs.tag}}-macos/docs
-          mkdir has-${{steps.tag.outputs.tag}}-macos/examples
-          cp tests/asm/fixtures/*.asm has-${{steps.tag.outputs.tag}}-macos/examples/
-          cp LICENSE has-${{steps.tag.outputs.tag}}-macos/LICENSE
-          cp README.md has-${{steps.tag.outputs.tag}}-macos/README.md
-          tar -c -f has-${{steps.tag.outputs.tag}}-macos.tar.bz2 has-${{steps.tag.outputs.tag}}-macos
+          export NAME=has-${{steps.tag.outputs.tag}}-macos
+          mkdir $NAME
+          cp target/release/has $NAME/has
+          cp target/debug/has $NAME/has-debug
+          cp -r target/doc $NAME/docs
+          mkdir $NAME/examples
+          cp tests/asm/fixtures/*.asm $NAME/examples/
+          cp LICENSE $NAME/LICENSE
+          cp README.md $NAME/README.md
+          tar -c -f $NAME.tar.bz2 $NAME
       - name: Upload tarball artifact
         uses: actions/upload-artifact@v2
         with:
@@ -233,16 +237,17 @@ jobs:
           file: target\release\has.exe
           strip: false
       - name: Build tarball
-        shell: powershell
+        shell: bash
         run: |
-          New-Item -Path "has-${{steps.tag.outputs.tag}}-windows" -ItemType Directory
-          Copy-Item -Path "target\release\has.exe" -Destination "has-${{steps.tag.outputs.tag}}-windows\has.exe"
-          Copy-Item -Path "target\debug\has.exe" -Destination "has-${{steps.tag.outputs.tag}}-windows\has-debug.exe"
-          Copy-Item -Path "target\doc" -Destination "has-${{steps.tag.outputs.tag}}-windows\docs" -Recurse
-          Copy-Item -Path "tests\asm\fixtures\*.asm" -Destination "has-${{steps.tag.outputs.tag}}-windows\examples"
-          Copy-Item -Path "LICENSE" -Destination "has-${{steps.tag.outputs.tag}}-windows\LICENSE"
-          Copy-Item -Path "README.md" -Destination "has-${{steps.tag.outputs.tag}}-windows\README.md"
-          Compress-Archive -Path "has-${{steps.tag.outputs.tag}}-windows" -DestinationPath "has-${{steps.tag.outputs.tag}}-windows.zip"
+          export NAME=has-${{steps.tag.outputs.tag}}-windows
+          mkdir $NAME
+          cp target\release\has.exe $NAME\has.exe
+          cp target\debug\has.exe -Destination $NAME\has-debug.exe
+          cp -r target\doc $NAME\docs
+          cp tests\asm\fixtures\*.asm $NAME\examples\
+          cp LICENSE $NAME\LICENSE
+          cp README.md $NAME\README.md
+          tar -c -f $NAME.zip $NAME
       - name: Upload tarball artifact
         uses: actions/upload-artifact@v2
         with:
