@@ -7,7 +7,6 @@ on:
 
 jobs:
   linux-build:
-    needs: [lint, check, test]
     name: Release build on Linux
     runs-on: ubuntu-latest
     steps:
@@ -95,7 +94,6 @@ jobs:
           path: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
 
   macos-build:
-    needs: [lint, check, test]
     name: Release build on MacOS
     runs-on: macos-latest
     steps:
@@ -183,7 +181,6 @@ jobs:
           path: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
 
   windows-build:
-    needs: [lint, check, test]
     name: Release build on Windows
     runs-on: windows-latest
     steps:
