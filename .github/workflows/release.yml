@@ -84,7 +84,7 @@ jobs:
           command: test
           args: --all-features
 
-  linux-release:
+  linux-build:
     needs: [lint, check, test]
     name: Release build on Linux
     runs-on: ubuntu-latest
@@ -133,27 +133,13 @@ jobs:
           cp LICENSE has-${{steps.tag.outputs.tag}}-linux/LICENSE
           cp README.md has-${{steps.tag.outputs.tag}}-linux/README.md
           tar -c -f has-${{steps.tag.outputs.tag}}-linux.tar.bz2 has-${{steps.tag.outputs.tag}}-linux
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v2
         with:
-          tag_name: ${{steps.tag.outputs.tag}}
-          release_name: has-${{steps.tag.outputs.tag}}-linux
-          body_path: changelogs/${{steps.tag.outputs.tag}}
-      - name: Upload tarball
-        # id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        with:
-          upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
-          asset_name: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
-          asset_content_type: application/x-bzip2
+          name: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
+          path: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
 
-  macos-release:
+  macos-build:
     needs: [lint, check, test]
     name: Release build on MacOS
     runs-on: macos-latest
@@ -202,27 +188,13 @@ jobs:
           cp LICENSE has-${{steps.tag.outputs.tag}}-macos/LICENSE
           cp README.md has-${{steps.tag.outputs.tag}}-macos/README.md
           tar -c -f has-${{steps.tag.outputs.tag}}-macos.tar.bz2 has-${{steps.tag.outputs.tag}}-macos
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v2
         with:
-          tag_name: ${{steps.tag.outputs.tag}}
-          release_name: has-${{steps.tag.outputs.tag}}-macos
-          body_path: changelogs/${{steps.tag.outputs.tag}}
-      - name: Upload tarball
-        # id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        with:
-          upload_url: ${{steps.create_release.outputs.upload_url}}
-          asset_path: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
-          asset_name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
-          asset_content_type: application/x-bzip2
+          name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+          path: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
 
-  release-build:
+  windows-build:
     needs: [lint, check, test]
     name: Release build on Windows
     runs-on: windows-latest
@@ -271,6 +243,34 @@ jobs:
           Copy-Item -Path "LICENSE" -Destination "has-${{steps.tag.outputs.tag}}-windows\LICENSE"
           Copy-Item -Path "README.md" -Destination "has-${{steps.tag.outputs.tag}}-windows\README.md"
           Compress-Archive -Path "has-${{steps.tag.outputs.tag}}-windows" -DestinationPath "has-${{steps.tag.outputs.tag}}-windows.zip"
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: has-${{steps.tag.outputs.tag}}-windows.zip
+          path: has-${{steps.tag.outputs.tag}}-windows.zip
+
+  create-release:
+    needs: [linux-build, macos-build, windows-build]
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Get tag name
+        uses: dawidd6/action-get-tag@v1
+        id: tag
+      - name: Download Linux tarball
+        uses: actions/download-artifact@v2
+        with:
+          name: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
+      - name: Download MacOS tarball
+        uses: actions/download-artifact@v2
+        with:
+          name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+      - name: Download Windows tarball
+        uses: actions/download-artifact@v2
+        with:
+          name: has-${{steps.tag.outputs.tag}}-windows.zip
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
@@ -278,10 +278,30 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
         with:
           tag_name: ${{steps.tag.outputs.tag}}
-          release_name: has-${{steps.tag.outputs.tag}}-windows
-          body_path: changelogs\${{steps.tag.outputs.tag}}
-      - name: Upload tarball
-        # id: upload-release-asset
+          release_name: has-${{steps.tag.outputs.tag}}
+          body_path: changelogs/${{steps.tag.outputs.tag}}
+      - name: Upload Linux tarball
+        # id: upload-release-asset-linux
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
+          asset_name: has-${{steps.tag.outputs.tag}}-linux.tar.bz2
+          asset_content_type: application/x-bzip2
+      - name: Upload MacOS tarball
+        # id: upload-release-asset-macos
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+          asset_name: has-${{steps.tag.outputs.tag}}-macos.tar.bz2
+          asset_content_type: application/x-bzip2
+      - name: Upload Windows tarball
+        # id: upload-release-asset-macos
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
