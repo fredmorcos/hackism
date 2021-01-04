@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [master]
-
   pull_request:
     branches: [master]
 
@@ -13,7 +12,7 @@ env:
 
 jobs:
   lint:
-    name: Lint and format on ${{matrix.os}}, with ${{matrix.toolchain}}
+    name: CI on ${{matrix.os}} with the ${{matrix.toolchain}} toolchain
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
@@ -35,127 +34,50 @@ jobs:
           toolchain: ${{matrix.toolchain}}
           override: true
           components: rustfmt, clippy
-      - name: Lint with ${{matrix.toolchain}}
+      - name: Lint
         uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: --all-targets --all-features
-      - name: Format with ${{matrix.toolchain}}
+      - name: Formatting check
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check -l
-
-  check:
-    name: Check on ${{matrix.os}}, with ${{matrix.toolchain}}
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - ubuntu-18.04
-          - ubuntu-16.04
-          - windows-latest
-          - windows-2019
-          - macos-latest
-          - macos-10.15
-        toolchain: [stable, nightly]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install toolchain ${{matrix.toolchain}}
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{matrix.toolchain}}
-          override: true
-      - name: Check with ${{matrix.toolchain}}
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-targets --all-features
-  
-  test:
-    name: Test on ${{matrix.os}}, with ${{matrix.toolchain}}
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - ubuntu-18.04
-          - ubuntu-16.04
-          - windows-latest
-          - windows-2019
-          - macos-latest
-          - macos-10.15
-        toolchain: [stable, nightly]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install toolchain ${{matrix.toolchain}}
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{matrix.toolchain}}
-          override: true
-      - name: Test with ${{matrix.toolchain}}
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features
-  
-  docs:
-    name: Documentation build on ${{matrix.os}}, with ${{matrix.toolchain}}
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - ubuntu-18.04
-          - ubuntu-16.04
-          - windows-latest
-          - windows-2019
-          - macos-latest
-          - macos-10.15
-        toolchain: [stable, nightly]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install toolchain ${{matrix.toolchain}}
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{matrix.toolchain}}
-          override: true
-      - name: Documentation build with ${{matrix.toolchain}}
+      - name: Documentation build
         uses: actions-rs/cargo@v1
         env:
           RUSTDOCFLAGS: -Dwarnings
         with:
           command: doc
           args: --all-features --no-deps
-  
-  release-build:
-    name: Release build on ${{matrix.os}}, with ${{matrix.toolchain}}
-    runs-on: ${{matrix.os}}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - ubuntu-18.04
-          - ubuntu-16.04
-          - windows-latest
-          - windows-2019
-          - macos-latest
-          - macos-10.15
-        toolchain: [stable, nightly]
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install toolchain ${{matrix.toolchain}}
-        uses: actions-rs/toolchain@v1
+      - name: Debug check
+        uses: actions-rs/cargo@v1
         with:
-          profile: minimal
-          toolchain: ${{matrix.toolchain}}
-          override: true
-      - name: Release build with ${{matrix.toolchain}}
+          command: check
+          args: --all-targets --all-features
+      - name: Release check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --all-targets --all-features --release
+      - name: Debug build
         uses: actions-rs/cargo@v1
         with:
           command: build
+          args: --all-features
+      - name: Tests with debug build
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+      - name: Release build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --all-features --release
+      - name: Tests with release build
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
           args: --all-features --release
