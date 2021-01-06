@@ -118,12 +118,9 @@ fn main() -> Result<(), Err> {
     _ => log::LevelFilter::Trace,
   };
 
-  let log_res = env_logger::Builder::new().filter_level(log_level).try_init();
-
-  match log_res {
-    Ok(_) => {}
-    Err(e) => eprintln!("Error initializing logger: {}", e),
-  }
+  env_logger::Builder::new().filter_level(log_level).try_init().unwrap_or_else(|e| {
+    eprintln!("Error initializing logger: {}", e);
+  });
 
   info!("Informational output enabled");
   debug!("Debug output enabled");
