@@ -6,6 +6,25 @@ pub type Byte = u8;
 /// Alias for byte slices.
 pub type Buf<'b> = &'b [Byte];
 
+/// Calculate the line and column of an index in a [Buf].
+///
+/// Returns a tuple `(line, column)` corresponding to the location
+/// of an index in the input buffer.
+pub fn loc(buf: Buf, index: usize) -> (usize, usize) {
+  let mut loc = (1, 1);
+
+  for &b in &buf[..index] {
+    if b == b'\n' {
+      loc.0 += 1;
+      loc.1 = 1;
+    } else {
+      loc.1 += 1;
+    }
+  }
+
+  loc
+}
+
 /// Splits a buffer `buf` at the point when `pred` returns false for a
 /// byte.
 ///

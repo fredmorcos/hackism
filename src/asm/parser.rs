@@ -74,19 +74,7 @@ impl Parser<'_> {
   /// Returns a tuple `(line, column)` corresponding to the location
   /// of a [Token] in the original input buffer.
   pub fn loc(&self, tok: &Token) -> (usize, usize) {
-    let index = tok.index();
-    let mut loc = (1, 1);
-
-    for &b in &self.orig[..index] {
-      if b == b'\n' {
-        loc.0 += 1;
-        loc.1 = 1;
-      } else {
-        loc.1 += 1;
-      }
-    }
-
-    loc
+    utils::loc(self.orig, tok.index())
   }
 }
 
