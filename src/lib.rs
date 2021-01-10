@@ -7,4 +7,5 @@
 //! assembler translates HACK assembly code to HACK machine code.
 
 pub mod asm;
+pub mod dis;
 pub mod utils;

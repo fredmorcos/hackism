@@ -65,47 +65,69 @@ enum Command {
     #[structopt(name = "FILE", parse(from_os_str))]
     file: PathBuf,
   },
+
+  /// Disassemble a HACK file.
+  Dis {
+    /// The input is a text instead of a binary file
+    #[structopt(short, long)]
+    text: bool,
+
+    /// Output file (must not exist)
+    #[structopt(short, long, name = "OUT", parse(from_os_str))]
+    out: PathBuf,
+
+    /// Hack file to disassemble
+    #[structopt(name = "FILE", parse(from_os_str))]
+    file: PathBuf,
+  },
 }
 
 impl Command {
-  fn execute(self) -> Result<(), Err> {
+  fn exec(self) -> Result<(), Err> {
     match self {
-      Command::Asm { text, out, file } => {
-        let mut buf = Vec::with_capacity(1024);
-        let bytes = File::open(&file)?.read_to_end(&mut buf)?;
-        info!("Read {} bytes from {}", bytes, file.display());
-
-        if out.exists() {
-          return Err(Err::Io(io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            format!("File {} already exists", out.display()),
-          )));
-        }
-
-        info!("Parsing {}", file.display());
-        let mut prog = asm::prog::Prog::try_from(buf.as_slice())?;
-
-        let output = File::create(&out)?;
-        let mut writer = BufWriter::new(output);
-        info!("Writing to file {}", out.display());
-
-        if text {
-          for inst in prog.text_encoder() {
-            let inst = &inst?;
-            writer.write_all(inst)?;
-            writer.write_all(&[b'\n'])?;
-          }
-        } else {
-          for inst in prog.encoder() {
-            let inst = inst?;
-            writer.write_all(&inst)?;
-          }
-        }
-
-        Ok(())
-      }
+      Command::Asm { text, out, file } => exec_asm(text, out, file),
+      Command::Dis { text, out, file } => exec_dis(text, out, file),
     }
   }
+}
+
+fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
+  let mut buf = Vec::with_capacity(1024);
+  let bytes = File::open(&file)?.read_to_end(&mut buf)?;
+  info!("Read {} bytes from {}", bytes, file.display());
+
+  if out.exists() {
+    return Err(Err::Io(io::Error::new(
+      io::ErrorKind::AlreadyExists,
+      format!("File {} already exists", out.display()),
+    )));
+  }
+
+  info!("Parsing {}", file.display());
+  let mut prog = asm::prog::Prog::try_from(buf.as_slice())?;
+
+  let output = File::create(&out)?;
+  let mut writer = BufWriter::new(output);
+  info!("Writing to file {}", out.display());
+
+  if text {
+    for inst in prog.text_encoder() {
+      let inst = &inst?;
+      writer.write_all(inst)?;
+      writer.write_all(&[b'\n'])?;
+    }
+  } else {
+    for inst in prog.encoder() {
+      let inst = inst?;
+      writer.write_all(&inst)?;
+    }
+  }
+
+  Ok(())
+}
+
+fn exec_dis(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
+  todo!()
 }
 
 fn main() -> Result<(), Err> {
@@ -126,5 +148,5 @@ fn main() -> Result<(), Err> {
   debug!("Debug output enabled");
   trace!("Tracing output enabled");
 
-  opt.command.execute()
+  opt.command.exec()
 }
