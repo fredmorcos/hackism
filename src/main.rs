@@ -1,6 +1,7 @@
 #![warn(clippy::all)]
 
 use has::asm;
+use has::dis;
 
 use std::convert::TryFrom;
 use std::fmt;
@@ -8,6 +9,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
 use std::io::{self, Read};
+use std::path::Path;
 use std::path::PathBuf;
 
 use derive_more::From;
@@ -17,16 +19,20 @@ use structopt::StructOpt;
 #[derive(From)]
 enum Err {
   Io(io::Error),
-  Prog(asm::prog::Err),
+  Asm(asm::prog::Err),
   Encode(asm::prog::EncodeErr),
+  Dis(dis::prog::Err),
+  Decode(dis::prog::DecodeErr),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Err::Io(e) => write!(f, "IO error: {}", e),
-      Err::Prog(e) => write!(f, "Program error: {}", e),
+      Err::Asm(e) => write!(f, "Assembler error: {}", e),
       Err::Encode(e) => write!(f, "Encoding error: {}", e),
+      Err::Dis(e) => write!(f, "Disassembler error: {}", e),
+      Err::Decode(e) => write!(f, "Decoding error: {}", e),
     }
   }
 }
@@ -91,11 +97,14 @@ impl Command {
   }
 }
 
-fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
+fn read_file(file: &Path) -> Result<Vec<u8>, Err> {
   let mut buf = Vec::with_capacity(1024);
   let bytes = File::open(&file)?.read_to_end(&mut buf)?;
   info!("Read {} bytes from {}", bytes, file.display());
+  Ok(buf)
+}
 
+fn ensure_available_outfile(out: &Path) -> Result<(), Err> {
   if out.exists() {
     return Err(Err::Io(io::Error::new(
       io::ErrorKind::AlreadyExists,
@@ -103,12 +112,24 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
     )));
   }
 
+  Ok(())
+}
+
+fn create_outfile(out: &Path) -> Result<BufWriter<File>, Err> {
+  let output = File::create(&out)?;
+  let writer = BufWriter::new(output);
+  info!("Writing to file {}", out.display());
+  Ok(writer)
+}
+
+fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
+  ensure_available_outfile(&out)?;
+  let buf = read_file(&file)?;
+
   info!("Parsing {}", file.display());
   let mut prog = asm::prog::Prog::try_from(buf.as_slice())?;
 
-  let output = File::create(&out)?;
-  let mut writer = BufWriter::new(output);
-  info!("Writing to file {}", out.display());
+  let mut writer = create_outfile(&out)?;
 
   if text {
     for inst in prog.text_encoder() {
@@ -127,7 +148,22 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
 }
 
 fn exec_dis(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
-  todo!()
+  ensure_available_outfile(&out)?;
+  let buf = read_file(&file)?;
+
+  info!("Parsing {}", file.display());
+  let mut prog =
+    if text { dis::prog::Prog::new_text(&buf)? } else { dis::prog::Prog::new(&buf)? };
+
+  let mut writer = create_outfile(&out)?;
+
+  for inst in prog.decoder() {
+    let inst = inst?;
+    writer.write_all(inst.as_bytes())?;
+    writer.write_all(&[b'\n'])?;
+  }
+
+  Ok(())
 }
 
 fn main() -> Result<(), Err> {
