@@ -178,6 +178,44 @@ impl From<Comp> for u16 {
   }
 }
 
+impl TryFrom<u16> for Comp {
+  type Error = ();
+
+  fn try_from(v: u16) -> Result<Self, Self::Error> {
+    match v {
+      0b0101010 => Ok(Comp::Zero),
+      0b0111111 => Ok(Comp::One),
+      0b0111010 => Ok(Comp::Neg1),
+      0b0001100 => Ok(Comp::D),
+      0b0110000 => Ok(Comp::A),
+      0b0001101 => Ok(Comp::NotD),
+      0b0110001 => Ok(Comp::NotA),
+      0b0001111 => Ok(Comp::NegD),
+      0b0110011 => Ok(Comp::NegA),
+      0b0011111 => Ok(Comp::DPlus1),
+      0b0110111 => Ok(Comp::APlus1),
+      0b0001110 => Ok(Comp::DMinus1),
+      0b0110010 => Ok(Comp::AMinus1),
+      0b0000010 => Ok(Comp::DPlusA),
+      0b0010011 => Ok(Comp::DMinusA),
+      0b0000111 => Ok(Comp::AMinusD),
+      0b0000000 => Ok(Comp::DAndA),
+      0b0010101 => Ok(Comp::DOrA),
+      0b1110000 => Ok(Comp::M),
+      0b1110001 => Ok(Comp::NotM),
+      0b1110011 => Ok(Comp::NegM),
+      0b1110111 => Ok(Comp::MPlus1),
+      0b1110010 => Ok(Comp::MMinus1),
+      0b1000010 => Ok(Comp::DPlusM),
+      0b1010011 => Ok(Comp::DMinusM),
+      0b1000111 => Ok(Comp::MMinusD),
+      0b1000000 => Ok(Comp::DAndM),
+      0b1010101 => Ok(Comp::DOrM),
+      _ => Err(()),
+    }
+  }
+}
+
 impl TryFrom<Buf<'_>> for Comp {
   type Error = ();
 
