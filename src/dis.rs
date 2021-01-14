@@ -2,3 +2,4 @@
 //! programs.
 
 pub mod parser;
+pub mod prog;
