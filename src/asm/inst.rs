@@ -9,6 +9,7 @@ use crate::asm::jump::Jump;
 use crate::utils;
 use crate::utils::Buf;
 
+use std::convert::TryFrom;
 use std::fmt;
 
 /// An instruction as defined by the HACK assembly reference.
@@ -61,10 +62,41 @@ pub struct Inst {
 
 impl From<Inst> for u16 {
   fn from(inst: Inst) -> Self {
-    0b111 << 0xD
-      | u16::from(inst.comp()) << 0x6
-      | u16::from(inst.dest()) << 0x3
+    0b111 << 13
+      | u16::from(inst.comp()) << 6
+      | u16::from(inst.dest()) << 3
       | u16::from(inst.jump())
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecodeErr {
+  InvalidComp,
+  InvalidDest,
+  InvalidJump,
+}
+
+impl fmt::Display for DecodeErr {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      DecodeErr::InvalidComp => write!(f, "invalid computation"),
+      DecodeErr::InvalidDest => write!(f, "invalid destination"),
+      DecodeErr::InvalidJump => write!(f, "invalid jump"),
+    }
+  }
+}
+
+impl TryFrom<u16> for Inst {
+  type Error = DecodeErr;
+
+  fn try_from(v: u16) -> Result<Self, Self::Error> {
+    use DecodeErr::*;
+
+    let comp = Comp::try_from((v & 0b1111111000000) >> 6).map_err(|_| InvalidComp)?;
+    let dest = Dest::try_from((v & 0b111000) >> 3).map_err(|_| InvalidDest)?;
+    let jump = Jump::try_from(v & 0b111).map_err(|_| InvalidJump)?;
+
+    Ok(Self { dest, comp, jump })
   }
 }
 
