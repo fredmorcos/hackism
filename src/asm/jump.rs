@@ -77,6 +77,24 @@ impl From<Jump> for u16 {
   }
 }
 
+impl TryFrom<u16> for Jump {
+  type Error = ();
+
+  fn try_from(v: u16) -> Result<Self, Self::Error> {
+    match v {
+      0b000 => Ok(Jump::Null),
+      0b001 => Ok(Jump::JGT),
+      0b010 => Ok(Jump::JEQ),
+      0b011 => Ok(Jump::JGE),
+      0b100 => Ok(Jump::JLT),
+      0b101 => Ok(Jump::JNE),
+      0b110 => Ok(Jump::JLE),
+      0b111 => Ok(Jump::JMP),
+      _ => Err(()),
+    }
+  }
+}
+
 impl TryFrom<Buf<'_>> for Jump {
   type Error = ();
 
