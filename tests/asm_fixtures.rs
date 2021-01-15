@@ -13,7 +13,7 @@ mod asm_fixtures {
 
   #[test]
   fn test_programs() {
-    for file in fs::read_dir("tests/asm/fixtures").unwrap() {
+    for file in fs::read_dir("tests/fixtures").unwrap() {
       let file = file.unwrap();
       let mut file_path = file.path();
       let file_ext = file_path.extension().unwrap().to_str().unwrap();

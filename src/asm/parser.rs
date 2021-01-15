@@ -265,7 +265,7 @@ mod tests {
 
   macro_rules! parser {
     ($f:expr) => {
-      Parser::from(&include_bytes!(concat!("../../tests/asm/data/", $f))[..])
+      Parser::from(&include_bytes!(concat!("../../tests/asm/", $f))[..])
     };
   }
 
