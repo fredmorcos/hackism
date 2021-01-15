@@ -1,0 +1,4 @@
+* Includes a well documented `HACK` disassembler which can be used to
+  disassemble `HACK` binary files and their textual representations
+  into their `HACK` assembly representation. The produced files can be
+  used with the CPU emulator provided by Nand2Tetris.

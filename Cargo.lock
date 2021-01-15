@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "has"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "atoi",
  "derive_more",

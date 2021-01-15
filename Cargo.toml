@@ -1,6 +1,6 @@
 [package]
 name = "has"
-version = "0.1.0"
+version = "0.2.0"
 description = "HACK Application Suite"
 edition = "2018"
 authors = ["Fred Morcos <fm@fredmorcos.com>"]
