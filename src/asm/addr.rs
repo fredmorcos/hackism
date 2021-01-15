@@ -27,6 +27,7 @@ use atoi::FromRadix10Checked;
 ///
 /// ```
 /// use has::asm::addr::Addr;
+/// use has::asm::symbol::Symbol;
 ///
 /// use std::convert::TryFrom;
 ///
@@ -74,11 +75,11 @@ impl TryFrom<u16> for Addr<'_> {
 
   fn try_from(addr: u16) -> Result<Self, Self::Error> {
     // 32767 (15 bits of address value)
-    if addr <= 32767 {
-      return Ok(Self::Num(addr));
+    if addr > 32767 {
+      return Err(());
     }
 
-    Err(())
+    Ok(Self::Num(addr))
   }
 }
 
