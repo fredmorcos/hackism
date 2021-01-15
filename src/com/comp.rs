@@ -12,12 +12,12 @@ use crate::utils::Buf;
 ///
 /// The binary representation is 7 bits wide representing the bits
 /// `a`, `c1`, `c2`, `c3`, `c4`, `c5` and `c6` in an
-/// [instruction](crate::asm::inst::Inst).
+/// [instruction](crate::com::inst::Inst).
 ///
 /// ## Examples
 ///
 /// ```
-/// use has::asm::comp::Comp;
+/// use has::com::comp::Comp;
 ///
 /// assert_eq!(u16::from(Comp::Zero),    0b0101010);
 /// assert_eq!(u16::from(Comp::One),     0b0111111);
@@ -52,7 +52,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::asm::comp::Comp;
+/// use has::com::comp::Comp;
 ///
 /// assert_eq!(format!("{}", Comp::Zero),    "0");
 /// assert_eq!(format!("{}", Comp::One),     "1");
@@ -300,8 +300,8 @@ impl Comp {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::comp;
-  /// use has::asm::comp::Comp;
+  /// use has::com::comp;
+  /// use has::com::comp::Comp;
   ///
   /// let comp = Comp::read_from("".as_bytes());
   /// assert_eq!(comp, Err(comp::Err::Unknown));

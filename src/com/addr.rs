@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::asm::label::Label;
-use crate::asm::symbol::Symbol;
+use crate::com::label::Label;
+use crate::com::symbol::Symbol;
 use crate::utils;
 use crate::utils::Buf;
 
@@ -26,8 +26,8 @@ use atoi::FromRadix10Checked;
 /// ## Examples
 ///
 /// ```
-/// use has::asm::addr::Addr;
-/// use has::asm::symbol::Symbol;
+/// use has::com::addr::Addr;
+/// use has::com::symbol::Symbol;
 ///
 /// use std::convert::TryFrom;
 ///
@@ -42,8 +42,8 @@ use atoi::FromRadix10Checked;
 /// ## Examples
 ///
 /// ```
-/// use has::asm::addr::Addr;
-/// use has::asm::label::Label;
+/// use has::com::addr::Addr;
+/// use has::com::label::Label;
 ///
 /// use std::convert::TryFrom;
 ///
@@ -58,8 +58,8 @@ use atoi::FromRadix10Checked;
 /// ## Examples
 ///
 /// ```
-/// use has::asm::addr::Addr;
-/// use has::asm::symbol::Symbol;
+/// use has::com::addr::Addr;
+/// use has::com::symbol::Symbol;
 ///
 /// assert_eq!(Addr::from(Symbol::LCL), Addr::Symbol(Symbol::LCL));
 /// ```
@@ -132,10 +132,10 @@ impl<'b> Addr<'b> {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::addr;
-  /// use has::asm::addr::Addr;
-  /// use has::asm::label::Label;
-  /// use has::asm::symbol::Symbol;
+  /// use has::com::addr;
+  /// use has::com::addr::Addr;
+  /// use has::com::label::Label;
+  /// use has::com::symbol::Symbol;
   ///
   /// use std::convert::TryFrom;
   ///

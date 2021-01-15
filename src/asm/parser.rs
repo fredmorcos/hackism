@@ -3,11 +3,11 @@
 //! [Parser] is the primary structure in this module that should be
 //! used to parse HACK programs.
 
-use crate::asm::addr;
-use crate::asm::addr::Addr;
-use crate::asm::inst;
-use crate::asm::inst::Inst;
-use crate::asm::label::Label;
+use crate::com::addr;
+use crate::com::addr::Addr;
+use crate::com::inst;
+use crate::com::inst::Inst;
+use crate::com::label::Label;
 use crate::utils;
 use crate::utils::Buf;
 
@@ -33,10 +33,10 @@ use std::fmt;
 /// use has::asm::parser::Parser;
 /// use has::asm::parser::Token;
 /// use has::asm::parser::TokenKind;
-/// use has::asm::inst;
-/// use has::asm::inst::Inst;
-/// use has::asm::addr::Addr;
-/// use has::asm::label::Label;
+/// use has::com::inst;
+/// use has::com::inst::Inst;
+/// use has::com::addr::Addr;
+/// use has::com::label::Label;
 ///
 /// use std::convert::TryFrom;
 ///
@@ -253,13 +253,13 @@ mod tests {
   use super::Parser;
   use super::TokenKind;
 
-  use crate::asm::addr::Addr;
-  use crate::asm::comp::Comp;
-  use crate::asm::dest::Dest;
-  use crate::asm::inst::Inst;
-  use crate::asm::jump::Jump;
-  use crate::asm::label::Label;
-  use crate::asm::symbol::Symbol;
+  use crate::com::addr::Addr;
+  use crate::com::comp::Comp;
+  use crate::com::dest::Dest;
+  use crate::com::inst::Inst;
+  use crate::com::jump::Jump;
+  use crate::com::label::Label;
+  use crate::com::symbol::Symbol;
 
   use std::convert::TryFrom;
 

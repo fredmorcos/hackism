@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::asm::symbol::Symbol;
+use crate::com::symbol::Symbol;
 use crate::utils::Buf;
 
 /// An encoding for user-defined symbols as defined by the HACK
@@ -15,8 +15,8 @@ use crate::utils::Buf;
 /// ## Examples
 ///
 /// ```
-/// use has::asm::label::Label;
-/// use has::asm::label;
+/// use has::com::label::Label;
+/// use has::com::label;
 ///
 /// use std::convert::TryFrom;
 ///
@@ -31,7 +31,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::asm::label::Label;
+/// use has::com::label::Label;
 ///
 /// use std::convert::TryFrom;
 ///
@@ -72,7 +72,7 @@ impl Label<'_> {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::label::Label;
+  /// use has::com::label::Label;
   ///
   /// use std::convert::TryFrom;
   ///

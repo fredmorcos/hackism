@@ -3,9 +3,9 @@
 //! An [instruction](Inst) can represent different types of commands
 //! in the HACK assembly language.
 
-use crate::asm::comp::Comp;
-use crate::asm::dest::Dest;
-use crate::asm::jump::Jump;
+use crate::com::comp::Comp;
+use crate::com::dest::Dest;
+use crate::com::jump::Jump;
 use crate::utils;
 use crate::utils::Buf;
 
@@ -27,10 +27,10 @@ use std::fmt;
 /// ## Examples
 ///
 /// ```
-/// use has::asm::inst::Inst;
-/// use has::asm::dest::Dest;
-/// use has::asm::comp::Comp;
-/// use has::asm::jump::Jump;
+/// use has::com::inst::Inst;
+/// use has::com::dest::Dest;
+/// use has::com::comp::Comp;
+/// use has::com::jump::Jump;
 ///
 /// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap();
 /// assert_eq!(u16::from(inst), 0b111_0011111_010_000);
@@ -45,10 +45,10 @@ use std::fmt;
 /// # impl `Display`
 ///
 /// ```
-/// use has::asm::inst::Inst;
-/// use has::asm::dest::Dest;
-/// use has::asm::comp::Comp;
-/// use has::asm::jump::Jump;
+/// use has::com::inst::Inst;
+/// use has::com::dest::Dest;
+/// use has::com::comp::Comp;
+/// use has::com::jump::Jump;
 ///
 /// let inst = Inst::new(Dest::MD, Comp::DPlusA, Jump::JGT).unwrap();
 /// assert_eq!(format!("{}", inst), "MD=D+A;JGT");
@@ -172,11 +172,11 @@ impl Inst {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::dest::Dest;
-  /// use has::asm::comp::Comp;
-  /// use has::asm::jump::Jump;
-  /// use has::asm::inst;
-  /// use has::asm::inst::Inst;
+  /// use has::com::dest::Dest;
+  /// use has::com::comp::Comp;
+  /// use has::com::jump::Jump;
+  /// use has::com::inst;
+  /// use has::com::inst::Inst;
   ///
   /// assert_eq!(Inst::read_from("".as_bytes()), Err(inst::Err::InvalidComp));
   /// assert_eq!(Inst::read_from("Foo".as_bytes()), Err(inst::Err::InvalidComp));

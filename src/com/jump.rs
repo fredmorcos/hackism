@@ -11,12 +11,12 @@ use crate::utils::Buf;
 /// # impl `Into<u16>`
 ///
 /// The binary representation is 3 bits wide representing the bits
-/// `j1`, `j2` and `j3` in an [instruction](crate::asm::inst::Inst).
+/// `j1`, `j2` and `j3` in an [instruction](crate::com::inst::Inst).
 ///
 /// ## Examples
 ///
 /// ```
-/// use has::asm::jump::Jump;
+/// use has::com::jump::Jump;
 ///
 /// assert_eq!(u16::from(Jump::Null), 0b000);
 /// assert_eq!(u16::from(Jump::JGT),  0b001);
@@ -31,7 +31,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::asm::jump::Jump;
+/// use has::com::jump::Jump;
 ///
 /// assert_eq!(format!("{}", Jump::Null), "");
 /// assert_eq!(format!("{}", Jump::JGT),  "JGT");
@@ -138,8 +138,8 @@ impl Jump {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::jump;
-  /// use has::asm::jump::Jump;
+  /// use has::com::jump;
+  /// use has::com::jump::Jump;
   ///
   /// let jump = Jump::read_from("".as_bytes());
   /// assert_eq!(jump, Err(jump::Err::Unknown));
@@ -202,7 +202,7 @@ impl Jump {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::jump::Jump;
+  /// use has::com::jump::Jump;
   ///
   /// assert!(Jump::Null.is_null());
   /// assert!(!Jump::JGT.is_null());

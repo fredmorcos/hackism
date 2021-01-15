@@ -3,11 +3,11 @@
 //! [Prog] can be used to represent the (flat) parse tree of a HACK
 //! assembly program.
 
-use crate::asm::addr::Addr;
-use crate::asm::inst::Inst;
-use crate::asm::label::Label;
 use crate::asm::parser;
 use crate::asm::parser::Parser;
+use crate::com::addr::Addr;
+use crate::com::inst::Inst;
+use crate::com::label::Label;
 use crate::utils;
 use crate::utils::Buf;
 

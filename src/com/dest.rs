@@ -11,12 +11,12 @@ use crate::utils::Buf;
 /// # impl `Into<u16>`
 ///
 /// The binary representation is 3 bits wide representing the bits
-/// `d1`, `d2` and `d3` in an [instruction](crate::asm::inst::Inst).
+/// `d1`, `d2` and `d3` in an [instruction](crate::com::inst::Inst).
 ///
 /// ## Examples
 ///
 /// ```
-/// use has::asm::dest::Dest;
+/// use has::com::dest::Dest;
 ///
 /// assert_eq!(u16::from(Dest::Null), 0b000);
 /// assert_eq!(u16::from(Dest::M),    0b001);
@@ -31,7 +31,7 @@ use crate::utils::Buf;
 /// # impl `Display`
 ///
 /// ```
-/// use has::asm::dest::Dest;
+/// use has::com::dest::Dest;
 ///
 /// assert_eq!(format!("{}", Dest::Null), "");
 /// assert_eq!(format!("{}", Dest::M),    "M");
@@ -138,8 +138,8 @@ impl Dest {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::dest;
-  /// use has::asm::dest::Dest;
+  /// use has::com::dest;
+  /// use has::com::dest::Dest;
   ///
   /// let dest = Dest::read_from("".as_bytes());
   /// assert_eq!(dest, Err(dest::Err::Unknown));
@@ -202,7 +202,7 @@ impl Dest {
   /// # Examples
   ///
   /// ```
-  /// use has::asm::dest::Dest;
+  /// use has::com::dest::Dest;
   ///
   /// assert!(Dest::Null.is_null());
   /// assert!(!Dest::D.is_null());
