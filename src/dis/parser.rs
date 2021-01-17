@@ -244,3 +244,233 @@ impl<'b, T: Impl<Item = Result<Token, Err>>> Iterator for Parser<'b, T> {
     T::next(self)
   }
 }
+
+#[cfg(test)]
+mod tests_text {
+  use super::Parser;
+
+  use crate::com::addr::Addr;
+  use crate::com::comp::Comp;
+  use crate::com::dest::Dest;
+  use crate::com::inst::Inst;
+  use crate::com::jump::Jump;
+  use crate::com::symbol::Symbol;
+
+  use std::convert::TryFrom;
+
+  macro_rules! parser_text {
+    ($f:expr) => {
+      Parser::from(&include_bytes!(concat!("../../tests/snippets/", $f, ".hack"))[..])
+    };
+  }
+
+  macro_rules! next {
+    ($parser:expr, $loc:expr, $kind:ident, $inst:expr) => {{
+      let tok = $parser.next().unwrap().unwrap();
+      assert_eq!($parser.loc(&tok), $loc);
+      assert_eq!($kind::try_from(tok.value()).unwrap(), $inst);
+    }};
+  }
+
+  #[test]
+  fn empty() {
+    let mut p: Parser<super::Text> = parser_text!("empty");
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn spaces() {
+    let mut p: Parser<super::Text> = parser_text!("spaces");
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn comments() {
+    let mut p: Parser<super::Text> = parser_text!("comments");
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn addr_nums() {
+    let mut p: Parser<super::Text> = parser_text!("addr_nums");
+    next!(p, (1, 1), Addr, Addr::Num(8192));
+    next!(p, (2, 1), Addr, Addr::Num(123));
+    next!(p, (3, 1), Addr, Addr::Num(556));
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn address_labels() {
+    let mut p: Parser<super::Text> = parser_text!("addr_labels");
+    next!(p, (1, 1), Addr, Addr::Num(16));
+    next!(p, (2, 1), Addr, Addr::Num(17));
+    next!(p, (3, 1), Addr, Addr::Num(Symbol::KBD.into()));
+    next!(p, (4, 1), Addr, Addr::Num(18));
+    next!(p, (5, 1), Addr, Addr::Num(Symbol::LCL.into()));
+    next!(p, (6, 1), Addr, Addr::Num(19));
+    next!(p, (7, 1), Addr, Addr::Num(Symbol::SCREEN.into()));
+    next!(p, (8, 1), Addr, Addr::Num(Symbol::SP.into()));
+    next!(p, (9, 1), Addr, Addr::Num(20));
+    next!(p, (10, 1), Addr, Addr::Num(Symbol::ARG.into()));
+    next!(p, (11, 1), Addr, Addr::Num(21));
+    next!(p, (12, 1), Addr, Addr::Num(Symbol::THIS.into()));
+    next!(p, (13, 1), Addr, Addr::Num(Symbol::THAT.into()));
+    next!(p, (14, 1), Addr, Addr::Num(22));
+    next!(p, (15, 1), Addr, Addr::Num(Symbol::R0.into()));
+    next!(p, (16, 1), Addr, Addr::Num(Symbol::R1.into()));
+    next!(p, (17, 1), Addr, Addr::Num(Symbol::R11.into()));
+    next!(p, (18, 1), Addr, Addr::Num(23));
+    next!(p, (19, 1), Addr, Addr::Num(24));
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn label() {
+    let mut p: Parser<super::Text> = parser_text!("label");
+    next!(p, (1, 1), Addr, Addr::Num(16));
+    next!(p, (2, 1), Addr, Addr::Num(1));
+    next!(p, (3, 1), Addr, Addr::Num(3));
+    next!(p, (4, 1), Addr, Addr::Num(4));
+    assert_eq!(p.next(), None);
+  }
+
+  macro_rules! inst {
+    ($dest:expr, $comp:expr, $jump:expr) => {
+      Inst::new($dest, $comp, $jump).unwrap()
+    };
+  }
+
+  #[test]
+  fn instructions() {
+    let mut p: Parser<super::Text> = parser_text!("instructions");
+
+    next!(p, (1, 1), Inst, inst!(Dest::A, Comp::MMinus1, Jump::Null));
+    next!(p, (2, 1), Inst, inst!(Dest::AM, Comp::DOrA, Jump::Null));
+    next!(p, (3, 1), Inst, inst!(Dest::AMD, Comp::APlus1, Jump::Null));
+
+    next!(p, (4, 1), Inst, inst!(Dest::Null, Comp::MMinus1, Jump::JEQ));
+    next!(p, (5, 1), Inst, inst!(Dest::Null, Comp::DOrA, Jump::JNE));
+    next!(p, (6, 1), Inst, inst!(Dest::Null, Comp::APlus1, Jump::JMP));
+
+    next!(p, (7, 1), Inst, inst!(Dest::A, Comp::MMinus1, Jump::JEQ));
+    next!(p, (8, 1), Inst, inst!(Dest::AM, Comp::DOrA, Jump::JNE));
+    next!(p, (9, 1), Inst, inst!(Dest::AMD, Comp::APlus1, Jump::JMP));
+
+    assert_eq!(p.next(), None);
+  }
+}
+
+#[cfg(test)]
+mod tests_bin {
+  use super::Parser;
+
+  use crate::com::addr::Addr;
+  use crate::com::comp::Comp;
+  use crate::com::dest::Dest;
+  use crate::com::inst::Inst;
+  use crate::com::jump::Jump;
+  use crate::com::symbol::Symbol;
+
+  use std::convert::TryFrom;
+
+  macro_rules! parser_text {
+    ($f:expr) => {
+      Parser::from(&include_bytes!(concat!("../../tests/snippets/", $f, ".hack_bin"))[..])
+    };
+  }
+
+  macro_rules! next {
+    ($parser:expr, $loc:expr, $kind:ident, $inst:expr) => {{
+      let tok = $parser.next().unwrap().unwrap();
+      assert_eq!($parser.loc(&tok), $loc);
+      assert_eq!($kind::try_from(tok.value()).unwrap(), $inst);
+    }};
+  }
+
+  #[test]
+  fn empty() {
+    let mut p: Parser<super::Binary> = parser_text!("empty");
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn spaces() {
+    let mut p: Parser<super::Binary> = parser_text!("spaces");
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn comments() {
+    let mut p: Parser<super::Binary> = parser_text!("comments");
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn addr_nums() {
+    let mut p: Parser<super::Binary> = parser_text!("addr_nums");
+    next!(p, (1, 1), Addr, Addr::Num(8192));
+    next!(p, (1, 3), Addr, Addr::Num(123));
+    next!(p, (1, 5), Addr, Addr::Num(556));
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn address_labels() {
+    let mut p: Parser<super::Binary> = parser_text!("addr_labels");
+    next!(p, (1, 1), Addr, Addr::Num(16));
+    next!(p, (1, 3), Addr, Addr::Num(17));
+    next!(p, (1, 5), Addr, Addr::Num(Symbol::KBD.into()));
+    next!(p, (1, 7), Addr, Addr::Num(18));
+    next!(p, (1, 9), Addr, Addr::Num(Symbol::LCL.into()));
+    next!(p, (1, 11), Addr, Addr::Num(19));
+    next!(p, (1, 13), Addr, Addr::Num(Symbol::SCREEN.into()));
+    next!(p, (1, 15), Addr, Addr::Num(Symbol::SP.into()));
+    next!(p, (1, 17), Addr, Addr::Num(20));
+    next!(p, (1, 19), Addr, Addr::Num(Symbol::ARG.into()));
+    next!(p, (1, 21), Addr, Addr::Num(21));
+    next!(p, (1, 23), Addr, Addr::Num(Symbol::THIS.into()));
+    next!(p, (1, 25), Addr, Addr::Num(Symbol::THAT.into()));
+    next!(p, (1, 27), Addr, Addr::Num(22));
+    next!(p, (1, 29), Addr, Addr::Num(Symbol::R0.into()));
+    next!(p, (1, 31), Addr, Addr::Num(Symbol::R1.into()));
+    next!(p, (1, 33), Addr, Addr::Num(Symbol::R11.into()));
+    next!(p, (1, 35), Addr, Addr::Num(23));
+    next!(p, (1, 37), Addr, Addr::Num(24));
+    assert_eq!(p.next(), None);
+  }
+
+  #[test]
+  fn label() {
+    let mut p: Parser<super::Binary> = parser_text!("label");
+    next!(p, (1, 1), Addr, Addr::Num(16));
+    next!(p, (1, 3), Addr, Addr::Num(1));
+    next!(p, (1, 5), Addr, Addr::Num(3));
+    next!(p, (1, 7), Addr, Addr::Num(4));
+    assert_eq!(p.next(), None);
+  }
+
+  macro_rules! inst {
+    ($dest:expr, $comp:expr, $jump:expr) => {
+      Inst::new($dest, $comp, $jump).unwrap()
+    };
+  }
+
+  #[test]
+  fn instructions() {
+    let mut p: Parser<super::Binary> = parser_text!("instructions");
+
+    next!(p, (1, 1), Inst, inst!(Dest::A, Comp::MMinus1, Jump::Null));
+    next!(p, (1, 3), Inst, inst!(Dest::AM, Comp::DOrA, Jump::Null));
+    next!(p, (1, 5), Inst, inst!(Dest::AMD, Comp::APlus1, Jump::Null));
+
+    next!(p, (1, 7), Inst, inst!(Dest::Null, Comp::MMinus1, Jump::JEQ));
+    next!(p, (1, 9), Inst, inst!(Dest::Null, Comp::DOrA, Jump::JNE));
+    next!(p, (1, 11), Inst, inst!(Dest::Null, Comp::APlus1, Jump::JMP));
+
+    next!(p, (1, 13), Inst, inst!(Dest::A, Comp::MMinus1, Jump::JEQ));
+    next!(p, (1, 15), Inst, inst!(Dest::AM, Comp::DOrA, Jump::JNE));
+    next!(p, (1, 17), Inst, inst!(Dest::AMD, Comp::APlus1, Jump::JMP));
+
+    assert_eq!(p.next(), None);
+  }
+}
