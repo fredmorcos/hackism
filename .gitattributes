@@ -1,1 +1,2 @@
 *.hack text eol=lf
+*.dis text eol=lf
