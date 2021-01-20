@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::utils;
 use crate::utils::Buf;
+use crate::utils::Byte;
 
 /// A computation as defined by the HACK assembly reference.
 ///
@@ -289,9 +290,22 @@ impl fmt::Display for Comp {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Errors when parsing a computation.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Err {
-  Unknown,
+  /// Unknown computation.
+  Unknown(String),
+  /// Converting byte buffers to UTF-8 strings.
+  Convert(Vec<Byte>, std::string::FromUtf8Error),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::Unknown(txt) => write!(f, "unknown computation `{}`", txt),
+      Err::Convert(name, e) => write!(f, "computation `{:?}` is invalid: {}", name, e),
+    }
+  }
 }
 
 impl Comp {
@@ -304,10 +318,10 @@ impl Comp {
   /// use has::com::comp::Comp;
   ///
   /// let comp = Comp::read_from("".as_bytes());
-  /// assert_eq!(comp, Err(comp::Err::Unknown));
+  /// assert_eq!(comp, Err(comp::Err::Unknown(String::from(""))));
   ///
   /// let comp = Comp::read_from("Foo".as_bytes());
-  /// assert_eq!(comp, Err(comp::Err::Unknown));
+  /// assert_eq!(comp, Err(comp::Err::Unknown(String::from(""))));
   ///
   /// let expected = (Comp::Zero, "".as_bytes(), 1);
   /// assert_eq!(Comp::read_from("0".as_bytes()), Ok(expected));
@@ -481,7 +495,16 @@ impl Comp {
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let p = |b| b"01AMD+-!&|".contains(&b);
     let (b, rem) = utils::read_while(buf, p);
-    let res = Self::try_from(b).map_err(|_| Err::Unknown)?;
+
+    let res = match Self::try_from(b) {
+      Ok(res) => res,
+      Err(_) => {
+        let txt =
+          String::from_utf8(Vec::from(b)).map_err(|e| Err::Convert(Vec::from(b), e))?;
+        return Err(Err::Unknown(txt));
+      }
+    };
+
     Ok((res, rem, b.len()))
   }
 }
