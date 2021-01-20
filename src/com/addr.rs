@@ -5,6 +5,7 @@ use crate::com::label::Label;
 use crate::com::symbol::Symbol;
 use crate::utils;
 use crate::utils::Buf;
+use crate::utils::Byte;
 
 use atoi::FromRadix10Checked;
 
@@ -26,13 +27,14 @@ use atoi::FromRadix10Checked;
 /// ## Examples
 ///
 /// ```
+/// use has::com::addr;
 /// use has::com::addr::Addr;
 /// use has::com::symbol::Symbol;
 ///
 /// use std::convert::TryFrom;
 ///
 /// assert_eq!(Addr::try_from(25), Ok(Addr::Num(25)));
-/// assert_eq!(Addr::try_from(32768), Err(()));
+/// assert_eq!(Addr::try_from(32768), Err(addr::Err::Range(32768)));
 /// ```
 ///
 /// # impl `From<Label>`
@@ -71,12 +73,12 @@ pub enum Addr<'b> {
 }
 
 impl TryFrom<u16> for Addr<'_> {
-  type Error = ();
+  type Error = Err;
 
   fn try_from(addr: u16) -> Result<Self, Self::Error> {
     // 32767 (15 bits of address value)
     if addr > 32767 {
-      return Err(());
+      return Err(Err::Range(addr));
     }
 
     Ok(Self::Num(addr))
@@ -105,20 +107,26 @@ impl fmt::Display for Addr<'_> {
   }
 }
 
-/// Errors when parsing addresses.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Errors when parsing an address.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Err {
   /// Value is not a number or is out of the 15-bits range.
-  InvalidNum,
+  InvalidNum(String),
+  /// Value is outside the 15-bits range.
+  Range(u16),
   /// Invalid label name.
-  InvalidLabel,
+  InvalidName(String),
+  /// Converting byte buffers to UTF-8 strings.
+  Convert(Vec<Byte>, std::string::FromUtf8Error),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Err::InvalidNum => write!(f, "invalid numerical address"),
-      Err::InvalidLabel => write!(f, "invalid label address"),
+      Err::InvalidNum(num) => write!(f, "invalid numerical address `{}`", num),
+      Err::Range(val) => write!(f, "address `{}` is outside the 15-bits range", val),
+      Err::InvalidName(name) => write!(f, "invalid named address `{}`", name),
+      Err::Convert(name, e) => write!(f, "named address `{:?}` is invalid: {}", name, e),
     }
   }
 }
@@ -139,9 +147,9 @@ impl<'b> Addr<'b> {
   ///
   /// use std::convert::TryFrom;
   ///
-  /// assert_eq!(Addr::read_from(&b""[..]), Err(addr::Err::InvalidLabel));
-  /// assert_eq!(Addr::read_from(&b"123Foo"[..]), Err(addr::Err::InvalidNum));
-  /// assert_eq!(Addr::read_from(&b"%Foo"[..]), Err(addr::Err::InvalidLabel));
+  /// assert_eq!(Addr::read_from(&b""[..]), Err(addr::Err::InvalidName(String::from(""))));
+  /// assert_eq!(Addr::read_from(&b"123Foo"[..]), Err(addr::Err::InvalidNum(String::from("123Foo"))));
+  /// assert_eq!(Addr::read_from(&b"%Foo"[..]), Err(addr::Err::InvalidName(String::from("%Foo"))));
   ///
   /// let expected = (Addr::Num(123), &b""[..], 3);
   /// assert_eq!(Addr::read_from(&b"123"[..]), Ok(expected));
@@ -172,9 +180,14 @@ impl<'b> Addr<'b> {
 
       match u16::from_radix_10_checked(num) {
         (Some(addr), used) if used == num.len() => {
-          return Ok((Self::try_from(addr).map_err(|_| Err::InvalidNum)?, rem, num.len()))
+          let addr = Self::try_from(addr).map_err(|_| Err::Range(addr))?;
+          return Ok((addr, rem, num.len()));
         }
-        (_, _) => return Err(Err::InvalidNum),
+        (_, _) => {
+          let num = String::from_utf8(Vec::from(num))
+            .map_err(|e| Err::Convert(Vec::from(num), e))?;
+          return Err(Err::InvalidNum(num));
+        }
       }
     }
 
@@ -188,6 +201,8 @@ impl<'b> Addr<'b> {
       return Ok((Self::from(label), rem, txt.len()));
     }
 
-    Err(Err::InvalidLabel)
+    let txt =
+      String::from_utf8(Vec::from(txt)).map_err(|e| Err::Convert(Vec::from(txt), e))?;
+    Err(Err::InvalidName(txt))
   }
 }
