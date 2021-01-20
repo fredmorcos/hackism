@@ -83,7 +83,7 @@ jobs:
           cp target/debug/has $NAME/has-debug
           cp -r target/doc $NAME/docs
           mkdir $NAME/examples
-          cp tests/asm/fixtures/*.asm $NAME/examples/
+          cp tests/programs/*.asm $NAME/examples/
           cp LICENSE $NAME/LICENSE
           cp README.md $NAME/README.md
           tar -c -f $NAME.tar.bz2 $NAME
@@ -170,7 +170,7 @@ jobs:
           cp target/debug/has $NAME/has-debug
           cp -r target/doc $NAME/docs
           mkdir $NAME/examples
-          cp tests/asm/fixtures/*.asm $NAME/examples/
+          cp tests/programs/*.asm $NAME/examples/
           cp LICENSE $NAME/LICENSE
           cp README.md $NAME/README.md
           hdiutil create -format UDZO -srcfolder $NAME $NAME.dmg
@@ -257,7 +257,7 @@ jobs:
           cp target/debug/has.exe $NAME/has-debug.exe
           cp -r target/doc $NAME/docs
           mkdir $NAME/examples
-          cp tests/asm/fixtures/*.asm $NAME/examples/
+          cp tests/programs/*.asm $NAME/examples/
           cp LICENSE $NAME/LICENSE
           cp README.md $NAME/README.md
           # zip -r $NAME.zip $NAME
