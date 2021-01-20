@@ -7,6 +7,7 @@ use crate::com::addr;
 use crate::com::addr::Addr;
 use crate::com::inst;
 use crate::com::inst::Inst;
+use crate::com::label;
 use crate::com::label::Label;
 use crate::utils;
 use crate::utils::Buf;
@@ -121,14 +122,14 @@ impl<'b> Token<'b> {
 }
 
 /// Kind of parsing error.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrKind {
   /// Expected a second `/` to form a comment.
   ExpectedComment,
-  /// Parsed a label that was invalid.
-  ///
-  /// Either the label text was invalid or a closing ')' was missing.
-  InvalidLabel,
+  /// Invalid label.
+  InvalidLabel(label::Err),
+  /// Missing the closing ')' for a label.
+  MissingLParen,
   /// Invalid address.
   InvalidAddr(addr::Err),
   /// Invalid instruction.
@@ -138,8 +139,9 @@ pub enum ErrKind {
 impl fmt::Display for ErrKind {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      ErrKind::ExpectedComment => write!(f, "expected comment"),
-      ErrKind::InvalidLabel => write!(f, "invalid label"),
+      ErrKind::ExpectedComment => write!(f, "expected a second '/' to form a comment"),
+      ErrKind::InvalidLabel(e) => write!(f, "invalid label: {}", e),
+      ErrKind::MissingLParen => write!(f, "expected a closing parenthesis ')' for label"),
       ErrKind::InvalidAddr(e) => write!(f, "invalid address: {}", e),
       ErrKind::InvalidInst(e) => write!(f, "invalid instruction: {}", e),
     }
@@ -147,7 +149,7 @@ impl fmt::Display for ErrKind {
 }
 
 /// Error during parsing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Err {
   index: usize,
   kind: ErrKind,
@@ -178,8 +180,8 @@ impl Err {
   }
 
   /// Returns the kind of parsing error.
-  pub fn kind(&self) -> ErrKind {
-    self.kind
+  pub fn kind(&self) -> &ErrKind {
+    &self.kind
   }
 }
 
@@ -213,12 +215,12 @@ impl<'b> Iterator for Parser<'b> {
         let (txt, rem) = utils::read_while(&self.buf[1..], |b| b != b')');
         let label = match Label::try_from(txt) {
           Ok(label) => label,
-          Err(_) => return Some(Err(Err::new(self.index, ErrKind::InvalidLabel))),
+          Err(e) => return Some(Err(Err::new(self.index, ErrKind::InvalidLabel(e)))),
         };
         self.buf = match utils::read_one(rem, |b| b == b')') {
           Some((_, rem)) => rem,
           None => {
-            return Some(Err(Err::new(self.index + txt.len(), ErrKind::InvalidLabel)));
+            return Some(Err(Err::new(self.index + txt.len(), ErrKind::MissingLParen)));
           }
         };
         self.index += txt.len() + 2;
