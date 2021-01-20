@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::utils;
 use crate::utils::Buf;
+use crate::utils::Byte;
 
 /// A jump as defined by the HACK assembly reference.
 ///
@@ -127,9 +128,22 @@ impl fmt::Display for Jump {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Errors when parsing a jump.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Err {
-  Unknown,
+  /// Unknown jump.
+  Unknown(String),
+  /// Converting byte buffers to UTF-8 strings.
+  Convert(Vec<Byte>, std::string::FromUtf8Error),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::Unknown(txt) => write!(f, "unknown jump `{}`", txt),
+      Err::Convert(name, e) => write!(f, "jump `{:?}` is invalid: {}", name, e),
+    }
+  }
 }
 
 impl Jump {
@@ -142,10 +156,10 @@ impl Jump {
   /// use has::com::jump::Jump;
   ///
   /// let jump = Jump::read_from("".as_bytes());
-  /// assert_eq!(jump, Err(jump::Err::Unknown));
+  /// assert_eq!(jump, Err(jump::Err::Unknown(String::from(""))));
   ///
   /// let jump = Jump::read_from("Foo".as_bytes());
-  /// assert_eq!(jump, Err(jump::Err::Unknown));
+  /// assert_eq!(jump, Err(jump::Err::Unknown(String::from(""))));
   ///
   /// let expected = (Jump::JGT, "".as_bytes(), 3);
   /// assert_eq!(Jump::read_from("JGT".as_bytes()), Ok(expected));
@@ -193,7 +207,16 @@ impl Jump {
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let p = |b| b"JGTELNMPQ".contains(&b);
     let (b, rem) = utils::read_while(buf, p);
-    let res = Self::try_from(b).map_err(|_| Err::Unknown)?;
+
+    let res = match Self::try_from(b) {
+      Ok(res) => res,
+      Err(_) => {
+        let txt =
+          String::from_utf8(Vec::from(b)).map_err(|e| Err::Convert(Vec::from(b), e))?;
+        return Err(Err::Unknown(txt));
+      }
+    };
+
     Ok((res, rem, b.len()))
   }
 
