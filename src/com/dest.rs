@@ -3,6 +3,7 @@ use std::fmt;
 
 use crate::utils;
 use crate::utils::Buf;
+use crate::utils::Byte;
 
 /// A destination as defined by the HACK assembly reference.
 ///
@@ -127,9 +128,22 @@ impl TryFrom<Buf<'_>> for Dest {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Errors when parsing a destination.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Err {
-  Unknown,
+  /// Unknown destination.
+  Unknown(String),
+  /// Converting byte buffers to UTF-8 strings.
+  Convert(Vec<Byte>, std::string::FromUtf8Error),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::Unknown(txt) => write!(f, "unknown destination `{}`", txt),
+      Err::Convert(name, e) => write!(f, "destination `{:?}` is invalid: {}", name, e),
+    }
+  }
 }
 
 impl Dest {
@@ -142,10 +156,10 @@ impl Dest {
   /// use has::com::dest::Dest;
   ///
   /// let dest = Dest::read_from("".as_bytes());
-  /// assert_eq!(dest, Err(dest::Err::Unknown));
+  /// assert_eq!(dest, Err(dest::Err::Unknown(String::from(""))));
   ///
   /// let dest = Dest::read_from("Foo".as_bytes());
-  /// assert_eq!(dest, Err(dest::Err::Unknown));
+  /// assert_eq!(dest, Err(dest::Err::Unknown(String::from(""))));
   ///
   /// let expected = (Dest::M, "".as_bytes(), 1);
   /// assert_eq!(Dest::read_from("M".as_bytes()), Ok(expected));
@@ -193,7 +207,16 @@ impl Dest {
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let p = |b| b"AMD".contains(&b);
     let (b, rem) = utils::read_while(buf, p);
-    let res = Self::try_from(b).map_err(|_| Err::Unknown)?;
+
+    let res = match Self::try_from(b) {
+      Ok(res) => res,
+      Err(_) => {
+        let txt =
+          String::from_utf8(Vec::from(b)).map_err(|e| Err::Convert(Vec::from(b), e))?;
+        return Err(Err::Unknown(txt));
+      }
+    };
+
     Ok((res, rem, b.len()))
   }
 
