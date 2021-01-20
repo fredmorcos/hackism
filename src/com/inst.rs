@@ -3,8 +3,10 @@
 //! An [instruction](Inst) can represent different types of commands
 //! in the HACK assembly language.
 
+use crate::com::comp;
 use crate::com::comp::Comp;
 use crate::com::dest::Dest;
+use crate::com::jump;
 use crate::com::jump::Jump;
 use crate::utils;
 use crate::utils::Buf;
@@ -69,19 +71,27 @@ impl From<Inst> for u16 {
   }
 }
 
+/// Errors when parsing an instruction from its compiled form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DecodeErr {
-  InvalidComp,
-  InvalidDest,
-  InvalidJump,
+  /// Invalid computation value.
+  InvalidComp(u16),
+  /// Invalid destination value.
+  InvalidDest(u16),
+  /// Invalid jump value.
+  InvalidJump(u16),
 }
 
 impl fmt::Display for DecodeErr {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      DecodeErr::InvalidComp => write!(f, "invalid computation"),
-      DecodeErr::InvalidDest => write!(f, "invalid destination"),
-      DecodeErr::InvalidJump => write!(f, "invalid jump"),
+      DecodeErr::InvalidComp(v) => {
+        write!(f, "`{:#b} ({})` is not a valid computation", v, v)
+      }
+      DecodeErr::InvalidDest(v) => {
+        write!(f, "`{:#b} ({})` is not a valid destination", v, v)
+      }
+      DecodeErr::InvalidJump(v) => write!(f, "`{:#b} ({})` is not a valid jump", v, v),
     }
   }
 }
@@ -92,9 +102,14 @@ impl TryFrom<u16> for Inst {
   fn try_from(v: u16) -> Result<Self, Self::Error> {
     use DecodeErr::*;
 
-    let comp = Comp::try_from((v & 0b1111111000000) >> 6).map_err(|_| InvalidComp)?;
-    let dest = Dest::try_from((v & 0b111000) >> 3).map_err(|_| InvalidDest)?;
-    let jump = Jump::try_from(v & 0b111).map_err(|_| InvalidJump)?;
+    let comp_v = (v & 0b1111111000000) >> 6;
+    let comp = Comp::try_from(comp_v).map_err(|_| InvalidComp(comp_v))?;
+
+    let dest_v = (v & 0b111000) >> 3;
+    let dest = Dest::try_from(dest_v).map_err(|_| InvalidDest(dest_v))?;
+
+    let jump_v = v & 0b111;
+    let jump = Jump::try_from(jump_v).map_err(|_| InvalidJump(jump_v))?;
 
     Ok(Self { dest, comp, jump })
   }
@@ -117,22 +132,22 @@ impl fmt::Display for Inst {
 }
 
 /// Error parsing or creating an instruction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Err {
   /// An instruction must at least have a destination or a jump.
   MissingDestJump,
   /// Invalid computation.
-  InvalidComp,
+  InvalidComp(comp::Err),
   /// Invalid jump.
-  InvalidJump,
+  InvalidJump(jump::Err),
 }
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       Err::MissingDestJump => write!(f, "missing destination or jump"),
-      Err::InvalidComp => write!(f, "invalid computation"),
-      Err::InvalidJump => write!(f, "invalid jump"),
+      Err::InvalidComp(e) => write!(f, "invalid computation: {}", e),
+      Err::InvalidJump(e) => write!(f, "invalid jump: {}", e),
     }
   }
 }
@@ -173,16 +188,27 @@ impl Inst {
   ///
   /// ```
   /// use has::com::dest::Dest;
+  /// use has::com::comp;
   /// use has::com::comp::Comp;
+  /// use has::com::jump;
   /// use has::com::jump::Jump;
   /// use has::com::inst;
   /// use has::com::inst::Inst;
   ///
-  /// assert_eq!(Inst::read_from("".as_bytes()), Err(inst::Err::InvalidComp));
-  /// assert_eq!(Inst::read_from("Foo".as_bytes()), Err(inst::Err::InvalidComp));
-  /// assert_eq!(Inst::read_from("D|A".as_bytes()), Err(inst::Err::MissingDestJump));
-  /// assert_eq!(Inst::read_from("D|A;".as_bytes()), Err(inst::Err::InvalidJump));
-  /// assert_eq!(Inst::read_from("D|A;JJJ".as_bytes()), Err(inst::Err::InvalidJump));
+  /// let err = Err(inst::Err::InvalidComp(comp::Err::Unknown(String::from(""))));
+  /// assert_eq!(Inst::read_from("".as_bytes()), err);
+  ///
+  /// let err = Err(inst::Err::InvalidComp(comp::Err::Unknown(String::from(""))));
+  /// assert_eq!(Inst::read_from("Foo".as_bytes()), err);
+  ///
+  /// let err = Err(inst::Err::MissingDestJump);
+  /// assert_eq!(Inst::read_from("D|A".as_bytes()), err);
+  ///
+  /// let err = Err(inst::Err::InvalidJump(jump::Err::Unknown(String::from(""))));
+  /// assert_eq!(Inst::read_from("D|A;".as_bytes()), err);
+  ///
+  /// let err = Err(inst::Err::InvalidJump(jump::Err::Unknown(String::from("JJJ"))));
+  /// assert_eq!(Inst::read_from("D|A;JJJ".as_bytes()), err);
   ///
   /// let inst = Inst::new(Dest::D, Comp::DPlusA, Jump::JGT).unwrap();
   /// let expected = (inst, "".as_bytes(), 9);
@@ -210,20 +236,13 @@ impl Inst {
       (Dest::Null, buf, 0)
     };
 
-    let (comp, buf, _) = if let Ok((comp, rem, len)) = Comp::read_from(buf) {
-      inst_len += len;
-      (comp, rem, len)
-    } else {
-      return Err(Err::InvalidComp);
-    };
+    let (comp, buf, len) = Comp::read_from(buf).map_err(Err::InvalidComp)?;
+    inst_len += len;
 
     let buf = if let Some((_, buf)) = utils::read_one(buf, |b| b == b';') {
-      if let Ok((jump, rem, len)) = Jump::read_from(buf) {
-        inst_len += len + 1;
-        return Ok((Inst::new(dest, comp, jump)?, rem, inst_len));
-      } else {
-        return Err(Err::InvalidJump);
-      }
+      let (jump, rem, len) = Jump::read_from(buf).map_err(Err::InvalidJump)?;
+      inst_len += len + 1;
+      return Ok((Inst::new(dest, comp, jump)?, rem, inst_len));
     } else {
       buf
     };
