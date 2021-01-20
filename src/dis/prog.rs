@@ -3,6 +3,7 @@
 //! [Prog] can be used to represent the (flat) parse tree of a HACK
 //! assembly program.
 
+use crate::com::addr;
 use crate::com::addr::Addr;
 use crate::com::inst;
 use crate::com::inst::Inst;
@@ -10,7 +11,8 @@ use crate::dis::parser;
 use crate::dis::parser::Parser;
 use crate::utils::Buf;
 
-use std::{convert::TryFrom, fmt};
+use std::convert::TryFrom;
+use std::fmt;
 
 /// A HACK assembly program.
 ///
@@ -59,20 +61,23 @@ impl Prog {
   }
 }
 
+/// Errors when decoding programs from their compiled form.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DecodeErr {
+  /// Invalid instruction.
   InvalidInst(inst::DecodeErr, usize),
-  InvalidAddr(usize),
+  /// Invalid address.
+  InvalidAddr(addr::Err, usize),
 }
 
 impl fmt::Display for DecodeErr {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
       DecodeErr::InvalidInst(e, index) => {
-        write!(f, "Invalid instruction at byte {}: {}", index, e)
+        write!(f, "Invalid instruction at byte `{}`: {}", index, e)
       }
-      DecodeErr::InvalidAddr(index) => {
-        write!(f, "Invalid address instruction at byte {}: value out of range", index)
+      DecodeErr::InvalidAddr(e, index) => {
+        write!(f, "Invalid address instruction at byte `{}`: {}", index, e)
       }
     }
   }
@@ -96,7 +101,7 @@ impl Iterator for ProgDecoder<'_> {
       let inst = inst & 0b0111_1111_1111_1111;
       let decoded = match Addr::try_from(inst) {
         Ok(decoded) => decoded,
-        Err(_) => return Some(Err(DecodeErr::InvalidAddr(token.index()))),
+        Err(e) => return Some(Err(DecodeErr::InvalidAddr(e, token.index()))),
       };
 
       Some(Ok(format!("{}", decoded)))
