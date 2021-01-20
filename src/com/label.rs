@@ -25,7 +25,7 @@ use crate::utils::Buf;
 /// assert_eq!(Label::try_from(&b"1foobar"[..]), Err(label::Err::InvalidStart(b'1')));
 ///
 /// let label = Label::try_from(&b"foobar1"[..]).unwrap();
-/// assert_eq!(label.label(), &b"foobar1"[..]);
+/// assert_eq!(label.label(), "foobar1");
 /// ```
 ///
 /// # impl `Display`
@@ -85,8 +85,8 @@ impl Label<'_> {
   /// use std::convert::TryFrom;
   ///
   /// let label = Label::try_from(&b"foobar1"[..]).unwrap();
-  /// assert_eq!(label.label(), &b"foobar1"[..]);
-  pub fn label(&self) -> &[u8] {
+  /// assert_eq!(label.label(), "foobar1");
+  pub fn label(&self) -> &str {
     self.0
   }
 }
@@ -114,11 +114,16 @@ mod label_tests {
   }
 }
 
+/// Errors when parsing labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Err {
+  /// Label is empty.
   Empty,
+  /// Label starts with an invalid character.
   InvalidStart(u8),
+  /// Label contains an invalid character.
   InvalidByte(u8),
+  /// Label is a predefined HACK symbol.
   Symbol(Symbol),
 }
 
@@ -127,12 +132,12 @@ impl fmt::Display for Err {
     match self {
       Err::Empty => write!(f, "label is empty"),
       Err::InvalidStart(c) => {
-        write!(f, "label starts with invalid character: {}", char::from(*c))
+        write!(f, "label starts with invalid character `{}`", char::from(*c))
       }
       Err::InvalidByte(c) => {
-        write!(f, "label contains invalid character: {}", char::from(*c))
+        write!(f, "label contains invalid character `{}`", char::from(*c))
       }
-      Err::Symbol(s) => write!(f, "cannot use a predefined symbol as a label: {}", s),
+      Err::Symbol(s) => write!(f, "cannot use predefined symbol `{}` as a label", s),
     }
   }
 }
@@ -161,12 +166,12 @@ impl<'b> TryFrom<Buf<'b>> for Label<'b> {
       return Err(Err::Symbol(symbol));
     }
 
-    Ok(Self(buf))
+    Ok(Self(unsafe { std::str::from_utf8_unchecked(buf) }))
   }
 }
 
 impl fmt::Display for Label<'_> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{}", unsafe { std::str::from_utf8_unchecked(self.0) })
+    write!(f, "{}", self.0)
   }
 }
