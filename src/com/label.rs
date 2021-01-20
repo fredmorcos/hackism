@@ -38,8 +38,16 @@ use crate::utils::Buf;
 /// let label = Label::try_from(&b"foobar"[..]).unwrap();
 /// assert_eq!(format!("{}", label), "foobar");
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub struct Label<'b>(&'b [u8]);
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct Label<'b>(&'b str);
+
+impl<'b> Copy for Label<'b> {}
+
+impl<'b> Clone for Label<'b> {
+  fn clone(&self) -> Self {
+    Label(self.0)
+  }
+}
 
 impl Label<'_> {
   /// Whether a byte is a symbol that can be used in a [Label].
