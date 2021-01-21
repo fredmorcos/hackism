@@ -1,4 +1,6 @@
 #![warn(clippy::all)]
+#![warn(missing_docs)]
+// #![warn(missing_doc_code_examples)]
 
 //! **HAS** stands for the **H**ACK **A**pplication **S**uite. It
 //! consists of a library and binaries to handle the HACK machine
