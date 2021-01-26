@@ -1,9 +1,9 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::utils;
-use crate::utils::Buf;
-use crate::utils::Byte;
+use crate::utils::buf::Buf;
+use crate::utils::buf::Byte;
+use crate::utils::parser;
 
 /// A computation as defined by the HACK assembly reference.
 ///
@@ -494,7 +494,7 @@ impl Comp {
   /// ```
   pub fn read_from(buf: Buf) -> Result<(Self, Buf, usize), Err> {
     let p = |b| b"01AMD+-!&|".contains(&b);
-    let (b, rem) = utils::read_while(buf, p);
+    let (b, rem) = parser::read_while(buf, p);
 
     let res = match Self::try_from(b) {
       Ok(res) => res,

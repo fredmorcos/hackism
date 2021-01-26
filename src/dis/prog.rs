@@ -9,7 +9,7 @@ use crate::com::inst;
 use crate::com::inst::Inst;
 use crate::dis::parser;
 use crate::dis::parser::Parser;
-use crate::utils::Buf;
+use crate::utils::buf::Buf;
 
 use std::convert::TryFrom;
 use std::fmt;

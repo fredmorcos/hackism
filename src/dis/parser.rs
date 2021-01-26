@@ -1,8 +1,9 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use crate::utils;
-use crate::utils::Buf;
+use crate::utils::buf::Buf;
+use crate::utils::loc;
+use crate::utils::parser;
 
 pub trait Impl {
   type Item;
@@ -42,7 +43,7 @@ impl Impl for Text {
       let &b = parser.buf.get(0)?;
 
       if b.is_ascii_whitespace() {
-        let (len, rem) = utils::read_ws(parser.buf);
+        let (len, rem) = parser::read_ws(parser.buf);
         parser.index += len;
         parser.buf = rem;
         continue 'MAIN;
@@ -52,7 +53,7 @@ impl Impl for Text {
         macro_rules! consume_bit {
           ($index:expr, $on_error:block) => {
             parser.buf = if let Some((b, rem)) =
-              utils::read_one(parser.buf, |b| b == b'0' || b == b'1')
+              parser::read_one(parser.buf, |b| b == b'0' || b == b'1')
             {
               let b = if b == b'0' { 0 } else { 1 };
               inst |= b << $index;
@@ -151,7 +152,7 @@ impl<T: Impl> Parser<'_, T> {
   /// Returns a tuple `(line, column)` corresponding to the location
   /// of a [Token] in the original input buffer.
   pub fn loc(&self, tok: &Token) -> (usize, usize) {
-    utils::loc(self.orig, tok.index())
+    loc::loc(self.orig, tok.index())
   }
 }
 

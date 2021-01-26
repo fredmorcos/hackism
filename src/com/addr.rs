@@ -3,9 +3,9 @@ use std::fmt;
 
 use crate::com::label::Label;
 use crate::com::symbol::Symbol;
-use crate::utils;
-use crate::utils::Buf;
-use crate::utils::Byte;
+use crate::utils::buf::Buf;
+use crate::utils::buf::Byte;
+use crate::utils::parser;
 
 use atoi::FromRadix10Checked;
 
@@ -175,8 +175,8 @@ impl<'b> Addr<'b> {
   /// assert_eq!(Addr::read_from(&b"R0"[..]), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf<'b>) -> Result<(Self, Buf<'b>, usize), Err> {
-    if let Some((_, _)) = utils::read_one(buf, |b| b.is_ascii_digit()) {
-      let (num, rem) = utils::read_until_ws(buf);
+    if let Some((_, _)) = parser::read_one(buf, |b| b.is_ascii_digit()) {
+      let (num, rem) = parser::read_until_ws(buf);
 
       match u16::from_radix_10_checked(num) {
         (Some(addr), used) if used == num.len() => {
@@ -191,7 +191,7 @@ impl<'b> Addr<'b> {
       }
     }
 
-    let (txt, rem) = utils::read_until_ws(buf);
+    let (txt, rem) = parser::read_until_ws(buf);
 
     if let Ok(symbol) = Symbol::try_from(txt) {
       return Ok((Self::from(symbol), rem, txt.len()));

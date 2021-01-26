@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::com::symbol::Symbol;
-use crate::utils::Buf;
+use crate::utils::buf::Buf;
 
 /// An encoding for user-defined symbols as defined by the HACK
 /// assembly reference.

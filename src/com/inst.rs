@@ -8,8 +8,8 @@ use crate::com::comp::Comp;
 use crate::com::dest::Dest;
 use crate::com::jump;
 use crate::com::jump::Jump;
-use crate::utils;
-use crate::utils::Buf;
+use crate::utils::buf::Buf;
+use crate::utils::parser;
 
 use std::convert::TryFrom;
 use std::fmt;
@@ -226,7 +226,7 @@ impl Inst {
     let mut inst_len = 0;
 
     let (dest, buf, _) = if let Ok((dest, rem, len)) = Dest::read_from(buf) {
-      if let Some((_, rem)) = utils::read_one(rem, |b| b == b'=') {
+      if let Some((_, rem)) = parser::read_one(rem, |b| b == b'=') {
         inst_len += len + 1;
         (dest, rem, len)
       } else {
@@ -239,7 +239,7 @@ impl Inst {
     let (comp, buf, len) = Comp::read_from(buf).map_err(Err::InvalidComp)?;
     inst_len += len;
 
-    let buf = if let Some((_, buf)) = utils::read_one(buf, |b| b == b';') {
+    let buf = if let Some((_, buf)) = parser::read_one(buf, |b| b == b';') {
       let (jump, rem, len) = Jump::read_from(buf).map_err(Err::InvalidJump)?;
       inst_len += len + 1;
       return Ok((Inst::new(dest, comp, jump)?, rem, inst_len));

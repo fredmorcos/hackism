@@ -9,8 +9,9 @@ use crate::com::inst;
 use crate::com::inst::Inst;
 use crate::com::label;
 use crate::com::label::Label;
-use crate::utils;
-use crate::utils::Buf;
+use crate::utils::buf::Buf;
+use crate::utils::loc;
+use crate::utils::parser;
 
 use std::convert::TryFrom;
 use std::fmt;
@@ -75,7 +76,7 @@ impl Parser<'_> {
   /// Returns a tuple `(line, column)` corresponding to the location
   /// of a [Token] in the original input buffer.
   pub fn loc(&self, tok: &Token) -> (usize, usize) {
-    utils::loc(self.orig, tok.index())
+    loc::loc(self.orig, tok.index())
   }
 }
 
@@ -193,7 +194,7 @@ impl<'b> Iterator for Parser<'b> {
       let &b = self.buf.get(0)?;
 
       if b.is_ascii_whitespace() {
-        let (len, rem) = utils::read_ws(self.buf);
+        let (len, rem) = parser::read_ws(self.buf);
         self.index += len;
         self.buf = rem;
         continue 'MAIN;
@@ -206,18 +207,18 @@ impl<'b> Iterator for Parser<'b> {
           None => return Some(Err(Err::new(self.index + 1, ErrKind::ExpectedComment))),
         }
 
-        let (com, rem) = utils::read_until_nl(self.buf);
+        let (com, rem) = parser::read_until_nl(self.buf);
         self.index += com.len();
         self.buf = rem;
         continue 'MAIN;
       } else if b == b'(' {
         let index = self.index;
-        let (txt, rem) = utils::read_while(&self.buf[1..], |b| b != b')');
+        let (txt, rem) = parser::read_while(&self.buf[1..], |b| b != b')');
         let label = match Label::try_from(txt) {
           Ok(label) => label,
           Err(e) => return Some(Err(Err::new(self.index, ErrKind::InvalidLabel(e)))),
         };
-        self.buf = match utils::read_one(rem, |b| b == b')') {
+        self.buf = match parser::read_one(rem, |b| b == b')') {
           Some((_, rem)) => rem,
           None => {
             return Some(Err(Err::new(self.index + txt.len(), ErrKind::MissingLParen)));

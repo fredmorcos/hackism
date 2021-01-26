@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::utils::Buf;
+use crate::utils::buf::Buf;
 
 /// An encoding for predefined symbols as defined by the HACK assembly
 /// reference.

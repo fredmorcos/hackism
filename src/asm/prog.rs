@@ -8,8 +8,8 @@ use crate::asm::parser::Parser;
 use crate::com::addr::Addr;
 use crate::com::inst::Inst;
 use crate::com::label::Label;
-use crate::utils;
-use crate::utils::Buf;
+use crate::utils::buf::Buf;
+use crate::utils::conv;
 
 use std::collections::HashMap as Map;
 use std::convert::TryFrom;
@@ -147,7 +147,7 @@ impl Iterator for ProgEncoderText<'_, '_> {
 
   fn next(&mut self) -> Option<Self::Item> {
     match self.encoder.next()? {
-      Ok(v) => Some(Ok(utils::u16_bintext(u16::from(v[0]) << 8 | u16::from(v[1])))),
+      Ok(v) => Some(Ok(conv::u16_bintext(u16::from(v[0]) << 8 | u16::from(v[1])))),
       Err(e) => Some(Err(e)),
     }
   }
