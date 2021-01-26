@@ -175,7 +175,7 @@ impl<'b> Addr<'b> {
   /// assert_eq!(Addr::read_from(&b"R0"[..]), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf<'b>) -> Result<(Self, Buf<'b>, usize), Err> {
-    if let Some((_, _)) = parser::read_one(buf, |b| b.is_ascii_digit()) {
+    if parser::read_digit(buf).is_some() {
       let (num, rem) = parser::read_until_ws(buf);
 
       match u16::from_radix_10_checked(num) {

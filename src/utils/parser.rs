@@ -85,3 +85,14 @@ where
     None
   }
 }
+
+/// Removes a byte (the head) of `buf` if it's a digit.
+///
+/// Returns the consumed byte and the remainder of the buffer.
+///
+/// # Arguments
+///
+/// * `buf` - The input buffer.
+pub fn read_digit(buf: Buf) -> Option<(Byte, Buf)> {
+  read_one(buf, |b| b.is_ascii_digit())
+}
