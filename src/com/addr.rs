@@ -72,6 +72,30 @@ pub enum Addr<'b> {
   Symbol(Symbol),
 }
 
+/// Errors when parsing an address.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Err {
+  /// Value is not a number or is out of the 15-bits range.
+  InvalidNum(String),
+  /// Value is outside the 15-bits range.
+  Range(u16),
+  /// Invalid label name.
+  InvalidName(String),
+  /// Converting byte buffers to UTF-8 strings.
+  Convert(Vec<Byte>, std::string::FromUtf8Error),
+}
+
+impl fmt::Display for Err {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    match self {
+      Err::InvalidNum(num) => write!(f, "invalid numerical address `{}`", num),
+      Err::Range(val) => write!(f, "address `{}` is outside the 15-bits range", val),
+      Err::InvalidName(name) => write!(f, "invalid named address `{}`", name),
+      Err::Convert(name, e) => write!(f, "named address `{:?}` is invalid: {}", name, e),
+    }
+  }
+}
+
 impl TryFrom<u16> for Addr<'_> {
   type Error = Err;
 
@@ -103,30 +127,6 @@ impl fmt::Display for Addr<'_> {
       Addr::Num(addr) => write!(f, "@{}", addr),
       Addr::Label(label) => write!(f, "@{}", label),
       Addr::Symbol(symbol) => write!(f, "@{}", symbol),
-    }
-  }
-}
-
-/// Errors when parsing an address.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Err {
-  /// Value is not a number or is out of the 15-bits range.
-  InvalidNum(String),
-  /// Value is outside the 15-bits range.
-  Range(u16),
-  /// Invalid label name.
-  InvalidName(String),
-  /// Converting byte buffers to UTF-8 strings.
-  Convert(Vec<Byte>, std::string::FromUtf8Error),
-}
-
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::InvalidNum(num) => write!(f, "invalid numerical address `{}`", num),
-      Err::Range(val) => write!(f, "address `{}` is outside the 15-bits range", val),
-      Err::InvalidName(name) => write!(f, "invalid named address `{}`", name),
-      Err::Convert(name, e) => write!(f, "named address `{:?}` is invalid: {}", name, e),
     }
   }
 }
