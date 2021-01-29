@@ -50,7 +50,7 @@ jobs:
           RUSTDOCFLAGS: -Dwarnings
         with:
           command: doc
-          args: --all-features --no-deps
+          args: --all-features --no-deps --document-private-items
       - name: Debug check
         uses: actions-rs/cargo@v1
         with:
