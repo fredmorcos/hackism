@@ -158,7 +158,7 @@ pub struct Err {
 
 impl fmt::Display for Err {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "index {}: {}", self.index, self.kind)
+    write!(f, "{} at {}", self.kind, self.index)
   }
 }
 
