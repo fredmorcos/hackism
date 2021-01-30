@@ -6,6 +6,9 @@
 //! only contains a HACK assembler and few library utilities. The HACK
 //! assembler translates HACK assembly code to HACK machine code.
 
+#[macro_use]
+extern crate derive_new;
+
 pub mod asm;
 pub mod com;
 pub mod dis;
