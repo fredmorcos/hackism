@@ -1,9 +1,10 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use crate::utils::buf::Buf;
 use crate::utils::buf::Byte;
 use crate::utils::parser;
+
+use derive_more::Display;
 
 /// A destination as defined by the HACK assembly reference.
 ///
@@ -43,23 +44,38 @@ use crate::utils::parser;
 /// assert_eq!(format!("{}", Dest::AD),   "AD");
 /// assert_eq!(format!("{}", Dest::AMD),  "AMD");
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Dest {
   /// No destination.
+  #[display(fmt = "")]
   Null,
+
   /// Memory register.
+  #[display(fmt = "M")]
   M,
+
   /// Data register.
+  #[display(fmt = "D")]
   D,
+
   /// Memory and Data registers.
+  #[display(fmt = "MD")]
   MD,
+
   /// Address register.
+  #[display(fmt = "A")]
   A,
+
   /// Address and Memory registers.
+  #[display(fmt = "AM")]
   AM,
+
   /// Address and Data registers.
+  #[display(fmt = "AD")]
   AD,
+
   /// Address, Memory and Data registers.
+  #[display(fmt = "AMD")]
   AMD,
 }
 
@@ -96,21 +112,6 @@ impl TryFrom<u16> for Dest {
   }
 }
 
-impl fmt::Display for Dest {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Dest::Null => write!(f, ""),
-      Dest::M => write!(f, "M"),
-      Dest::D => write!(f, "D"),
-      Dest::MD => write!(f, "MD"),
-      Dest::A => write!(f, "A"),
-      Dest::AM => write!(f, "AM"),
-      Dest::AD => write!(f, "AD"),
-      Dest::AMD => write!(f, "AMD"),
-    }
-  }
-}
-
 impl TryFrom<Buf<'_>> for Dest {
   type Error = ();
 
@@ -129,19 +130,23 @@ impl TryFrom<Buf<'_>> for Dest {
 }
 
 /// Errors when parsing a destination.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
 pub enum Err {
   /// Unknown destination.
+  #[display(fmt = "unknown destination `{}`", _0)]
   Unknown(String),
+
   /// Converting byte buffers to UTF-8 strings.
+  #[display(fmt = "destination `{:?}` is invalid: {}", _0, _1)]
   Convert(Vec<Byte>, std::string::FromUtf8Error),
 }
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::Unknown(txt) => write!(f, "unknown destination `{}`", txt),
-      Err::Convert(name, e) => write!(f, "destination `{:?}` is invalid: {}", name, e),
+impl Err {
+  /// Constructs an `Err::Unknown` variant.
+  pub fn unknown(buf: Buf) -> Self {
+    match String::from_utf8(Vec::from(buf)) {
+      Ok(txt) => Err::Unknown(txt),
+      Err(e) => Err::Convert(Vec::from(buf), e),
     }
   }
 }
@@ -208,16 +213,10 @@ impl Dest {
     let p = |b| b"AMD".contains(&b);
     let (b, rem) = parser::read_while(buf, p);
 
-    let res = match Self::try_from(b) {
-      Ok(res) => res,
-      Err(_) => {
-        let txt =
-          String::from_utf8(Vec::from(b)).map_err(|e| Err::Convert(Vec::from(b), e))?;
-        return Err(Err::Unknown(txt));
-      }
-    };
-
-    Ok((res, rem, b.len()))
+    match Self::try_from(b) {
+      Ok(res) => Ok((res, rem, b.len())),
+      Err(_) => Err(Err::unknown(b)),
+    }
   }
 
   /// Whether the destination object is null.
