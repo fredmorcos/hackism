@@ -1,9 +1,10 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use crate::utils::buf::Buf;
 use crate::utils::buf::Byte;
 use crate::utils::parser;
+
+use derive_more::Display;
 
 /// A jump as defined by the HACK assembly reference.
 ///
@@ -43,23 +44,38 @@ use crate::utils::parser;
 /// assert_eq!(format!("{}", Jump::JLE),  "JLE");
 /// assert_eq!(format!("{}", Jump::JMP),  "JMP");
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Jump {
   /// No jump.
+  #[display(fmt = "")]
   Null,
+
   /// Jump on greater than.
+  #[display(fmt = "JGT")]
   JGT,
+
   /// Jump on equal.
+  #[display(fmt = "JEQ")]
   JEQ,
+
   /// Jump on greater than or equal.
+  #[display(fmt = "JGE")]
   JGE,
+
   /// Jump on less than.
+  #[display(fmt = "JLT")]
   JLT,
+
   /// Jump on not equal.
+  #[display(fmt = "JNE")]
   JNE,
+
   /// Jump on less than or equal.
+  #[display(fmt = "JLE")]
   JLE,
+
   /// Unconditional jump.
+  #[display(fmt = "JMP")]
   JMP,
 }
 
@@ -113,35 +129,25 @@ impl TryFrom<Buf<'_>> for Jump {
   }
 }
 
-impl fmt::Display for Jump {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Jump::Null => write!(f, ""),
-      Jump::JGT => write!(f, "JGT"),
-      Jump::JEQ => write!(f, "JEQ"),
-      Jump::JGE => write!(f, "JGE"),
-      Jump::JLT => write!(f, "JLT"),
-      Jump::JNE => write!(f, "JNE"),
-      Jump::JLE => write!(f, "JLE"),
-      Jump::JMP => write!(f, "JMP"),
-    }
-  }
-}
-
 /// Errors when parsing a jump.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[display(fmt = "Jump error: {}")]
 pub enum Err {
   /// Unknown jump.
+  #[display(fmt = "unknown jump `{}`", _0)]
   Unknown(String),
+
   /// Converting byte buffers to UTF-8 strings.
+  #[display(fmt = "jump `{:?}` is invalid: {}", _0, _1)]
   Convert(Vec<Byte>, std::string::FromUtf8Error),
 }
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::Unknown(txt) => write!(f, "unknown jump `{}`", txt),
-      Err::Convert(name, e) => write!(f, "jump `{:?}` is invalid: {}", name, e),
+impl Err {
+  /// Constructs an `Err::Unknown` variant.
+  pub fn unknown(buf: Buf) -> Self {
+    match String::from_utf8(Vec::from(buf)) {
+      Ok(txt) => Err::Unknown(txt),
+      Err(e) => Err::Convert(Vec::from(buf), e),
     }
   }
 }
@@ -208,16 +214,10 @@ impl Jump {
     let p = |b| b"JGTELNMPQ".contains(&b);
     let (b, rem) = parser::read_while(buf, p);
 
-    let res = match Self::try_from(b) {
-      Ok(res) => res,
-      Err(_) => {
-        let txt =
-          String::from_utf8(Vec::from(b)).map_err(|e| Err::Convert(Vec::from(b), e))?;
-        return Err(Err::Unknown(txt));
-      }
-    };
-
-    Ok((res, rem, b.len()))
+    match Self::try_from(b) {
+      Ok(res) => Ok((res, rem, b.len())),
+      Err(_) => Err(Err::unknown(b)),
+    }
   }
 
   /// Whether the [jump](Jump) object is null.
