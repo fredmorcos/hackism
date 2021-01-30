@@ -1,8 +1,9 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use crate::com::symbol::Symbol;
 use crate::utils::buf::Buf;
+
+use derive_more::Display;
 
 /// An encoding for user-defined symbols as defined by the HACK
 /// assembly reference.
@@ -38,7 +39,8 @@ use crate::utils::buf::Buf;
 /// let label = Label::try_from(&b"foobar"[..]).unwrap();
 /// assert_eq!(format!("{}", label), "foobar");
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Display, Debug, PartialEq, Eq, Hash)]
+#[display(fmt = "{}", _0)]
 pub struct Label<'b>(&'b str);
 
 impl<'b> Copy for Label<'b> {}
@@ -115,31 +117,24 @@ mod label_tests {
 }
 
 /// Errors when parsing labels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, Copy, PartialEq, Eq)]
+#[display(fmt = "Label error: {}")]
 pub enum Err {
   /// Label is empty.
+  #[display(fmt = "label is empty")]
   Empty,
-  /// Label starts with an invalid character.
-  InvalidStart(u8),
-  /// Label contains an invalid character.
-  InvalidByte(u8),
-  /// Label is a predefined HACK symbol.
-  Symbol(Symbol),
-}
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::Empty => write!(f, "label is empty"),
-      Err::InvalidStart(c) => {
-        write!(f, "label starts with invalid character `{}`", char::from(*c))
-      }
-      Err::InvalidByte(c) => {
-        write!(f, "label contains invalid character `{}`", char::from(*c))
-      }
-      Err::Symbol(s) => write!(f, "cannot use predefined symbol `{}` as a label", s),
-    }
-  }
+  /// Label starts with an invalid character.
+  #[display(fmt = "label starts with invalid character `{}`", "char::from(*_0)")]
+  InvalidStart(u8),
+
+  /// Label contains an invalid character.
+  #[display(fmt = "label contains invalid character `{}`", "char::from(*_0)")]
+  InvalidByte(u8),
+
+  /// Label is a predefined HACK symbol.
+  #[display(fmt = "cannot use predefined symbol `{}` as a label", _0)]
+  Symbol(Symbol),
 }
 
 impl<'b> TryFrom<Buf<'b>> for Label<'b> {
@@ -167,11 +162,5 @@ impl<'b> TryFrom<Buf<'b>> for Label<'b> {
     }
 
     Ok(Self(unsafe { std::str::from_utf8_unchecked(buf) }))
-  }
-}
-
-impl fmt::Display for Label<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{}", self.0)
   }
 }
