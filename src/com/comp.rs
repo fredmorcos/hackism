@@ -1,9 +1,10 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use crate::utils::buf::Buf;
 use crate::utils::buf::Byte;
 use crate::utils::parser;
+
+use derive_more::Display;
 
 /// A computation as defined by the HACK assembly reference.
 ///
@@ -84,63 +85,118 @@ use crate::utils::parser;
 /// assert_eq!(format!("{}", Comp::DAndM),   "D&M");
 /// assert_eq!(format!("{}", Comp::DOrM),    "D|M");
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Comp {
   /// Integer literal 0.
+  #[display(fmt = "0")]
   Zero,
+
   /// Integer literal 1.
+  #[display(fmt = "1")]
   One,
+
   /// Integer literal -1 (negative one).
+  #[display(fmt = "-1")]
   Neg1,
+
   /// Data register.
+  #[display(fmt = "D")]
   D,
+
   /// Address register.
+  #[display(fmt = "A")]
   A,
+
   /// Bitwise inverse of the Data register.
+  #[display(fmt = "!D")]
   NotD,
+
   /// Bitwise inverse of the Address register.
+  #[display(fmt = "!A")]
   NotA,
+
   /// Negated value of the Data register.
+  #[display(fmt = "-D")]
   NegD,
+
   /// Negated value of the Address register.
+  #[display(fmt = "-A")]
   NegA,
+
   /// Data register value + 1.
+  #[display(fmt = "D+1")]
   DPlus1,
+
   /// Address register value + 1.
+  #[display(fmt = "A+1")]
   APlus1,
+
   /// Data register value - 1.
+  #[display(fmt = "D-1")]
   DMinus1,
+
   /// Address register value - 1.
+  #[display(fmt = "A-1")]
   AMinus1,
+
   /// Data register value + the Address register value.
+  #[display(fmt = "D+A")]
   DPlusA,
+
   /// Data register value - the Address register value.
+  #[display(fmt = "D-A")]
   DMinusA,
+
   /// Address register value - the Data register value.
+  #[display(fmt = "A-D")]
   AMinusD,
+
   /// Bitwise And of the Data and Address registers.
+  #[display(fmt = "D&A")]
   DAndA,
+
   /// Bitwise Or of the Data and Address registers.
+  #[display(fmt = "D|A")]
   DOrA,
+
   /// Memory register.
+  #[display(fmt = "M")]
   M,
+
   /// Bitwise inverse of the Memory register.
+  #[display(fmt = "!M")]
   NotM,
+
   /// Negated value of the Memory register.
+  #[display(fmt = "-M")]
   NegM,
+
   /// Memory register value + 1.
+  #[display(fmt = "M+1")]
   MPlus1,
+
   /// Memory register value - 1.
+  #[display(fmt = "M-1")]
   MMinus1,
+
   /// Data register value + the Memory register value.
+  #[display(fmt = "D+M")]
   DPlusM,
+
   /// Data register value - the Memory register value.
+  #[display(fmt = "D-M")]
   DMinusM,
+
   /// Memory register value + the Data register value.
+  #[display(fmt = "M-D")]
   MMinusD,
+
   /// Bitwise And of the Data and Memory registers.
+  #[display(fmt = "D&M")]
   DAndM,
+
   /// Bitwise Or of the Data and Memory registers.
+  #[display(fmt = "D|M")]
   DOrM,
 }
 
@@ -255,55 +311,25 @@ impl TryFrom<Buf<'_>> for Comp {
   }
 }
 
-impl fmt::Display for Comp {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Comp::Zero => write!(f, "0"),
-      Comp::One => write!(f, "1"),
-      Comp::Neg1 => write!(f, "-1"),
-      Comp::D => write!(f, "D"),
-      Comp::A => write!(f, "A"),
-      Comp::NotD => write!(f, "!D"),
-      Comp::NotA => write!(f, "!A"),
-      Comp::NegD => write!(f, "-D"),
-      Comp::NegA => write!(f, "-A"),
-      Comp::DPlus1 => write!(f, "D+1"),
-      Comp::APlus1 => write!(f, "A+1"),
-      Comp::DMinus1 => write!(f, "D-1"),
-      Comp::AMinus1 => write!(f, "A-1"),
-      Comp::DPlusA => write!(f, "D+A"),
-      Comp::DMinusA => write!(f, "D-A"),
-      Comp::AMinusD => write!(f, "A-D"),
-      Comp::DAndA => write!(f, "D&A"),
-      Comp::DOrA => write!(f, "D|A"),
-      Comp::M => write!(f, "M"),
-      Comp::NotM => write!(f, "!M"),
-      Comp::NegM => write!(f, "-M"),
-      Comp::MPlus1 => write!(f, "M+1"),
-      Comp::MMinus1 => write!(f, "M-1"),
-      Comp::DPlusM => write!(f, "D+M"),
-      Comp::DMinusM => write!(f, "D-M"),
-      Comp::MMinusD => write!(f, "M-D"),
-      Comp::DAndM => write!(f, "D&M"),
-      Comp::DOrM => write!(f, "D|M"),
-    }
-  }
-}
-
 /// Errors when parsing a computation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[display(fmt = "Computation error: {}")]
 pub enum Err {
   /// Unknown computation.
+  #[display(fmt = "Unknown computation `{}`", _0)]
   Unknown(String),
+
   /// Converting byte buffers to UTF-8 strings.
+  #[display(fmt = "computation `{:?}` is invalid: {}", _0, _1)]
   Convert(Vec<Byte>, std::string::FromUtf8Error),
 }
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::Unknown(txt) => write!(f, "unknown computation `{}`", txt),
-      Err::Convert(name, e) => write!(f, "computation `{:?}` is invalid: {}", name, e),
+impl Err {
+  /// Constructs an `Err::Unknown` variant.
+  pub fn unknown(buf: Buf) -> Self {
+    match String::from_utf8(Vec::from(buf)) {
+      Ok(txt) => Err::Unknown(txt),
+      Err(e) => Err::Convert(Vec::from(buf), e),
     }
   }
 }
@@ -496,15 +522,9 @@ impl Comp {
     let p = |b| b"01AMD+-!&|".contains(&b);
     let (b, rem) = parser::read_while(buf, p);
 
-    let res = match Self::try_from(b) {
-      Ok(res) => res,
-      Err(_) => {
-        let txt =
-          String::from_utf8(Vec::from(b)).map_err(|e| Err::Convert(Vec::from(b), e))?;
-        return Err(Err::Unknown(txt));
-      }
-    };
-
-    Ok((res, rem, b.len()))
+    match Self::try_from(b) {
+      Ok(res) => Ok((res, rem, b.len())),
+      Err(_) => Err(Err::unknown(b)),
+    }
   }
 }
