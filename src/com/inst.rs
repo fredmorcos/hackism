@@ -14,6 +14,9 @@ use crate::utils::parser;
 use std::convert::TryFrom;
 use std::fmt;
 
+use derive_more::Display;
+use derive_more::From;
+
 /// An instruction as defined by the HACK assembly reference.
 ///
 /// An instruction consists of a [destination](Dest), a
@@ -57,9 +60,28 @@ use std::fmt;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Inst {
+  /// The destination field.
   dest: Dest,
+  /// The computation field.
   comp: Comp,
+  /// The jump field.
   jump: Jump,
+}
+
+impl fmt::Display for Inst {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    if !self.dest.is_null() {
+      write!(f, "{}=", self.dest)?;
+    }
+
+    write!(f, "{}", self.comp)?;
+
+    if !self.jump.is_null() {
+      write!(f, ";{}", self.jump)?;
+    }
+
+    Ok(())
+  }
 }
 
 impl From<Inst> for u16 {
@@ -72,28 +94,20 @@ impl From<Inst> for u16 {
 }
 
 /// Errors when parsing an instruction from its compiled form.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, Copy, PartialEq, Eq)]
+#[display(fmt = "Instruction decoding error: {}")]
 pub enum DecodeErr {
   /// Invalid computation value.
+  #[display(fmt = "`{:#b} ({})` is not a valid computation", _0, _0)]
   InvalidComp(u16),
-  /// Invalid destination value.
-  InvalidDest(u16),
-  /// Invalid jump value.
-  InvalidJump(u16),
-}
 
-impl fmt::Display for DecodeErr {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      DecodeErr::InvalidComp(v) => {
-        write!(f, "`{:#b} ({})` is not a valid computation", v, v)
-      }
-      DecodeErr::InvalidDest(v) => {
-        write!(f, "`{:#b} ({})` is not a valid destination", v, v)
-      }
-      DecodeErr::InvalidJump(v) => write!(f, "`{:#b} ({})` is not a valid jump", v, v),
-    }
-  }
+  /// Invalid destination value.
+  #[display(fmt = "`{:#b} ({})` is not a valid destination", _0, _0)]
+  InvalidDest(u16),
+
+  /// Invalid jump value.
+  #[display(fmt = "`{:#b} ({})` is not a valid jump", _0, _0)]
+  InvalidJump(u16),
 }
 
 impl TryFrom<u16> for Inst {
@@ -115,41 +129,22 @@ impl TryFrom<u16> for Inst {
   }
 }
 
-impl fmt::Display for Inst {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    if !self.dest.is_null() {
-      write!(f, "{}=", self.dest)?;
-    }
-
-    write!(f, "{}", self.comp)?;
-
-    if !self.jump.is_null() {
-      write!(f, ";{}", self.jump)?;
-    }
-
-    Ok(())
-  }
-}
-
 /// Error parsing or creating an instruction.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq, From)]
+#[display(fmt = "Instruction error: {}")]
 pub enum Err {
   /// An instruction must at least have a destination or a jump.
+  #[display(fmt = "missing destination or jump")]
+  #[from(ignore)]
   MissingDestJump,
-  /// Invalid computation.
-  InvalidComp(comp::Err),
-  /// Invalid jump.
-  InvalidJump(jump::Err),
-}
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::MissingDestJump => write!(f, "missing destination or jump"),
-      Err::InvalidComp(e) => write!(f, "invalid computation: {}", e),
-      Err::InvalidJump(e) => write!(f, "invalid jump: {}", e),
-    }
-  }
+  /// Invalid computation.
+  #[display(fmt = "invalid computation: {}", _0)]
+  InvalidComp(comp::Err),
+
+  /// Invalid jump.
+  #[display(fmt = "invalid jump: {}", _0)]
+  InvalidJump(jump::Err),
 }
 
 impl Inst {
@@ -236,11 +231,11 @@ impl Inst {
       (Dest::Null, buf, 0)
     };
 
-    let (comp, buf, len) = Comp::read_from(buf).map_err(Err::InvalidComp)?;
+    let (comp, buf, len) = Comp::read_from(buf)?;
     inst_len += len;
 
     let buf = if let Some((_, buf)) = parser::read_one(buf, |b| b == b';') {
-      let (jump, rem, len) = Jump::read_from(buf).map_err(Err::InvalidJump)?;
+      let (jump, rem, len) = Jump::read_from(buf)?;
       inst_len += len + 1;
       return Ok((Inst::new(dest, comp, jump)?, rem, inst_len));
     } else {
