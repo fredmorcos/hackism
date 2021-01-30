@@ -3,7 +3,7 @@
 use crate::utils::buf::Buf;
 use crate::utils::buf::Byte;
 
-use std::fmt;
+use derive_more::Display;
 
 /// Location type.
 ///
@@ -32,19 +32,14 @@ use std::fmt;
 ///
 /// assert_eq!(Loc::default(), Loc::new(1, 1));
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(new, Display, Debug, PartialEq, Eq, Clone, Copy)]
+#[display(fmt = "line {}, column {}", line, col)]
 pub struct Loc {
   /// Line in buffer.
   line: usize,
 
   /// Column in line.
   col: usize,
-}
-
-impl fmt::Display for Loc {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "line {}, column {}", self.line, self.col)
-  }
 }
 
 impl Default for Loc {
@@ -54,11 +49,6 @@ impl Default for Loc {
 }
 
 impl Loc {
-  /// Create a new location from `line` and `col`.
-  pub fn new(line: usize, col: usize) -> Self {
-    Self { line, col }
-  }
-
   /// Increment the location based on `byte`.
   ///
   /// If `byte` is a newline, `line` is incremented and `column` is
