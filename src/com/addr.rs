@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use crate::com::label::Label;
 use crate::com::symbol::Symbol;
@@ -8,6 +7,8 @@ use crate::utils::buf::Byte;
 use crate::utils::parser;
 
 use atoi::FromRadix10Checked;
+use derive_more::Display;
+use derive_more::From;
 
 /// An encoding for addressing instructions (A-instructions) as
 /// defined by the HACK assembly reference.
@@ -65,35 +66,21 @@ use atoi::FromRadix10Checked;
 ///
 /// assert_eq!(Addr::from(Symbol::LCL), Addr::Symbol(Symbol::LCL));
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Display, Debug, PartialEq, Eq, Clone, From)]
+#[display(fmt = "@{}")]
 pub enum Addr<'b> {
+  /// Numerical address
+  #[display(fmt = "{}", _0)]
+  #[from(ignore)]
   Num(u16),
+
+  /// User-defined label address.
+  #[display(fmt = "{}", _0)]
   Label(Label<'b>),
+
+  /// Predefined symbol address.
+  #[display(fmt = "{}", _0)]
   Symbol(Symbol),
-}
-
-/// Errors when parsing an address.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Err {
-  /// Value is not a number or is out of the 15-bits range.
-  InvalidNum(String),
-  /// Value is outside the 15-bits range.
-  Range(u16),
-  /// Invalid label name.
-  InvalidName(String),
-  /// Converting byte buffers to UTF-8 strings.
-  Convert(Vec<Byte>, std::string::FromUtf8Error),
-}
-
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::InvalidNum(num) => write!(f, "invalid numerical address `{}`", num),
-      Err::Range(val) => write!(f, "address `{}` is outside the 15-bits range", val),
-      Err::InvalidName(name) => write!(f, "invalid named address `{}`", name),
-      Err::Convert(name, e) => write!(f, "named address `{:?}` is invalid: {}", name, e),
-    }
-  }
 }
 
 impl TryFrom<u16> for Addr<'_> {
@@ -109,24 +96,41 @@ impl TryFrom<u16> for Addr<'_> {
   }
 }
 
-impl<'b> From<Label<'b>> for Addr<'b> {
-  fn from(label: Label<'b>) -> Self {
-    Addr::Label(label)
-  }
+/// Errors when parsing an address.
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[display(fmt = "Address error: {}")]
+pub enum Err {
+  /// Value is not a number or is out of the 15-bits range.
+  #[display(fmt = "invalid numerical address `{}`", _0)]
+  InvalidNum(String),
+
+  /// Value is outside the 15-bits range.
+  #[display(fmt = "address `{}` is outside the 15-bits range", _0)]
+  Range(u16),
+
+  /// Invalid label name.
+  #[display(fmt = "invalid named address `{}`", _0)]
+  InvalidName(String),
+
+  /// Converting byte buffers to UTF-8 strings.
+  #[display(fmt = "named address `{:?}` is invalid: {}", _0, _1)]
+  Convert(Vec<Byte>, std::string::FromUtf8Error),
 }
 
-impl From<Symbol> for Addr<'_> {
-  fn from(symbol: Symbol) -> Self {
-    Addr::Symbol(symbol)
+impl Err {
+  /// Constructs an `Err::InvalidNum` variant.
+  pub fn invalid_num(buf: Buf) -> Self {
+    match String::from_utf8(Vec::from(buf)) {
+      Ok(num) => Err::InvalidNum(num),
+      Err(e) => Err::Convert(Vec::from(buf), e),
+    }
   }
-}
 
-impl fmt::Display for Addr<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Addr::Num(addr) => write!(f, "@{}", addr),
-      Addr::Label(label) => write!(f, "@{}", label),
-      Addr::Symbol(symbol) => write!(f, "@{}", symbol),
+  /// Constructs an `Err::InvalidName` variant.
+  pub fn invalid_name(buf: Buf) -> Self {
+    match String::from_utf8(Vec::from(buf)) {
+      Ok(num) => Err::InvalidName(num),
+      Err(e) => Err::Convert(Vec::from(buf), e),
     }
   }
 }
@@ -183,11 +187,7 @@ impl<'b> Addr<'b> {
           let addr = Self::try_from(addr).map_err(|_| Err::Range(addr))?;
           return Ok((addr, rem, num.len()));
         }
-        (_, _) => {
-          let num = String::from_utf8(Vec::from(num))
-            .map_err(|e| Err::Convert(Vec::from(num), e))?;
-          return Err(Err::InvalidNum(num));
-        }
+        (_, _) => return Err(Err::invalid_num(num)),
       }
     }
 
@@ -201,8 +201,6 @@ impl<'b> Addr<'b> {
       return Ok((Self::from(label), rem, txt.len()));
     }
 
-    let txt =
-      String::from_utf8(Vec::from(txt)).map_err(|e| Err::Convert(Vec::from(txt), e))?;
-    Err(Err::InvalidName(txt))
+    Err(Err::invalid_name(txt))
   }
 }
