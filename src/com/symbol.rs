@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
-use std::fmt;
 
 use crate::utils::buf::Buf;
+
+use derive_more::Display;
 
 /// An encoding for predefined symbols as defined by the HACK assembly
 /// reference.
@@ -111,53 +112,98 @@ use crate::utils::buf::Buf;
 /// assert_eq!(format!("{}", Symbol::SCREEN), "SCREEN");
 /// assert_eq!(format!("{}", Symbol::KBD),    "KBD");
 /// ```
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Symbol {
   /// Stack Pointer.
+  #[display(fmt = "SP")]
   SP,
+
   /// LCL.
+  #[display(fmt = "LCL")]
   LCL,
+
   /// Argument.
+  #[display(fmt = "ARG")]
   ARG,
+
   /// This reference.
+  #[display(fmt = "THIS")]
   THIS,
+
   /// That reference.
+  #[display(fmt = "THAT")]
   THAT,
+
   /// Register 0.
+  #[display(fmt = "R0")]
   R0,
+
   /// Register 1.
+  #[display(fmt = "R1")]
   R1,
+
   /// Register 2.
+  #[display(fmt = "R2")]
   R2,
+
   /// Register 3.
+  #[display(fmt = "R3")]
   R3,
+
   /// Register 4.
+  #[display(fmt = "R4")]
   R4,
+
   /// Register 5.
+  #[display(fmt = "R5")]
   R5,
+
   /// Register 6.
+  #[display(fmt = "R6")]
   R6,
+
   /// Register 7.
+  #[display(fmt = "R7")]
   R7,
+
   /// Register 8.
+  #[display(fmt = "R8")]
   R8,
+
   /// Register 9.
+  #[display(fmt = "R9")]
   R9,
+
   /// Register 10.
+  #[display(fmt = "R10")]
   R10,
+
   /// Register 11.
+  #[display(fmt = "R11")]
   R11,
+
   /// Register 12.
+  #[display(fmt = "R12")]
   R12,
+
   /// Register 13.
+  #[display(fmt = "R13")]
   R13,
+
   /// Register 14.
+  #[display(fmt = "R14")]
   R14,
+
   /// Register 15.
+  #[display(fmt = "R15")]
   R15,
+
   /// Screen buffer.
+  #[display(fmt = "SCREEN")]
   SCREEN,
+
   /// Keyboard input.
+  #[display(fmt = "KBD")]
   KBD,
 }
 
@@ -220,36 +266,6 @@ impl TryFrom<Buf<'_>> for Symbol {
       b"SCREEN" => Ok(Symbol::SCREEN),
       b"KBD" => Ok(Symbol::KBD),
       _ => Err(()),
-    }
-  }
-}
-
-impl fmt::Display for Symbol {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Symbol::SP => write!(f, "SP"),
-      Symbol::LCL => write!(f, "LCL"),
-      Symbol::ARG => write!(f, "ARG"),
-      Symbol::THIS => write!(f, "THIS"),
-      Symbol::THAT => write!(f, "THAT"),
-      Symbol::R0 => write!(f, "R0"),
-      Symbol::R1 => write!(f, "R1"),
-      Symbol::R2 => write!(f, "R2"),
-      Symbol::R3 => write!(f, "R3"),
-      Symbol::R4 => write!(f, "R4"),
-      Symbol::R5 => write!(f, "R5"),
-      Symbol::R6 => write!(f, "R6"),
-      Symbol::R7 => write!(f, "R7"),
-      Symbol::R8 => write!(f, "R8"),
-      Symbol::R9 => write!(f, "R9"),
-      Symbol::R10 => write!(f, "R10"),
-      Symbol::R11 => write!(f, "R11"),
-      Symbol::R12 => write!(f, "R12"),
-      Symbol::R13 => write!(f, "R13"),
-      Symbol::R14 => write!(f, "R14"),
-      Symbol::R15 => write!(f, "R15"),
-      Symbol::SCREEN => write!(f, "SCREEN"),
-      Symbol::KBD => write!(f, "KBD"),
     }
   }
 }
