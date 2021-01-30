@@ -11,6 +11,7 @@ use crate::com::label;
 use crate::com::label::Label;
 use crate::utils::buf::Buf;
 use crate::utils::loc;
+use crate::utils::loc::Loc;
 use crate::utils::parser;
 
 use std::convert::TryFrom;
@@ -75,7 +76,7 @@ impl Parser<'_> {
   ///
   /// Returns a tuple `(line, column)` corresponding to the location
   /// of a [Token] in the original input buffer.
-  pub fn loc(&self, tok: &Token) -> (usize, usize) {
+  pub fn loc(&self, tok: &Token) -> Loc {
     loc::loc(self.orig, tok.index())
   }
 }
@@ -263,6 +264,7 @@ mod tests {
   use crate::com::jump::Jump;
   use crate::com::label::Label;
   use crate::com::symbol::Symbol;
+  use crate::utils::loc::Loc;
 
   use std::convert::TryFrom;
 
@@ -273,9 +275,9 @@ mod tests {
   }
 
   macro_rules! next {
-    ($parser:expr, $loc:expr, $kind:path, $inst:expr) => {{
+    ($parser:expr, $line:expr, $col:expr, $kind:path, $inst:expr) => {{
       let tok = $parser.next().unwrap().unwrap();
-      assert_eq!($parser.loc(&tok), $loc);
+      assert_eq!(Loc::new($line, $col), $parser.loc(&tok));
       assert_eq!(tok.kind(), $kind($inst));
     }};
   }
@@ -301,9 +303,9 @@ mod tests {
   #[test]
   fn addr_nums() {
     let mut p = parser!("addr_nums");
-    next!(p, (3, 5), TokenKind::Addr, Addr::Num(8192));
-    next!(p, (5, 1), TokenKind::Addr, Addr::Num(123));
-    next!(p, (9, 5), TokenKind::Addr, Addr::Num(556));
+    next!(p, 3, 5, TokenKind::Addr, Addr::Num(8192));
+    next!(p, 5, 1, TokenKind::Addr, Addr::Num(123));
+    next!(p, 9, 5, TokenKind::Addr, Addr::Num(556));
     assert_eq!(p.next(), None);
   }
 
@@ -316,38 +318,38 @@ mod tests {
   #[test]
   fn address_labels() {
     let mut p = parser!("addr_labels");
-    next!(p, (3, 5), TokenKind::Addr, Addr::Label(label!(b"FOO")));
-    next!(p, (5, 1), TokenKind::Addr, Addr::Label(label!(b"BARBAZ")));
-    next!(p, (9, 5), TokenKind::Addr, Addr::Symbol(Symbol::KBD));
-    next!(p, (11, 1), TokenKind::Addr, Addr::Label(label!(b"BAZOO")));
-    next!(p, (13, 1), TokenKind::Addr, Addr::Symbol(Symbol::LCL));
-    next!(p, (13, 6), TokenKind::Addr, Addr::Label(label!(b"LCLCL")));
-    next!(p, (14, 1), TokenKind::Addr, Addr::Symbol(Symbol::SCREEN));
-    next!(p, (14, 9), TokenKind::Addr, Addr::Symbol(Symbol::SP));
-    next!(p, (14, 13), TokenKind::Addr, Addr::Label(label!(b"SPP")));
-    next!(p, (15, 1), TokenKind::Addr, Addr::Symbol(Symbol::ARG));
-    next!(p, (15, 6), TokenKind::Addr, Addr::Label(label!(b"ARG0")));
-    next!(p, (16, 1), TokenKind::Addr, Addr::Symbol(Symbol::THIS));
-    next!(p, (16, 7), TokenKind::Addr, Addr::Symbol(Symbol::THAT));
-    next!(p, (16, 13), TokenKind::Addr, Addr::Label(label!(b"THOSE")));
-    next!(p, (17, 1), TokenKind::Addr, Addr::Symbol(Symbol::R0));
-    next!(p, (17, 5), TokenKind::Addr, Addr::Symbol(Symbol::R1));
-    next!(p, (17, 9), TokenKind::Addr, Addr::Symbol(Symbol::R11));
-    next!(p, (17, 14), TokenKind::Addr, Addr::Label(label!(b"R1_hello")));
-    next!(p, (17, 24), TokenKind::Addr, Addr::Label(label!(b"R11_hello")));
+    next!(p, 3, 5, TokenKind::Addr, Addr::Label(label!(b"FOO")));
+    next!(p, 5, 1, TokenKind::Addr, Addr::Label(label!(b"BARBAZ")));
+    next!(p, 9, 5, TokenKind::Addr, Addr::Symbol(Symbol::KBD));
+    next!(p, 11, 1, TokenKind::Addr, Addr::Label(label!(b"BAZOO")));
+    next!(p, 13, 1, TokenKind::Addr, Addr::Symbol(Symbol::LCL));
+    next!(p, 13, 6, TokenKind::Addr, Addr::Label(label!(b"LCLCL")));
+    next!(p, 14, 1, TokenKind::Addr, Addr::Symbol(Symbol::SCREEN));
+    next!(p, 14, 9, TokenKind::Addr, Addr::Symbol(Symbol::SP));
+    next!(p, 14, 13, TokenKind::Addr, Addr::Label(label!(b"SPP")));
+    next!(p, 15, 1, TokenKind::Addr, Addr::Symbol(Symbol::ARG));
+    next!(p, 15, 6, TokenKind::Addr, Addr::Label(label!(b"ARG0")));
+    next!(p, 16, 1, TokenKind::Addr, Addr::Symbol(Symbol::THIS));
+    next!(p, 16, 7, TokenKind::Addr, Addr::Symbol(Symbol::THAT));
+    next!(p, 16, 13, TokenKind::Addr, Addr::Label(label!(b"THOSE")));
+    next!(p, 17, 1, TokenKind::Addr, Addr::Symbol(Symbol::R0));
+    next!(p, 17, 5, TokenKind::Addr, Addr::Symbol(Symbol::R1));
+    next!(p, 17, 9, TokenKind::Addr, Addr::Symbol(Symbol::R11));
+    next!(p, 17, 14, TokenKind::Addr, Addr::Label(label!(b"R1_hello")));
+    next!(p, 17, 24, TokenKind::Addr, Addr::Label(label!(b"R11_hello")));
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn label() {
     let mut p = parser!("label");
-    next!(p, (3, 5), TokenKind::Addr, Addr::Label(label!(b"FOO")));
-    next!(p, (5, 1), TokenKind::Label, label!(b"LABEL"));
-    next!(p, (9, 5), TokenKind::Addr, Addr::Label(label!(b"LABEL")));
-    next!(p, (11, 1), TokenKind::Addr, Addr::Label(label!(b"BAR")));
-    next!(p, (13, 1), TokenKind::Label, Label::try_from(&b"BAR"[..]).unwrap());
-    next!(p, (15, 1), TokenKind::Addr, Addr::Label(label!(b"LAB0")));
-    next!(p, (17, 1), TokenKind::Label, label!(b"LAB0"));
+    next!(p, 3, 5, TokenKind::Addr, Addr::Label(label!(b"FOO")));
+    next!(p, 5, 1, TokenKind::Label, label!(b"LABEL"));
+    next!(p, 9, 5, TokenKind::Addr, Addr::Label(label!(b"LABEL")));
+    next!(p, 11, 1, TokenKind::Addr, Addr::Label(label!(b"BAR")));
+    next!(p, 13, 1, TokenKind::Label, Label::try_from(&b"BAR"[..]).unwrap());
+    next!(p, 15, 1, TokenKind::Addr, Addr::Label(label!(b"LAB0")));
+    next!(p, 17, 1, TokenKind::Label, label!(b"LAB0"));
     assert_eq!(p.next(), None);
   }
 
@@ -361,17 +363,17 @@ mod tests {
   fn instructions() {
     let mut p = parser!("instructions");
 
-    next!(p, (1, 1), TokenKind::Inst, inst!(Dest::A, Comp::MMinus1, Jump::Null));
-    next!(p, (2, 1), TokenKind::Inst, inst!(Dest::AM, Comp::DOrA, Jump::Null));
-    next!(p, (3, 1), TokenKind::Inst, inst!(Dest::AMD, Comp::APlus1, Jump::Null));
+    next!(p, 1, 1, TokenKind::Inst, inst!(Dest::A, Comp::MMinus1, Jump::Null));
+    next!(p, 2, 1, TokenKind::Inst, inst!(Dest::AM, Comp::DOrA, Jump::Null));
+    next!(p, 3, 1, TokenKind::Inst, inst!(Dest::AMD, Comp::APlus1, Jump::Null));
 
-    next!(p, (4, 1), TokenKind::Inst, inst!(Dest::Null, Comp::MMinus1, Jump::JEQ));
-    next!(p, (5, 1), TokenKind::Inst, inst!(Dest::Null, Comp::DOrA, Jump::JNE));
-    next!(p, (6, 1), TokenKind::Inst, inst!(Dest::Null, Comp::APlus1, Jump::JMP));
+    next!(p, 4, 1, TokenKind::Inst, inst!(Dest::Null, Comp::MMinus1, Jump::JEQ));
+    next!(p, 5, 1, TokenKind::Inst, inst!(Dest::Null, Comp::DOrA, Jump::JNE));
+    next!(p, 6, 1, TokenKind::Inst, inst!(Dest::Null, Comp::APlus1, Jump::JMP));
 
-    next!(p, (7, 1), TokenKind::Inst, inst!(Dest::A, Comp::MMinus1, Jump::JEQ));
-    next!(p, (8, 1), TokenKind::Inst, inst!(Dest::AM, Comp::DOrA, Jump::JNE));
-    next!(p, (9, 1), TokenKind::Inst, inst!(Dest::AMD, Comp::APlus1, Jump::JMP));
+    next!(p, 7, 1, TokenKind::Inst, inst!(Dest::A, Comp::MMinus1, Jump::JEQ));
+    next!(p, 8, 1, TokenKind::Inst, inst!(Dest::AM, Comp::DOrA, Jump::JNE));
+    next!(p, 9, 1, TokenKind::Inst, inst!(Dest::AMD, Comp::APlus1, Jump::JMP));
 
     assert_eq!(p.next(), None);
   }
