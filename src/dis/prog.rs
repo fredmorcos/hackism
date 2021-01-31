@@ -9,86 +9,102 @@ use crate::com::inst;
 use crate::com::inst::Inst;
 use crate::dis::parser;
 use crate::dis::parser::Parser;
+use crate::dis::parser::Token;
 use crate::utils::buf::Buf;
+use crate::utils::loc::Loc;
 
 use std::convert::TryFrom;
-use std::fmt;
+
+use derive_more::Display;
 
 /// A HACK assembly program.
 ///
 /// Contains the symbol table for declared labels and the list (flat
 /// tree) of A- and C- instructions in the program.
-///
-/// # `impl TryFrom<Buf>`
-///
-/// A program can be created from an input buffer. This internally
-/// [parses](Parser) the input buffer.
-pub struct Prog {
+pub struct Prog<'b> {
+  /// The original input buffer.
+  orig: Buf<'b>,
+
+  /// The list of instructions in the program.
   instructions: Vec<parser::Token>,
 }
 
 /// Possible errors returned from loading a HACK assembly program.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[display(fmt = "Disassembler error: {}")]
 pub enum Err {
   /// Parse errors.
+  #[display(fmt = "Parser error: {}", _0)]
   Parser(parser::Err),
 }
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::Parser(e) => write!(f, "parse error: {}", e),
-    }
-  }
-}
+/// Shorthand for items returned by the (parser)(Parser)
+/// (iterator)[Iterator].
+type ParserResult = Result<parser::Token, parser::Err>;
 
-impl Prog {
+impl<'b> Prog<'b> {
+  /// Create a program from a disassembler parser.
   fn new_parser(
-    parser: &mut dyn Iterator<Item = Result<parser::Token, parser::Err>>,
+    buf: Buf<'b>,
+    parser: &mut dyn Iterator<Item = ParserResult>,
   ) -> Result<Self, Err> {
-    let instructions = parser.collect::<Result<_, _>>().map_err(Err::Parser)?;
-    Ok(Self { instructions })
+    let insts = parser.collect::<Result<_, _>>().map_err(Err::Parser)?;
+    Ok(Self { orig: buf, instructions: insts })
   }
 
-  pub fn new(buf: Buf<'_>) -> Result<Self, Err> {
+  /// Create a program that will decode a binary input buffer.
+  pub fn new(buf: Buf<'b>) -> Result<Self, Err> {
     let mut parser: Parser<parser::BinDecoder> = Parser::from(buf);
-    Prog::new_parser(&mut parser)
+    Prog::new_parser(buf, &mut parser)
   }
 
-  pub fn new_text(buf: Buf<'_>) -> Result<Self, Err> {
+  /// Create a program that will decode a bintext input buffer.
+  pub fn new_text(buf: Buf<'b>) -> Result<Self, Err> {
     let mut parser: Parser<parser::TxtDecoder> = Parser::from(buf);
-    Prog::new_parser(&mut parser)
+    Prog::new_parser(buf, &mut parser)
+  }
+
+  /// Return the original input buffer associated with this program.
+  pub fn orig(&self) -> Buf {
+    self.orig
   }
 }
 
 /// Errors when decoding programs from their compiled form.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[display(fmt = "Disassembler decoding error: {}")]
 pub enum DecodeErr {
   /// Invalid instruction.
-  InvalidInst(inst::DecodeErr, usize),
+  #[display(fmt = "Invalid instruction at {}: {}", _0, _1)]
+  InvalidInst(Loc, inst::DecodeErr),
+
   /// Invalid address.
-  InvalidAddr(addr::Err, usize),
+  #[display(fmt = "Invalid address instruction {}: {}", _0, _1)]
+  InvalidAddr(Loc, addr::Err),
 }
 
-impl fmt::Display for DecodeErr {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      DecodeErr::InvalidInst(e, index) => {
-        write!(f, "Invalid instruction at byte `{}`: {}", index, e)
-      }
-      DecodeErr::InvalidAddr(e, index) => {
-        write!(f, "Invalid address instruction at byte `{}`: {}", index, e)
-      }
-    }
+impl DecodeErr {
+  /// Create a `DecodeErr::InvalidInst` variant.
+  pub fn invalid_inst(dec: &Decoder, tok: &Token, err: inst::DecodeErr) -> Self {
+    Self::InvalidInst(Loc::from_index(dec.prog.orig(), tok.index()), err)
+  }
+
+  /// Create a `DecodeErr::InvalidAddr` variant.
+  pub fn invalid_addr(dec: &Decoder, tok: &Token, err: addr::Err) -> Self {
+    Self::InvalidAddr(Loc::from_index(dec.prog.orig(), tok.index()), err)
   }
 }
 
-pub struct ProgDecoder<'p> {
-  prog: &'p mut Prog,
+/// HACK program decoder used for disassembly.
+pub struct Decoder<'b, 'p> {
+  /// The program object to decode from.
+  prog: &'p mut Prog<'b>,
+
+  /// The index of the currently decoded instruction.
   index: usize,
 }
 
-impl Iterator for ProgDecoder<'_> {
+impl Iterator for Decoder<'_, '_> {
   type Item = Result<String, DecodeErr>;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -101,7 +117,7 @@ impl Iterator for ProgDecoder<'_> {
       let inst = inst & 0b0111_1111_1111_1111;
       let decoded = match Addr::try_from(inst) {
         Ok(decoded) => decoded,
-        Err(e) => return Some(Err(DecodeErr::InvalidAddr(e, token.index()))),
+        Err(e) => return Some(Err(DecodeErr::invalid_addr(self, token, e))),
       };
 
       Some(Ok(format!("{}", decoded)))
@@ -110,7 +126,7 @@ impl Iterator for ProgDecoder<'_> {
       let inst = inst & 0b0001_1111_1111_1111;
       let decoded = match Inst::try_from(inst) {
         Ok(decoded) => decoded,
-        Err(e) => return Some(Err(DecodeErr::InvalidInst(e, token.index()))),
+        Err(e) => return Some(Err(DecodeErr::invalid_inst(self, token, e))),
       };
 
       Some(Ok(format!("{}", decoded)))
@@ -118,8 +134,9 @@ impl Iterator for ProgDecoder<'_> {
   }
 }
 
-impl Prog {
-  pub fn decoder(&mut self) -> ProgDecoder {
-    ProgDecoder { index: 0, prog: self }
+impl<'b> Prog<'b> {
+  /// Return the program's decoder.
+  pub fn decoder(&mut self) -> Decoder<'_, 'b> {
+    Decoder { prog: self, index: 0 }
   }
 }
