@@ -11,6 +11,7 @@ use crate::com::label;
 use crate::com::label::Label;
 use crate::utils::buf::Buf;
 use crate::utils::loc;
+use crate::utils::loc::Index;
 use crate::utils::loc::Loc;
 use crate::utils::parser;
 
@@ -96,7 +97,10 @@ pub enum TokenKind<'b> {
 /// Units returned by iterating over a [Parser].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token<'b> {
-  index: usize,
+  /// Index of the token in the original input buffer.
+  index: Index,
+
+  /// The type of token.
   kind: TokenKind<'b>,
 }
 
@@ -108,12 +112,12 @@ impl<'b> Token<'b> {
   /// * `index` - The token's index.
   ///
   /// * `kind` - The token's kind.
-  pub fn new(index: usize, kind: TokenKind<'b>) -> Self {
+  pub fn new(index: Index, kind: TokenKind<'b>) -> Self {
     Self { index, kind }
   }
 
-  /// Returns the index in the buffer the token was created from.
-  pub fn index(&self) -> usize {
+  /// Returns the token's index in the input buffer.
+  pub fn index(&self) -> Index {
     self.index
   }
 

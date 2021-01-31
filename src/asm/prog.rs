@@ -10,6 +10,7 @@ use crate::com::inst::Inst;
 use crate::com::label::Label;
 use crate::utils::buf::Buf;
 use crate::utils::conv;
+use crate::utils::loc::Index;
 
 use std::collections::HashMap as Map;
 use std::convert::TryFrom;
@@ -39,7 +40,7 @@ pub enum Err {
   /// A duplicate label was found.
   ///
   /// Contains the name and index of the label.
-  DuplicateLabel(String, usize),
+  DuplicateLabel(String, Index),
 }
 
 impl fmt::Display for Err {
