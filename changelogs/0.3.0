@@ -1,0 +1,4 @@
+* Improved error messages with detailed information about error and
+  token locations in HACK sources.
+
+* Full documentation of every module, structure and function.
