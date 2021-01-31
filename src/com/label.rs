@@ -21,9 +21,14 @@ use derive_more::Display;
 ///
 /// use std::convert::TryFrom;
 ///
-/// assert_eq!(Label::try_from(&b"@foobar"[..]), Err(label::Err::InvalidStart(b'@')));
-/// assert_eq!(Label::try_from(&b"foobar@"[..]), Err(label::Err::InvalidByte(b'@')));
-/// assert_eq!(Label::try_from(&b"1foobar"[..]), Err(label::Err::InvalidStart(b'1')));
+/// let res = Label::try_from(&b"@foobar"[..]);
+/// assert_eq!(res, Err(label::Err::InvalidStart(b'@')));
+///
+/// let res = Label::try_from(&b"foobar@"[..]);
+/// assert_eq!(res, Err(label::Err::InvalidByte(b'@')));
+///
+/// let res = Label::try_from(&b"1foobar"[..]);
+/// assert_eq!(res, Err(label::Err::InvalidStart(b'1')));
 ///
 /// let label = Label::try_from(&b"foobar1"[..]).unwrap();
 /// assert_eq!(label.label(), "foobar1");
@@ -62,8 +67,8 @@ impl Label<'_> {
   /// Whether a byte can be at the start of a [Label].
   ///
   /// Returns true if `byte` [is ASCII
-  /// alphabetic](is_ascii_alphabetic) or [is a label
-  /// symbol](is_label_symbol).
+  /// alphabetic](char::is_ascii_alphabetic) or [is a label
+  /// symbol](Label::is_label_symbol).
   pub(crate) fn is_label_start(byte: u8) -> bool {
     byte.is_ascii_alphabetic() || Label::is_label_symbol(byte)
   }
@@ -71,8 +76,8 @@ impl Label<'_> {
   /// Whether a byte can be part of a [Label].
   ///
   /// Returns true if `byte` [is ASCII
-  /// alphabetic](is_ascii_alphanumeric) or [is a label
-  /// symbol](is_label_symbol).
+  /// alphabetic](u8::is_ascii_alphanumeric) or [is a label
+  /// symbol](Label::is_label_symbol).
   pub(crate) fn is_label_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || Label::is_label_symbol(byte)
   }
