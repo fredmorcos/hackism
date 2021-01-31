@@ -35,8 +35,7 @@ mod programs {
           let mut writer = BufWriter::new(&mut output);
 
           for inst in prog.text_encoder() {
-            let inst = &inst.unwrap();
-            writer.write_all(inst).unwrap();
+            writer.write_all(&inst).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }
         }

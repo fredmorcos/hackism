@@ -6,35 +6,32 @@ use has::dis;
 use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
+use std::io;
 use std::io::BufWriter;
+use std::io::Read;
 use std::io::Write;
-use std::io::{self, Read};
 use std::path::Path;
 use std::path::PathBuf;
 
+use derive_more::Display;
 use derive_more::From;
 use log::{debug, info, trace};
 use structopt::StructOpt;
 
-#[derive(From)]
+#[derive(From, Display)]
+#[display(fmt = "Error: {}")]
 enum Err {
+  #[display(fmt = "IO error: {}", _0)]
   Io(io::Error),
-  Asm(asm::prog::Err),
-  Encode(asm::prog::EncodeErr),
-  Dis(dis::prog::Err),
-  Decode(dis::prog::DecodeErr),
-}
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      Err::Io(e) => write!(f, "IO error: {}", e),
-      Err::Asm(e) => write!(f, "Assembler error: {}", e),
-      Err::Encode(e) => write!(f, "Encoding error: {}", e),
-      Err::Dis(e) => write!(f, "Disassembler error: {}", e),
-      Err::Decode(e) => write!(f, "Decoding error: {}", e),
-    }
-  }
+  #[display(fmt = "Assembler error: {}", _0)]
+  Asm(asm::prog::Err),
+
+  #[display(fmt = "Disassembler error: {}", _0)]
+  Dis(dis::prog::Err),
+
+  #[display(fmt = "Decoding error: {}", _0)]
+  Decode(dis::prog::DecodeErr),
 }
 
 impl fmt::Debug for Err {
@@ -47,10 +44,11 @@ impl fmt::Debug for Err {
 #[derive(Debug, StructOpt)]
 #[structopt(name = "has")]
 struct Opt {
-  /// Verbose output (can be specified multiple times)
+  /// Verbose output (can be specified multiple times).
   #[structopt(short, long, parse(from_occurrences))]
   verbose: u8,
 
+  /// HAS sub-command.
   #[structopt(subcommand)]
   command: Command,
 }
@@ -59,30 +57,30 @@ struct Opt {
 enum Command {
   /// Assemble a HACK file.
   Asm {
-    /// Output a text instead of binary file
+    /// Output a text instead of binary file.
     #[structopt(short, long)]
     text: bool,
 
-    /// Output file (must not exist)
+    /// Output file (must not exist).
     #[structopt(short, long, name = "OUT", parse(from_os_str))]
     out: PathBuf,
 
-    /// Hack assembly file to compile
+    /// Hack assembly file to compile.
     #[structopt(name = "FILE", parse(from_os_str))]
     file: PathBuf,
   },
 
   /// Disassemble a HACK file.
   Dis {
-    /// The input is a text instead of a binary file
+    /// The input is a text instead of a binary file.
     #[structopt(short, long)]
     text: bool,
 
-    /// Output file (must not exist)
+    /// Output file (must not exist).
     #[structopt(short, long, name = "OUT", parse(from_os_str))]
     out: PathBuf,
 
-    /// Hack file to disassemble
+    /// Hack file to disassemble.
     #[structopt(name = "FILE", parse(from_os_str))]
     file: PathBuf,
   },
@@ -133,13 +131,11 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
 
   if text {
     for inst in prog.text_encoder() {
-      let inst = &inst?;
-      writer.write_all(inst)?;
+      writer.write_all(&inst)?;
       writer.write_all(&[b'\n'])?;
     }
   } else {
     for inst in prog.encoder() {
-      let inst = inst?;
       writer.write_all(&inst)?;
     }
   }
@@ -180,9 +176,9 @@ fn main() -> Result<(), Err> {
     eprintln!("Error initializing logger: {}", e);
   });
 
-  info!("Informational output enabled");
-  debug!("Debug output enabled");
-  trace!("Tracing output enabled");
+  info!("Informational output enabled.");
+  debug!("Debug output enabled.");
+  trace!("Tracing output enabled.");
 
   opt.command.exec()
 }
