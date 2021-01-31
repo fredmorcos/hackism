@@ -48,7 +48,28 @@ impl Default for Loc {
   }
 }
 
+/// Alias for locations in byte buffers.
+pub type Index = usize;
+
 impl Loc {
+  /// Calculate the line and column (location) of an index in a [Buf].
+  ///
+  /// Returns a [location](Loc) corresponding to the line and column
+  /// of an index in the input buffer.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the index is out of the buffer's bounds.
+  pub fn from_index(buf: Buf, index: Index) -> Loc {
+    let mut loc = Loc::default();
+
+    for &b in &buf[..index] {
+      loc.inc(b)
+    }
+
+    loc
+  }
+
   /// Increment the location based on `byte`.
   ///
   /// If `byte` is a newline, `line` is incremented and `column` is
@@ -71,21 +92,4 @@ impl Loc {
   pub fn col(&self) -> usize {
     self.col
   }
-}
-
-/// Alias for locations in byte buffers.
-pub type Index = usize;
-
-/// Calculate the line and column (location) of an index in a [Buf].
-///
-/// Returns a [location](Loc) corresponding to the line and column
-/// location of an index in the input buffer.
-pub fn loc(buf: Buf, index: Index) -> Loc {
-  let mut loc = Loc::default();
-
-  for &b in &buf[..index] {
-    loc.inc(b)
-  }
-
-  loc
 }

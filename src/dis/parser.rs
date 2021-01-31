@@ -2,7 +2,6 @@ use std::fmt;
 use std::marker::PhantomData;
 
 use crate::utils::buf::Buf;
-use crate::utils::loc;
 use crate::utils::loc::Loc;
 use crate::utils::parser;
 
@@ -153,7 +152,7 @@ impl<T: Impl> Parser<'_, T> {
   /// Returns a tuple `(line, column)` corresponding to the location
   /// of a [Token] in the original input buffer.
   pub fn loc(&self, tok: &Token) -> Loc {
-    loc::loc(self.orig, tok.index())
+    Loc::from_index(self.orig, tok.index())
   }
 }
 

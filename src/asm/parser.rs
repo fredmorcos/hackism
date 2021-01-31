@@ -10,13 +10,13 @@ use crate::com::inst::Inst;
 use crate::com::label;
 use crate::com::label::Label;
 use crate::utils::buf::Buf;
-use crate::utils::loc;
 use crate::utils::loc::Index;
 use crate::utils::loc::Loc;
 use crate::utils::parser;
 
 use std::convert::TryFrom;
-use std::fmt;
+
+use derive_more::Display;
 
 /// Parser state for parsing HACK programs.
 ///
@@ -69,19 +69,16 @@ pub struct Parser<'b> {
   index: usize,
 }
 
-impl<'b> From<Buf<'b>> for Parser<'b> {
-  fn from(buf: Buf<'b>) -> Self {
-    Self { buf, orig: buf, index: 0 }
+impl<'b> Parser<'b> {
+  /// The original input buffer attached to this parser.
+  pub fn orig(&self) -> Buf<'b> {
+    self.orig
   }
 }
 
-impl Parser<'_> {
-  /// Calculate the line and column of a [Token].
-  ///
-  /// Returns a tuple `(line, column)` corresponding to the location
-  /// of a [Token] in the original input buffer.
-  pub fn loc(&self, tok: &Token) -> Loc {
-    loc::loc(self.orig, tok.index())
+impl<'b> From<Buf<'b>> for Parser<'b> {
+  fn from(buf: Buf<'b>) -> Self {
+    Self { buf, orig: buf, index: 0 }
   }
 }
 
@@ -130,46 +127,56 @@ impl<'b> Token<'b> {
   pub fn kind(self) -> TokenKind<'b> {
     self.kind
   }
+
+  /// Create a token with the `TokenKind::Label` variant.
+  pub fn label(index: Index, label: Label<'b>) -> Self {
+    Token::new(index, TokenKind::Label(label))
+  }
+
+  /// Create a token with the `TokenKind::Addr` variant.
+  pub fn addr(index: Index, addr: Addr<'b>) -> Self {
+    Token::new(index, TokenKind::Addr(addr))
+  }
+
+  /// Create a token with the `TokenKind::Inst` variant.
+  pub fn inst(index: Index, inst: Inst) -> Self {
+    Token::new(index, TokenKind::Inst(inst))
+  }
 }
 
 /// Kind of parsing error.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
 pub enum ErrKind {
   /// Expected a second `/` to form a comment.
+  #[display(fmt = "expected a second '/' to form a comment")]
   ExpectedComment,
+
   /// Invalid label.
+  #[display(fmt = "invalid label: {}", _0)]
   InvalidLabel(label::Err),
+
   /// Missing the closing ')' for a label.
+  #[display(fmt = "expected a closing parenthesis ')' for label")]
   MissingLParen,
+
   /// Invalid address.
+  #[display(fmt = "invalid address: {}", _0)]
   InvalidAddr(addr::Err),
+
   /// Invalid instruction.
+  #[display(fmt = "invalid instruction: {}", _0)]
   InvalidInst(inst::Err),
 }
 
-impl fmt::Display for ErrKind {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      ErrKind::ExpectedComment => write!(f, "expected a second '/' to form a comment"),
-      ErrKind::InvalidLabel(e) => write!(f, "invalid label: {}", e),
-      ErrKind::MissingLParen => write!(f, "expected a closing parenthesis ')' for label"),
-      ErrKind::InvalidAddr(e) => write!(f, "invalid address: {}", e),
-      ErrKind::InvalidInst(e) => write!(f, "invalid instruction: {}", e),
-    }
-  }
-}
-
 /// Error during parsing.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[display(fmt = "Parsing error at {}: {}", loc, kind)]
 pub struct Err {
-  index: usize,
-  kind: ErrKind,
-}
+  /// [Location](Loc) of the err in the original input buffer.
+  loc: Loc,
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{} at {}", self.kind, self.index)
-  }
+  /// The type of error.
+  kind: ErrKind,
 }
 
 impl Err {
@@ -177,22 +184,49 @@ impl Err {
   ///
   /// # Arguments
   ///
+  /// * `buf` - The original input buffer.
+  ///
   /// * `index` - The index in the buffer at which the error occurred.
   ///
   /// * `kind` - The kind if parsing error.
-  fn new(index: usize, kind: ErrKind) -> Self {
-    Self { index, kind }
+  fn new(buf: Buf, index: Index, kind: ErrKind) -> Self {
+    Self { loc: Loc::from_index(buf, index), kind }
   }
 
-  /// Returns the index in the input buffer at which the error
-  /// occurred.
-  pub fn index(&self) -> usize {
-    self.index
+  /// Returns the [location](Loc) in the input buffer at which the
+  /// error occurred.
+  pub fn loc(&self) -> Loc {
+    self.loc
   }
 
   /// Returns the kind of parsing error.
   pub fn kind(&self) -> &ErrKind {
     &self.kind
+  }
+
+  /// Create an error with the `ErrKind::ExpectedComment` variant.
+  pub fn expected_comment(parser: &Parser) -> Self {
+    Err::new(parser.orig, parser.index + 1, ErrKind::ExpectedComment)
+  }
+
+  /// Create an error with the `ErrKind::InvalidLabel` variant.
+  pub fn invalid_label(parser: &Parser, error: label::Err) -> Self {
+    Err::new(parser.orig, parser.index, ErrKind::InvalidLabel(error))
+  }
+
+  /// Create an error with the `ErrKind::MissingLParen` variant.
+  pub fn missing_lparen(parser: &Parser, offset: usize) -> Self {
+    Err::new(parser.orig, parser.index + offset, ErrKind::MissingLParen)
+  }
+
+  /// Create an error with the `ErrKind::InvalidAddr` variant.
+  pub fn invalid_addr(parser: &Parser, error: addr::Err) -> Self {
+    Err::new(parser.orig, parser.index, ErrKind::InvalidAddr(error))
+  }
+
+  /// Create an error with the `ErrKind::InvalidInst` variant.
+  pub fn invalid_inst(parser: &Parser, error: inst::Err) -> Self {
+    Err::new(parser.orig, parser.index, ErrKind::InvalidInst(error))
   }
 }
 
@@ -211,10 +245,8 @@ impl<'b> Iterator for Parser<'b> {
       } else if b == b'/' {
         match self.buf.get(0) {
           Some(b'/') => {}
-          Some(_) => {
-            return Some(Err(Err::new(self.index + 1, ErrKind::ExpectedComment)))
-          }
-          None => return Some(Err(Err::new(self.index + 1, ErrKind::ExpectedComment))),
+          Some(_) => return Some(Err(Err::expected_comment(self))),
+          None => return Some(Err(Err::expected_comment(self))),
         }
 
         let (com, rem) = parser::read_until_nl(self.buf);
@@ -222,39 +254,39 @@ impl<'b> Iterator for Parser<'b> {
         self.buf = rem;
         continue 'MAIN;
       } else if b == b'(' {
-        let index = self.index;
         let (txt, rem) = parser::read_while(&self.buf[1..], |b| b != b')');
         let label = match Label::try_from(txt) {
           Ok(label) => label,
-          Err(e) => return Some(Err(Err::new(self.index, ErrKind::InvalidLabel(e)))),
+          Err(e) => return Some(Err(Err::invalid_label(self, e))),
         };
+
         self.buf = match parser::read_one(rem, |b| b == b')') {
           Some((_, rem)) => rem,
-          None => {
-            return Some(Err(Err::new(self.index + txt.len(), ErrKind::MissingLParen)));
-          }
+          None => return Some(Err(Err::missing_lparen(self, txt.len()))),
         };
+
+        let tok = Token::label(self.index, label);
         self.index += txt.len() + 2;
-        return Some(Ok(Token { index, kind: TokenKind::Label(label) }));
+        return Some(Ok(tok));
       } else if b == b'@' {
-        let index = self.index;
         match Addr::read_from(&self.buf[1..]) {
           Ok((addr, rem, len)) => {
+            let tok = Token::addr(self.index, addr);
             self.buf = rem;
             self.index += len + 1;
-            return Some(Ok(Token { index, kind: TokenKind::Addr(addr) }));
+            return Some(Ok(tok));
           }
-          Err(e) => return Some(Err(Err::new(self.index, ErrKind::InvalidAddr(e)))),
+          Err(e) => return Some(Err(Err::invalid_addr(self, e))),
         }
       } else {
-        let index = self.index;
         match Inst::read_from(self.buf) {
           Ok((inst, rem, len)) => {
+            let tok = Token::inst(self.index, inst);
             self.buf = rem;
             self.index += len;
-            return Some(Ok(Token { index, kind: TokenKind::Inst(inst) }));
+            return Some(Ok(tok));
           }
-          Err(e) => return Some(Err(Err::new(self.index, ErrKind::InvalidInst(e)))),
+          Err(e) => return Some(Err(Err::invalid_inst(self, e))),
         }
       }
     }
@@ -286,7 +318,7 @@ mod tests {
   macro_rules! next {
     ($parser:expr, $line:expr, $col:expr, $kind:path, $inst:expr) => {{
       let tok = $parser.next().unwrap().unwrap();
-      assert_eq!(Loc::new($line, $col), $parser.loc(&tok));
+      assert_eq!(Loc::new($line, $col), Loc::from_index($parser.orig(), tok.index()));
       assert_eq!(tok.kind(), $kind($inst));
     }};
   }
