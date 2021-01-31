@@ -51,12 +51,12 @@ impl Prog {
   }
 
   pub fn new(buf: Buf<'_>) -> Result<Self, Err> {
-    let mut parser: Parser<parser::Binary> = Parser::from(buf);
+    let mut parser: Parser<parser::BinDecoder> = Parser::from(buf);
     Prog::new_parser(&mut parser)
   }
 
   pub fn new_text(buf: Buf<'_>) -> Result<Self, Err> {
-    let mut parser: Parser<parser::Text> = Parser::from(buf);
+    let mut parser: Parser<parser::TxtDecoder> = Parser::from(buf);
     Prog::new_parser(&mut parser)
   }
 }

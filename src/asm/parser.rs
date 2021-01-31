@@ -64,8 +64,13 @@ use derive_more::Display;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parser<'b> {
+  /// The current point in the input buffer.
   buf: Buf<'b>,
+
+  /// The original input buffer.
   orig: Buf<'b>,
+
+  /// The current byte index into the input buffer.
   index: usize,
 }
 

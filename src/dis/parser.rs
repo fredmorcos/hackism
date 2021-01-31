@@ -1,19 +1,27 @@
-use std::fmt;
 use std::marker::PhantomData;
 
 use crate::utils::buf::Buf;
+use crate::utils::loc::Index;
 use crate::utils::loc::Loc;
 use crate::utils::parser;
 
+use derive_more::Display;
+
+/// A trait to represent different types of decoders that can be used
+/// by the disassembler.
 pub trait Impl {
+  /// The type of elements returned by the decoder (e.g. Tokens).
   type Item;
 
+  /// Corresponds to the `next` implementation in the (parser)[Parser]
+  /// (iterator)[Iterator].
   fn next<T: Impl>(parser: &mut Parser<T>) -> Option<Self::Item>;
 }
 
-pub struct Binary;
+/// A decoder for binary HACK programs.
+pub struct BinDecoder;
 
-impl Impl for Binary {
+impl Impl for BinDecoder {
   type Item = Result<Token, Err>;
 
   fn next<T: Impl>(parser: &mut Parser<T>) -> Option<Self::Item> {
@@ -21,7 +29,7 @@ impl Impl for Binary {
     let &lsb = if let Some(lsb) = parser.buf.get(1) {
       lsb
     } else {
-      return Some(Err(Err::new(parser.index + 1, ErrKind::Expected)));
+      return Some(Err(Err::expected(parser.buf, parser.index + 1)));
     };
 
     let token = Token::new(parser.index, (u16::from(msb) << 8) | u16::from(lsb));
@@ -33,9 +41,10 @@ impl Impl for Binary {
   }
 }
 
-pub struct Text;
+/// A decoder for bintext HACK programs.
+pub struct TxtDecoder;
 
-impl Impl for Text {
+impl Impl for TxtDecoder {
   type Item = Result<Token, Err>;
 
   fn next<T: Impl>(parser: &mut Parser<T>) -> Option<Self::Item> {
@@ -62,7 +71,7 @@ impl Impl for Text {
           };
           ($index:expr) => {
             consume_bit!($index, {
-              return Some(Err(Err::new(parser.index + (15 - $index), ErrKind::Expected)))
+              return Some(Err(Err::expected(parser.buf, parser.index + (15 - $index))))
             });
           }
         }
@@ -114,30 +123,45 @@ impl Impl for Text {
 ///
 /// ```
 /// use has::dis::parser::Parser;
-/// use has::dis::parser::Binary;
-/// use has::dis::parser::Text;
+/// use has::dis::parser::BinDecoder;
+/// use has::dis::parser::TxtDecoder;
 /// use has::dis::parser::Token;
 ///
 /// // Parse the binary representation of "(FOO)\n@FOO\nD=D+1;JEQ"
 /// let prog = &[0, 0, 0b11100111, 0b11010010][..];
-/// let mut parser: Parser<Binary> = Parser::from(prog);
+/// let mut parser: Parser<BinDecoder> = Parser::from(prog);
 ///
 /// assert_eq!(parser.next(), Some(Ok(Token::new(0, 0))));
 /// assert_eq!(parser.next(), Some(Ok(Token::new(2, 59346))));
 ///
 /// // Parse the textual representation of "(FOO)\n@FOO\nD=D+1;JEQ"
 /// let prog = "0000000000000000\n1110011111010010".as_bytes();
-/// let mut parser: Parser<Text> = Parser::from(prog);
+/// let mut parser: Parser<TxtDecoder> = Parser::from(prog);
 ///
 /// assert_eq!(parser.next(), Some(Ok(Token::new(0, 0))));
 /// assert_eq!(parser.next(), Some(Ok(Token::new(17, 59346))));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Parser<'b, T: Impl> {
+  /// The current point in the input buffer.
   buf: Buf<'b>,
+
+  /// The original input buffer.
   orig: Buf<'b>,
+
+  /// The current byte into the input buffer.
   index: usize,
+
+  /// Phantom for keeping `Parser` generic over different decoder
+  /// implementations.
   phantom: PhantomData<T>,
+}
+
+impl<'b, T: Impl> Parser<'b, T> {
+  /// The original input buffer attached to this parser.
+  pub fn orig(&self) -> Buf<'b> {
+    self.orig
+  }
 }
 
 impl<'b, T: Impl> From<Buf<'b>> for Parser<'b, T> {
@@ -146,20 +170,13 @@ impl<'b, T: Impl> From<Buf<'b>> for Parser<'b, T> {
   }
 }
 
-impl<T: Impl> Parser<'_, T> {
-  /// Calculate the line and column of a [Token].
-  ///
-  /// Returns a tuple `(line, column)` corresponding to the location
-  /// of a [Token] in the original input buffer.
-  pub fn loc(&self, tok: &Token) -> Loc {
-    Loc::from_index(self.orig, tok.index())
-  }
-}
-
 /// Units returned by iterator over a [Parser].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Token {
+  /// Index of the token in the original input buffer.
   index: usize,
+
+  /// The encoded bit sequence representing an instruction.
   value: u16,
 }
 
@@ -187,31 +204,22 @@ impl Token {
 }
 
 /// Kind of parsing error.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrKind {
   /// Expected another byte to form an instruction.
+  #[display(fmt = "Expected another byte")]
   Expected,
 }
 
-impl fmt::Display for ErrKind {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match self {
-      ErrKind::Expected => write!(f, "expected a byte"),
-    }
-  }
-}
-
 /// Error during parsing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, Copy, PartialEq, Eq)]
+#[display(fmt = "Disassembly parsing error at {}: {}", loc, kind)]
 pub struct Err {
-  index: usize,
-  kind: ErrKind,
-}
+  /// [Location](Loc) of the err in the original input buffer.
+  loc: Loc,
 
-impl fmt::Display for Err {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "index {}: {}", self.index, self.kind)
-  }
+  /// The type of error.
+  kind: ErrKind,
 }
 
 impl Err {
@@ -219,22 +227,29 @@ impl Err {
   ///
   /// # Arguments
   ///
+  /// * `buf` - The original input buffer.
+  ///
   /// * `index` - The index in the buffer at which the error occurred.
   ///
   /// * `kind` - The kind if parsing error.
-  fn new(index: usize, kind: ErrKind) -> Self {
-    Self { index, kind }
+  fn new(buf: Buf, index: Index, kind: ErrKind) -> Self {
+    Self { loc: Loc::from_index(buf, index), kind }
   }
 
-  /// Returns the index in the input buffer at which the error
-  /// occurred.
-  pub fn index(&self) -> usize {
-    self.index
+  /// Returns the [location](Loc) in the input buffer at which the
+  /// error occurred.
+  pub fn loc(&self) -> Loc {
+    self.loc
   }
 
   /// Returns the kind of parsing error.
   pub fn kind(&self) -> ErrKind {
     self.kind
+  }
+
+  /// Creates an error with an `ErrKind::Expected` variant.
+  pub fn expected(buf: Buf, index: Index) -> Self {
+    Err::new(buf, index, ErrKind::Expected)
   }
 }
 
@@ -269,32 +284,32 @@ mod tests_text {
   macro_rules! next {
     ($parser:expr, $line:expr, $col:expr, $kind:ident, $inst:expr) => {{
       let tok = $parser.next().unwrap().unwrap();
-      assert_eq!(Loc::new($line, $col), $parser.loc(&tok));
+      assert_eq!(Loc::new($line, $col), Loc::from_index($parser.orig(), tok.index()));
       assert_eq!($kind::try_from(tok.value()).unwrap(), $inst);
     }};
   }
 
   #[test]
   fn empty() {
-    let mut p: Parser<super::Text> = parser_text!("empty");
+    let mut p: Parser<super::TxtDecoder> = parser_text!("empty");
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn spaces() {
-    let mut p: Parser<super::Text> = parser_text!("spaces");
+    let mut p: Parser<super::TxtDecoder> = parser_text!("spaces");
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn comments() {
-    let mut p: Parser<super::Text> = parser_text!("comments");
+    let mut p: Parser<super::TxtDecoder> = parser_text!("comments");
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn addr_nums() {
-    let mut p: Parser<super::Text> = parser_text!("addr_nums");
+    let mut p: Parser<super::TxtDecoder> = parser_text!("addr_nums");
     next!(p, 1, 1, Addr, Addr::Num(8192));
     next!(p, 2, 1, Addr, Addr::Num(123));
     next!(p, 3, 1, Addr, Addr::Num(556));
@@ -303,7 +318,7 @@ mod tests_text {
 
   #[test]
   fn address_labels() {
-    let mut p: Parser<super::Text> = parser_text!("addr_labels");
+    let mut p: Parser<super::TxtDecoder> = parser_text!("addr_labels");
     next!(p, 1, 1, Addr, Addr::Num(16));
     next!(p, 2, 1, Addr, Addr::Num(17));
     next!(p, 3, 1, Addr, Addr::Num(Symbol::KBD.into()));
@@ -328,7 +343,7 @@ mod tests_text {
 
   #[test]
   fn label() {
-    let mut p: Parser<super::Text> = parser_text!("label");
+    let mut p: Parser<super::TxtDecoder> = parser_text!("label");
     next!(p, 1, 1, Addr, Addr::Num(16));
     next!(p, 2, 1, Addr, Addr::Num(1));
     next!(p, 3, 1, Addr, Addr::Num(3));
@@ -344,7 +359,7 @@ mod tests_text {
 
   #[test]
   fn instructions() {
-    let mut p: Parser<super::Text> = parser_text!("instructions");
+    let mut p: Parser<super::TxtDecoder> = parser_text!("instructions");
 
     next!(p, 1, 1, Inst, inst!(Dest::A, Comp::MMinus1, Jump::Null));
     next!(p, 2, 1, Inst, inst!(Dest::AM, Comp::DOrA, Jump::Null));
@@ -385,32 +400,32 @@ mod tests_bin {
   macro_rules! next {
     ($parser:expr, $line:expr, $col:expr, $kind:ident, $inst:expr) => {{
       let tok = $parser.next().unwrap().unwrap();
-      assert_eq!(Loc::new($line, $col), $parser.loc(&tok));
+      assert_eq!(Loc::new($line, $col), Loc::from_index($parser.orig(), tok.index()));
       assert_eq!($kind::try_from(tok.value()).unwrap(), $inst);
     }};
   }
 
   #[test]
   fn empty() {
-    let mut p: Parser<super::Binary> = parser_text!("empty");
+    let mut p: Parser<super::BinDecoder> = parser_text!("empty");
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn spaces() {
-    let mut p: Parser<super::Binary> = parser_text!("spaces");
+    let mut p: Parser<super::BinDecoder> = parser_text!("spaces");
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn comments() {
-    let mut p: Parser<super::Binary> = parser_text!("comments");
+    let mut p: Parser<super::BinDecoder> = parser_text!("comments");
     assert_eq!(p.next(), None);
   }
 
   #[test]
   fn addr_nums() {
-    let mut p: Parser<super::Binary> = parser_text!("addr_nums");
+    let mut p: Parser<super::BinDecoder> = parser_text!("addr_nums");
     next!(p, 1, 1, Addr, Addr::Num(8192));
     next!(p, 1, 3, Addr, Addr::Num(123));
     next!(p, 1, 5, Addr, Addr::Num(556));
@@ -419,7 +434,7 @@ mod tests_bin {
 
   #[test]
   fn address_labels() {
-    let mut p: Parser<super::Binary> = parser_text!("addr_labels");
+    let mut p: Parser<super::BinDecoder> = parser_text!("addr_labels");
     next!(p, 1, 1, Addr, Addr::Num(16));
     next!(p, 1, 3, Addr, Addr::Num(17));
     next!(p, 1, 5, Addr, Addr::Num(Symbol::KBD.into()));
@@ -444,7 +459,7 @@ mod tests_bin {
 
   #[test]
   fn label() {
-    let mut p: Parser<super::Binary> = parser_text!("label");
+    let mut p: Parser<super::BinDecoder> = parser_text!("label");
     next!(p, 1, 1, Addr, Addr::Num(16));
     next!(p, 1, 3, Addr, Addr::Num(1));
     next!(p, 1, 5, Addr, Addr::Num(3));
@@ -460,7 +475,7 @@ mod tests_bin {
 
   #[test]
   fn instructions() {
-    let mut p: Parser<super::Binary> = parser_text!("instructions");
+    let mut p: Parser<super::BinDecoder> = parser_text!("instructions");
 
     next!(p, 1, 1, Inst, inst!(Dest::A, Comp::MMinus1, Jump::Null));
     next!(p, 1, 3, Inst, inst!(Dest::AM, Comp::DOrA, Jump::Null));
