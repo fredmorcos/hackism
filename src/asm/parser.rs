@@ -47,15 +47,18 @@ use std::fmt;
 /// let prog = "(FOO)\n@FOO\nD=D+A;JMP".as_bytes();
 /// let mut parser = Parser::from(prog);
 ///
-/// let label = Label::try_from("FOO".as_bytes()).unwrap();
+/// let buf = "FOO".as_bytes();
+/// let label = Label::try_from(buf).unwrap();
 /// let label = Token::new(0, TokenKind::Label(label));
 /// assert_eq!(parser.next(), Some(Ok(label)));
 ///
-/// let addr = Addr::read_from("FOO".as_bytes()).unwrap().0;
+/// let buf = "FOO".as_bytes();
+/// let addr = Addr::read_from(buf).unwrap().0;
 /// let addr = Token::new(6, TokenKind::Addr(addr));
 /// assert_eq!(parser.next(), Some(Ok(addr)));
 ///
-/// let inst = Inst::read_from("D=D+A;JMP".as_bytes()).unwrap().0;
+/// let buf = "D=D+A;JMP".as_bytes();
+/// let inst = Inst::read_from(buf).unwrap().0;
 /// let inst = Token::new(11, TokenKind::Inst(inst));
 /// assert_eq!(parser.next(), Some(Ok(inst)));
 /// ```
@@ -85,12 +88,14 @@ impl Parser<'_> {
 /// The kind of a [Token].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind<'b> {
-  /// A label as defined by the HACK assembly reference: `(FOO)`.
+  /// A label as defined by the HACK assembly reference
+  /// (e.g. `(FOO)`).
   Label(Label<'b>),
-  /// An address as defined by the HACK assembly reference: `@FOO`.
+  /// An address as defined by the HACK assembly reference
+  /// (e.g. `@FOO`).
   Addr(Addr<'b>),
-  /// An instruction as defined by the HACK assembly reference:
-  /// `D=A+1;JMP`.
+  /// An instruction as defined by the HACK assembly reference
+  /// (e.g. `D=A+1;JMP`).
   Inst(Inst),
 }
 
