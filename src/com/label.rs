@@ -1,3 +1,5 @@
+//! HACK labels.
+
 use std::convert::TryFrom;
 
 use crate::com::symbol::Symbol;

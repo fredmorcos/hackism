@@ -1,3 +1,6 @@
+//! Parser for disassembling HACK programs from binary and bintext
+//! files.
+
 use std::marker::PhantomData;
 
 use crate::utils::buf::Buf;

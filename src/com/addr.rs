@@ -1,3 +1,5 @@
+//! HACK numerical and named addresses.
+
 use std::convert::TryFrom;
 
 use crate::com::label::Label;

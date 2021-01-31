@@ -139,10 +139,12 @@ impl Iterator for TxtEncoder<'_, '_> {
 }
 
 impl<'b> Prog<'b> {
+  /// Create an encoder that will produce binary files.
   pub fn encoder<'p>(&'p mut self) -> BinEncoder<'b, 'p> {
     BinEncoder { prog: self, index: 0, var_index: 16 }
   }
 
+  /// Create an encoder that will produce bintext files.
   pub fn text_encoder<'p>(&'p mut self) -> TxtEncoder<'b, 'p> {
     TxtEncoder { encoder: BinEncoder { prog: self, index: 0, var_index: 16 } }
   }

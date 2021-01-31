@@ -1,3 +1,5 @@
+//! HACK computations.
+
 use std::convert::TryFrom;
 
 use crate::utils::buf::Buf;
