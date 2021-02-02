@@ -3,11 +3,11 @@
 //! An [instruction](Inst) can represent different types of commands
 //! in the HACK assembly language.
 
-use crate::com::comp;
-use crate::com::comp::Comp;
-use crate::com::dest::Dest;
-use crate::com::jump;
-use crate::com::jump::Jump;
+use crate::hack::Comp;
+use crate::hack::CompErr;
+use crate::hack::Dest;
+use crate::hack::Jump;
+use crate::hack::JumpErr;
 use crate::utils::buf::Buf;
 use crate::utils::parser;
 
@@ -33,9 +33,9 @@ use derive_more::From;
 ///
 /// ```
 /// use has::com::inst::Inst;
-/// use has::com::dest::Dest;
-/// use has::com::comp::Comp;
-/// use has::com::jump::Jump;
+/// use has::hack::Comp;
+/// use has::hack::Dest;
+/// use has::hack::Jump;
 ///
 /// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap();
 /// assert_eq!(u16::from(inst), 0b111_0011111_010_000);
@@ -51,9 +51,9 @@ use derive_more::From;
 ///
 /// ```
 /// use has::com::inst::Inst;
-/// use has::com::dest::Dest;
-/// use has::com::comp::Comp;
-/// use has::com::jump::Jump;
+/// use has::hack::Comp;
+/// use has::hack::Dest;
+/// use has::hack::Jump;
 ///
 /// let inst = Inst::new(Dest::MD, Comp::DPlusA, Jump::JGT).unwrap();
 /// assert_eq!(format!("{}", inst), "MD=D+A;JGT");
@@ -140,11 +140,11 @@ pub enum Err {
 
   /// Invalid computation.
   #[display(fmt = "invalid computation: {}", _0)]
-  InvalidComp(comp::Err),
+  InvalidComp(CompErr),
 
   /// Invalid jump.
   #[display(fmt = "invalid jump: {}", _0)]
-  InvalidJump(jump::Err),
+  InvalidJump(JumpErr),
 }
 
 impl Inst {
@@ -182,27 +182,27 @@ impl Inst {
   /// # Examples
   ///
   /// ```
-  /// use has::com::dest::Dest;
-  /// use has::com::comp;
-  /// use has::com::comp::Comp;
-  /// use has::com::jump;
-  /// use has::com::jump::Jump;
   /// use has::com::inst;
   /// use has::com::inst::Inst;
+  /// use has::hack::CompErr;
+  /// use has::hack::Comp;
+  /// use has::hack::Jump;
+  /// use has::hack::JumpErr;
+  /// use has::hack::Dest;
   ///
-  /// let err = Err(inst::Err::InvalidComp(comp::Err::Unknown(String::from(""))));
+  /// let err = Err(inst::Err::InvalidComp(CompErr::Unknown(String::from(""))));
   /// assert_eq!(Inst::read_from("".as_bytes()), err);
   ///
-  /// let err = Err(inst::Err::InvalidComp(comp::Err::Unknown(String::from(""))));
+  /// let err = Err(inst::Err::InvalidComp(CompErr::Unknown(String::from(""))));
   /// assert_eq!(Inst::read_from("Foo".as_bytes()), err);
   ///
   /// let err = Err(inst::Err::MissingDestJump);
   /// assert_eq!(Inst::read_from("D|A".as_bytes()), err);
   ///
-  /// let err = Err(inst::Err::InvalidJump(jump::Err::Unknown(String::from(""))));
+  /// let err = Err(inst::Err::InvalidJump(JumpErr::Unknown(String::from(""))));
   /// assert_eq!(Inst::read_from("D|A;".as_bytes()), err);
   ///
-  /// let err = Err(inst::Err::InvalidJump(jump::Err::Unknown(String::from("JJJ"))));
+  /// let err = Err(inst::Err::InvalidJump(JumpErr::Unknown(String::from("JJJ"))));
   /// assert_eq!(Inst::read_from("D|A;JJJ".as_bytes()), err);
   ///
   /// let inst = Inst::new(Dest::D, Comp::DPlusA, Jump::JGT).unwrap();

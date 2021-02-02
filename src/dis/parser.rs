@@ -269,11 +269,11 @@ mod tests_text {
   use super::Parser;
 
   use crate::com::addr::Addr;
-  use crate::com::comp::Comp;
-  use crate::com::dest::Dest;
   use crate::com::inst::Inst;
-  use crate::com::jump::Jump;
   use crate::com::symbol::Symbol;
+  use crate::hack::Comp;
+  use crate::hack::Dest;
+  use crate::hack::Jump;
   use crate::utils::loc::Loc;
 
   use std::convert::TryFrom;
@@ -385,11 +385,11 @@ mod tests_bin {
   use super::Parser;
 
   use crate::com::addr::Addr;
-  use crate::com::comp::Comp;
-  use crate::com::dest::Dest;
   use crate::com::inst::Inst;
-  use crate::com::jump::Jump;
   use crate::com::symbol::Symbol;
+  use crate::hack::Comp;
+  use crate::hack::Dest;
+  use crate::hack::Jump;
   use crate::utils::loc::Loc;
 
   use std::convert::TryFrom;

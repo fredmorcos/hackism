@@ -1,50 +1,30 @@
-//! HACK jumps.
+//! Instruction jump for the HACK assembly language.
 
-use std::convert::TryFrom;
-
-use crate::utils::buf::Buf;
-use crate::utils::buf::Byte;
-use crate::utils::parser;
-
+use crate::parser;
+use crate::Buf;
+use crate::Byte;
 use derive_more::Display;
+use std::convert::TryFrom;
 
 /// A jump as defined by the HACK assembly reference.
 ///
-/// Can be parsed using [Jump::read_from].
+/// The binary representation of a jump is 3 bits wide representing
+/// the bits `j1`, `j2` and `j3` in an
+/// [instruction](crate::com::inst::Inst).
 ///
-/// # impl `Into<u16>`
+/// A jump can be parsed from (byte buffers)(Buf) using
+/// [Jump::read_from].
 ///
-/// The binary representation is 3 bits wide representing the bits
-/// `j1`, `j2` and `j3` in an [instruction](crate::com::inst::Inst).
-///
-/// ## Examples
-///
-/// ```
-/// use has::com::jump::Jump;
-///
-/// assert_eq!(u16::from(Jump::Null), 0b000);
-/// assert_eq!(u16::from(Jump::JGT),  0b001);
-/// assert_eq!(u16::from(Jump::JEQ),  0b010);
-/// assert_eq!(u16::from(Jump::JGE),  0b011);
-/// assert_eq!(u16::from(Jump::JLT),  0b100);
-/// assert_eq!(u16::from(Jump::JNE),  0b101);
-/// assert_eq!(u16::from(Jump::JLE),  0b110);
-/// assert_eq!(u16::from(Jump::JMP),  0b111);
-/// ```
-///
-/// # impl `Display`
+/// # Examples
 ///
 /// ```
-/// use has::com::jump::Jump;
+/// use has::hack::Jump;
+/// use std::convert::TryFrom;
 ///
-/// assert_eq!(format!("{}", Jump::Null), "");
-/// assert_eq!(format!("{}", Jump::JGT),  "JGT");
-/// assert_eq!(format!("{}", Jump::JEQ),  "JEQ");
-/// assert_eq!(format!("{}", Jump::JGE),  "JGE");
-/// assert_eq!(format!("{}", Jump::JLT),  "JLT");
-/// assert_eq!(format!("{}", Jump::JNE),  "JNE");
-/// assert_eq!(format!("{}", Jump::JLE),  "JLE");
-/// assert_eq!(format!("{}", Jump::JMP),  "JMP");
+/// let jump = Jump::JMP;
+/// assert_eq!(u16::from(jump), 0b111);
+/// assert_eq!(Jump::try_from(0b111), Ok(jump));
+/// assert_eq!(format!("{}", jump), "JMP");
 /// ```
 #[derive(Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Jump {
@@ -81,6 +61,22 @@ pub enum Jump {
   JMP,
 }
 
+/// Serialize a [Jump] object to [u16].
+///
+/// ## Examples
+///
+/// ```
+/// use has::hack::Jump;
+///
+/// assert_eq!(u16::from(Jump::Null), 0b000);
+/// assert_eq!(u16::from(Jump::JGT),  0b001);
+/// assert_eq!(u16::from(Jump::JEQ),  0b010);
+/// assert_eq!(u16::from(Jump::JGE),  0b011);
+/// assert_eq!(u16::from(Jump::JLT),  0b100);
+/// assert_eq!(u16::from(Jump::JNE),  0b101);
+/// assert_eq!(u16::from(Jump::JLE),  0b110);
+/// assert_eq!(u16::from(Jump::JMP),  0b111);
+/// ```
 impl From<Jump> for u16 {
   fn from(jump: Jump) -> Self {
     match jump {
@@ -96,6 +92,25 @@ impl From<Jump> for u16 {
   }
 }
 
+/// Deserialize a [Jump] object from [u16].
+///
+/// A value outside of the 3-bit range produces an `Err(())`.
+///
+/// # Examples
+///
+/// ```
+/// use has::hack::Jump;
+/// use std::convert::TryFrom;
+///
+/// assert_eq!(Jump::try_from(0b000), Ok(Jump::Null));
+/// assert_eq!(Jump::try_from(0b001), Ok(Jump::JGT));
+/// assert_eq!(Jump::try_from(0b010), Ok(Jump::JEQ));
+/// assert_eq!(Jump::try_from(0b011), Ok(Jump::JGE));
+/// assert_eq!(Jump::try_from(0b100), Ok(Jump::JLT));
+/// assert_eq!(Jump::try_from(0b101), Ok(Jump::JNE));
+/// assert_eq!(Jump::try_from(0b110), Ok(Jump::JLE));
+/// assert_eq!(Jump::try_from(0b111), Ok(Jump::JMP));
+/// ```
 impl TryFrom<u16> for Jump {
   type Error = ();
 
@@ -114,6 +129,25 @@ impl TryFrom<u16> for Jump {
   }
 }
 
+/// Parse a [Jump] object from a (byte buffer)(Buf).
+///
+/// An unrecognized input produces an `Err(())`. Note that
+/// [Jump::Null] is inconstructible this way.
+///
+/// # Examples
+///
+/// ```
+/// use has::hack::Jump;
+/// use std::convert::TryFrom;
+///
+/// assert_eq!(Jump::try_from("JGT".as_bytes()), Ok(Jump::JGT));
+/// assert_eq!(Jump::try_from("JEQ".as_bytes()), Ok(Jump::JEQ));
+/// assert_eq!(Jump::try_from("JGE".as_bytes()), Ok(Jump::JGE));
+/// assert_eq!(Jump::try_from("JLT".as_bytes()), Ok(Jump::JLT));
+/// assert_eq!(Jump::try_from("JNE".as_bytes()), Ok(Jump::JNE));
+/// assert_eq!(Jump::try_from("JLE".as_bytes()), Ok(Jump::JLE));
+/// assert_eq!(Jump::try_from("JMP".as_bytes()), Ok(Jump::JMP));
+/// ```
 impl TryFrom<Buf<'_>> for Jump {
   type Error = ();
 
@@ -128,6 +162,23 @@ impl TryFrom<Buf<'_>> for Jump {
       b"JMP" => Ok(Jump::JMP),
       _ => Err(()),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  #[test]
+  fn display() {
+    use crate::hack::Jump;
+
+    assert_eq!(format!("{}", Jump::Null), "");
+    assert_eq!(format!("{}", Jump::JGT), "JGT");
+    assert_eq!(format!("{}", Jump::JEQ), "JEQ");
+    assert_eq!(format!("{}", Jump::JGE), "JGE");
+    assert_eq!(format!("{}", Jump::JLT), "JLT");
+    assert_eq!(format!("{}", Jump::JNE), "JNE");
+    assert_eq!(format!("{}", Jump::JLE), "JLE");
+    assert_eq!(format!("{}", Jump::JMP), "JMP");
   }
 }
 
@@ -146,6 +197,9 @@ pub enum Err {
 
 impl Err {
   /// Constructs an `Err::Unknown` variant.
+  ///
+  /// Note that if `buf` is not valid UTF-8 then an [Err::Convert]
+  /// will be return instead.
   pub fn unknown(buf: Buf) -> Self {
     match String::from_utf8(Vec::from(buf)) {
       Ok(txt) => Err::Unknown(txt),
@@ -160,14 +214,14 @@ impl Jump {
   /// # Examples
   ///
   /// ```
-  /// use has::com::jump;
-  /// use has::com::jump::Jump;
+  /// use has::hack::Jump;
+  /// use has::hack::JumpErr;
   ///
   /// let jump = Jump::read_from("".as_bytes());
-  /// assert_eq!(jump, Err(jump::Err::Unknown(String::from(""))));
+  /// assert_eq!(jump, Err(JumpErr::Unknown(String::from(""))));
   ///
   /// let jump = Jump::read_from("Foo".as_bytes());
-  /// assert_eq!(jump, Err(jump::Err::Unknown(String::from(""))));
+  /// assert_eq!(jump, Err(JumpErr::Unknown(String::from(""))));
   ///
   /// let expected = (Jump::JGT, "".as_bytes(), 3);
   /// assert_eq!(Jump::read_from("JGT".as_bytes()), Ok(expected));
@@ -227,7 +281,7 @@ impl Jump {
   /// # Examples
   ///
   /// ```
-  /// use has::com::jump::Jump;
+  /// use has::hack::Jump;
   ///
   /// assert!(Jump::Null.is_null());
   /// assert!(!Jump::JGT.is_null());
