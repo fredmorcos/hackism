@@ -10,7 +10,7 @@ use std::convert::TryFrom;
 ///
 /// The binary representation of a jump is 3 bits wide representing
 /// the bits `j1`, `j2` and `j3` in an
-/// [instruction](crate::com::inst::Inst).
+/// [instruction](crate::hack::Inst).
 ///
 /// A jump can be parsed from (byte buffers)(Buf) using
 /// [Jump::read_from].
@@ -63,7 +63,7 @@ pub enum Jump {
 
 /// Serialize a [Jump] object to [u16].
 ///
-/// ## Examples
+/// # Examples
 ///
 /// ```
 /// use has::hack::Jump;

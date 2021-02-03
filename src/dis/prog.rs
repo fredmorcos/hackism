@@ -3,15 +3,15 @@
 //! [Prog] can be used to represent the (flat) parse tree of a HACK
 //! assembly program.
 
-use crate::com::addr;
-use crate::com::addr::Addr;
-use crate::com::inst;
-use crate::com::inst::Inst;
 use crate::dis::parser;
 use crate::dis::parser::Parser;
 use crate::dis::parser::Token;
-use crate::utils::buf::Buf;
-use crate::utils::loc::Loc;
+use crate::hack::Addr;
+use crate::hack::AddrErr;
+use crate::hack::Inst;
+use crate::hack::InstDecodeErr;
+use crate::Buf;
+use crate::Loc;
 
 use std::convert::TryFrom;
 
@@ -76,21 +76,21 @@ impl<'b> Prog<'b> {
 pub enum DecodeErr {
   /// Invalid instruction.
   #[display(fmt = "Invalid instruction at {}: {}", _0, _1)]
-  InvalidInst(Loc, inst::DecodeErr),
+  InvalidInst(Loc, InstDecodeErr),
 
   /// Invalid address.
   #[display(fmt = "Invalid address instruction {}: {}", _0, _1)]
-  InvalidAddr(Loc, addr::Err),
+  InvalidAddr(Loc, AddrErr),
 }
 
 impl DecodeErr {
   /// Create a `DecodeErr::InvalidInst` variant.
-  pub fn invalid_inst(dec: &Decoder, tok: &Token, err: inst::DecodeErr) -> Self {
+  pub fn invalid_inst(dec: &Decoder, tok: &Token, err: InstDecodeErr) -> Self {
     Self::InvalidInst(Loc::from_index(dec.prog.orig(), tok.index()), err)
   }
 
   /// Create a `DecodeErr::InvalidAddr` variant.
-  pub fn invalid_addr(dec: &Decoder, tok: &Token, err: addr::Err) -> Self {
+  pub fn invalid_addr(dec: &Decoder, tok: &Token, err: AddrErr) -> Self {
     Self::InvalidAddr(Loc::from_index(dec.prog.orig(), tok.index()), err)
   }
 }

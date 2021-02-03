@@ -1,90 +1,77 @@
-//! HACK numerical and named addresses.
+//! Numerical and named addresses for the HACK assembly language.
 
-use std::convert::TryFrom;
-
-use crate::com::label::Label;
-use crate::com::symbol::Symbol;
-use crate::utils::buf::Buf;
-use crate::utils::buf::Byte;
-use crate::utils::parser;
-
+use crate::hack::Sym;
+use crate::hack::Var;
+use crate::parser;
+use crate::Buf;
+use crate::Byte;
 use atoi::FromRadix10Checked;
 use derive_more::Display;
 use derive_more::From;
+use std::convert::TryFrom;
 
-/// An encoding for addressing instructions (A-instructions) as
-/// defined by the HACK assembly reference.
+/// Address instructions (A-instructions) as defined by the HACK
+/// assembly reference.
 ///
 /// The binary representation is 16 bits wide as defined by the HACK
 /// assembly language. The most significant bit is always `0` to
 /// signify an A-instruction and the effective addressing width is the
 /// remaining 15 bits.
 ///
-/// # impl `TryFrom<u16>` (`type Error = ()`)
+/// Numerical address objects can be created from [u16] values and
+/// named address objects from (variables)[Var] or (symbols)[Sym].
 ///
-/// Creates an [Addr::Num] object from a [u16].
-///
-/// If the value is outside the range of unsigned 15-bits (> 32767),
-/// `Err(())` is returned.
-///
-/// ## Examples
+/// # Examples
 ///
 /// ```
-/// use has::com::addr;
-/// use has::com::addr::Addr;
-/// use has::com::symbol::Symbol;
-///
+/// use has::hack::Addr;
+/// use has::hack::AddrErr;
+/// use has::hack::Sym;
+/// use has::hack::Var;
 /// use std::convert::TryFrom;
 ///
-/// assert_eq!(Addr::try_from(25), Ok(Addr::Num(25)));
-/// assert_eq!(Addr::try_from(32768), Err(addr::Err::Range(32768)));
-/// ```
+/// let num = 25;
+/// assert_eq!(Addr::try_from(num), Ok(Addr::Num(25)));
 ///
-/// # impl `From<Label>`
+/// let sym = Sym::LCL;
+/// assert_eq!(Addr::from(sym), Addr::Sym(sym));
 ///
-/// Creates an [Addr::Label] object from a [Label].
-///
-/// ## Examples
-///
-/// ```
-/// use has::com::addr::Addr;
-/// use has::com::label::Label;
-///
-/// use std::convert::TryFrom;
-///
-/// let label = Label::try_from(&b"foobar1"[..]).unwrap();
-/// assert_eq!(Addr::from(label.clone()), Addr::Label(label));
-/// ```
-///
-/// # impl `From<Symbol>`
-///
-/// Creates an [Addr::Symbol] object from a [Symbol].
-///
-/// ## Examples
-///
-/// ```
-/// use has::com::addr::Addr;
-/// use has::com::symbol::Symbol;
-///
-/// assert_eq!(Addr::from(Symbol::LCL), Addr::Symbol(Symbol::LCL));
+/// let var = Var::try_from("label".as_bytes()).unwrap();
+/// assert_eq!(Addr::from(var), Addr::Var(var));
 /// ```
 #[derive(Display, Debug, PartialEq, Eq, Clone, From)]
 #[display(fmt = "@{}")]
 pub enum Addr<'b> {
-  /// Numerical address
+  /// Numerical address.
   #[display(fmt = "{}", _0)]
   #[from(ignore)]
   Num(u16),
 
   /// User-defined label address.
   #[display(fmt = "{}", _0)]
-  Label(Label<'b>),
+  Var(Var<'b>),
 
   /// Predefined symbol address.
   #[display(fmt = "{}", _0)]
-  Symbol(Symbol),
+  Sym(Sym),
 }
 
+/// Build an [Addr] object from a [u16] address value.
+///
+/// If the value is outside the unsigned 15-bits range (> 32767), an
+/// `Err(AddrErr)` is returned.
+///
+/// # Examples
+///
+/// ```
+/// use has::hack::Addr;
+/// use has::hack::AddrErr;
+/// use has::hack::Sym;
+/// use std::convert::TryFrom;
+///
+/// assert_eq!(Addr::try_from(25), Ok(Addr::Num(25)));
+/// assert_eq!(Addr::try_from(32768), Err(AddrErr::Range(32768)));
+/// ```
 impl TryFrom<u16> for Addr<'_> {
   type Error = Err;
 
@@ -146,39 +133,43 @@ impl<'b> Addr<'b> {
   /// # Examples
   ///
   /// ```
-  /// use has::com::addr;
-  /// use has::com::addr::Addr;
-  /// use has::com::label::Label;
-  /// use has::com::symbol::Symbol;
-  ///
+  /// use has::hack::AddrErr;
+  /// use has::hack::Addr;
+  /// use has::hack::Var;
+  /// use has::hack::Sym;
   /// use std::convert::TryFrom;
   ///
-  /// assert_eq!(Addr::read_from(&b""[..]), Err(addr::Err::InvalidName(String::from(""))));
-  /// assert_eq!(Addr::read_from(&b"123Foo"[..]), Err(addr::Err::InvalidNum(String::from("123Foo"))));
-  /// assert_eq!(Addr::read_from(&b"%Foo"[..]), Err(addr::Err::InvalidName(String::from("%Foo"))));
+  /// let expected = AddrErr::InvalidName(String::from(""));
+  /// assert_eq!(Addr::read_from("".as_bytes()), Err(expected));
   ///
-  /// let expected = (Addr::Num(123), &b""[..], 3);
-  /// assert_eq!(Addr::read_from(&b"123"[..]), Ok(expected));
+  /// let expected = AddrErr::InvalidName(String::from("%Foo"));
+  /// assert_eq!(Addr::read_from("%Foo".as_bytes()), Err(expected));
   ///
-  /// let label = Label::try_from(&b"Foo"[..]).unwrap();
-  /// let expected = (Addr::Label(label), &b""[..], 3);
-  /// assert_eq!(Addr::read_from(&b"Foo"[..]), Ok(expected));
+  /// let expected = AddrErr::InvalidNum(String::from("123Foo"));
+  /// assert_eq!(Addr::read_from("123Foo".as_bytes()), Err(expected));
   ///
-  /// let label = Label::try_from(&b"F_B"[..]).unwrap();
-  /// let expected = (Addr::Label(label), &b""[..], 3);
-  /// assert_eq!(Addr::read_from(&b"F_B"[..]), Ok(expected));
+  /// let expected = (Addr::Num(123), "".as_bytes(), 3);
+  /// assert_eq!(Addr::read_from("123".as_bytes()), Ok(expected));
   ///
-  /// let label = Label::try_from(&b"_FB"[..]).unwrap();
-  /// let expected = (Addr::Label(label), &b""[..], 3);
-  /// assert_eq!(Addr::read_from(&b"_FB"[..]), Ok(expected));
+  /// let var = Var::try_from("Foo".as_bytes()).unwrap();
+  /// let expected = (Addr::Var(var), "".as_bytes(), 3);
+  /// assert_eq!(Addr::read_from("Foo".as_bytes()), Ok(expected));
   ///
-  /// let symbol = Symbol::try_from(&b"LCL"[..]).unwrap();
-  /// let expected = (Addr::Symbol(symbol), &b""[..], 3);
-  /// assert_eq!(Addr::read_from(&b"LCL"[..]), Ok(expected));
+  /// let var = Var::try_from("F_B".as_bytes()).unwrap();
+  /// let expected = (Addr::Var(var), "".as_bytes(), 3);
+  /// assert_eq!(Addr::read_from("F_B".as_bytes()), Ok(expected));
   ///
-  /// let symbol = Symbol::try_from(&b"R0"[..]).unwrap();
-  /// let expected = (Addr::Symbol(symbol), &b""[..], 2);
-  /// assert_eq!(Addr::read_from(&b"R0"[..]), Ok(expected));
+  /// let var = Var::try_from("_FB".as_bytes()).unwrap();
+  /// let expected = (Addr::Var(var), "".as_bytes(), 3);
+  /// assert_eq!(Addr::read_from("_FB".as_bytes()), Ok(expected));
+  ///
+  /// let sym = Sym::try_from("LCL".as_bytes()).unwrap();
+  /// let expected = (Addr::Sym(sym), "".as_bytes(), 3);
+  /// assert_eq!(Addr::read_from("LCL".as_bytes()), Ok(expected));
+  ///
+  /// let sym = Sym::try_from("R0".as_bytes()).unwrap();
+  /// let expected = (Addr::Sym(sym), "".as_bytes(), 2);
+  /// assert_eq!(Addr::read_from("R0".as_bytes()), Ok(expected));
   /// ```
   pub fn read_from(buf: Buf<'b>) -> Result<(Self, Buf<'b>, usize), Err> {
     if parser::read_digit(buf).is_some() {
@@ -195,11 +186,11 @@ impl<'b> Addr<'b> {
 
     let (txt, rem) = parser::read_until_ws(buf);
 
-    if let Ok(symbol) = Symbol::try_from(txt) {
-      return Ok((Self::from(symbol), rem, txt.len()));
+    if let Ok(sym) = Sym::try_from(txt) {
+      return Ok((Self::from(sym), rem, txt.len()));
     }
 
-    if let Ok(label) = Label::try_from(txt) {
+    if let Ok(label) = Var::try_from(txt) {
       return Ok((Self::from(label), rem, txt.len()));
     }
 

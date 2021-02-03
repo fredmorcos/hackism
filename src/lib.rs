@@ -12,11 +12,13 @@
 extern crate derive_new;
 
 pub mod asm;
-pub mod com;
 pub mod dis;
 pub mod hack;
 pub mod utils;
 
 pub use utils::buf::Buf;
 pub use utils::buf::Byte;
+pub use utils::conv;
+pub use utils::loc::Index;
+pub use utils::loc::Loc;
 pub use utils::parser;

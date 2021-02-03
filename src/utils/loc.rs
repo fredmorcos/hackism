@@ -1,37 +1,10 @@
 //! Helpers for locations in source code.
 
-use crate::utils::buf::Buf;
-use crate::utils::buf::Byte;
-
+use crate::Buf;
+use crate::Byte;
 use derive_more::Display;
 
-/// Location type.
-///
-/// # impl `Display`
-///
-/// The `Display` implementation will print out `line X, column Y`.
-///
-/// ## Examples
-///
-/// ```
-/// use has::utils::loc::Loc;
-///
-/// let loc = Loc::new(2, 3);
-/// assert_eq!(format!("{}", loc), "line 2, column 3");
-/// ```
-///
-/// # impl `Default`
-///
-/// The `Default` implementation will create a location with line `1`
-/// at column `1`.
-///
-/// ## Examples
-///
-/// ```
-/// use has::utils::loc::Loc;
-///
-/// assert_eq!(Loc::default(), Loc::new(1, 1));
-/// ```
+/// Locations in source code.
 #[derive(new, Display, Debug, PartialEq, Eq, Clone, Copy)]
 #[display(fmt = "line {}, column {}", line, col)]
 pub struct Loc {
@@ -42,6 +15,15 @@ pub struct Loc {
   col: usize,
 }
 
+/// Create a default location at line `1`, column `1`.
+///
+/// # Examples
+///
+/// ```
+/// use has::Loc;
+///
+/// assert_eq!(Loc::default(), Loc::new(1, 1));
+/// ```
 impl Default for Loc {
   fn default() -> Self {
     Self { line: 1, col: 1 }
@@ -91,5 +73,16 @@ impl Loc {
   /// Returns the column on the location's line.
   pub fn col(&self) -> usize {
     self.col
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  #[test]
+  fn display() {
+    use crate::Loc;
+
+    let loc = Loc::new(2, 3);
+    assert_eq!(format!("{}", loc), "line 2, column 3");
   }
 }

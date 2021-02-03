@@ -3,10 +3,10 @@
 
 use std::marker::PhantomData;
 
-use crate::utils::buf::Buf;
-use crate::utils::loc::Index;
-use crate::utils::loc::Loc;
-use crate::utils::parser;
+use crate::parser;
+use crate::Buf;
+use crate::Index;
+use crate::Loc;
 
 use derive_more::Display;
 
@@ -267,21 +267,20 @@ impl<'b, T: Impl<Item = Result<Token, Err>>> Iterator for Parser<'b, T> {
 #[cfg(test)]
 mod tests_text {
   use super::Parser;
-
-  use crate::com::addr::Addr;
-  use crate::com::inst::Inst;
-  use crate::com::symbol::Symbol;
+  use crate::hack::Addr;
   use crate::hack::Comp;
   use crate::hack::Dest;
+  use crate::hack::Inst;
   use crate::hack::Jump;
-  use crate::utils::loc::Loc;
-
+  use crate::hack::Sym;
+  use crate::Loc;
   use std::convert::TryFrom;
 
   macro_rules! parser_text {
-    ($f:expr) => {
-      Parser::from(&include_bytes!(concat!("../../tests/snippets/", $f, ".hack"))[..])
-    };
+    ($f:expr) => {{
+      let bytes = include_bytes!(concat!("../../tests/snippets/", $f, ".hack"));
+      Parser::from(&bytes[..])
+    }};
   }
 
   macro_rules! next {
@@ -324,21 +323,21 @@ mod tests_text {
     let mut p: Parser<super::TxtDecoder> = parser_text!("addr_labels");
     next!(p, 1, 1, Addr, Addr::Num(16));
     next!(p, 2, 1, Addr, Addr::Num(17));
-    next!(p, 3, 1, Addr, Addr::Num(Symbol::KBD.into()));
+    next!(p, 3, 1, Addr, Addr::Num(Sym::KBD.into()));
     next!(p, 4, 1, Addr, Addr::Num(18));
-    next!(p, 5, 1, Addr, Addr::Num(Symbol::LCL.into()));
+    next!(p, 5, 1, Addr, Addr::Num(Sym::LCL.into()));
     next!(p, 6, 1, Addr, Addr::Num(19));
-    next!(p, 7, 1, Addr, Addr::Num(Symbol::SCREEN.into()));
-    next!(p, 8, 1, Addr, Addr::Num(Symbol::SP.into()));
+    next!(p, 7, 1, Addr, Addr::Num(Sym::SCREEN.into()));
+    next!(p, 8, 1, Addr, Addr::Num(Sym::SP.into()));
     next!(p, 9, 1, Addr, Addr::Num(20));
-    next!(p, 10, 1, Addr, Addr::Num(Symbol::ARG.into()));
+    next!(p, 10, 1, Addr, Addr::Num(Sym::ARG.into()));
     next!(p, 11, 1, Addr, Addr::Num(21));
-    next!(p, 12, 1, Addr, Addr::Num(Symbol::THIS.into()));
-    next!(p, 13, 1, Addr, Addr::Num(Symbol::THAT.into()));
+    next!(p, 12, 1, Addr, Addr::Num(Sym::THIS.into()));
+    next!(p, 13, 1, Addr, Addr::Num(Sym::THAT.into()));
     next!(p, 14, 1, Addr, Addr::Num(22));
-    next!(p, 15, 1, Addr, Addr::Num(Symbol::R0.into()));
-    next!(p, 16, 1, Addr, Addr::Num(Symbol::R1.into()));
-    next!(p, 17, 1, Addr, Addr::Num(Symbol::R11.into()));
+    next!(p, 15, 1, Addr, Addr::Num(Sym::R0.into()));
+    next!(p, 16, 1, Addr, Addr::Num(Sym::R1.into()));
+    next!(p, 17, 1, Addr, Addr::Num(Sym::R11.into()));
     next!(p, 18, 1, Addr, Addr::Num(23));
     next!(p, 19, 1, Addr, Addr::Num(24));
     assert_eq!(p.next(), None);
@@ -383,21 +382,20 @@ mod tests_text {
 #[cfg(test)]
 mod tests_bin {
   use super::Parser;
-
-  use crate::com::addr::Addr;
-  use crate::com::inst::Inst;
-  use crate::com::symbol::Symbol;
+  use crate::hack::Addr;
   use crate::hack::Comp;
   use crate::hack::Dest;
+  use crate::hack::Inst;
   use crate::hack::Jump;
-  use crate::utils::loc::Loc;
-
+  use crate::hack::Sym;
+  use crate::Loc;
   use std::convert::TryFrom;
 
   macro_rules! parser_text {
-    ($f:expr) => {
-      Parser::from(&include_bytes!(concat!("../../tests/snippets/", $f, ".hack_bin"))[..])
-    };
+    ($f:expr) => {{
+      let bytes = include_bytes!(concat!("../../tests/snippets/", $f, ".hack_bin"));
+      Parser::from(&bytes[..])
+    }};
   }
 
   macro_rules! next {
@@ -440,21 +438,21 @@ mod tests_bin {
     let mut p: Parser<super::BinDecoder> = parser_text!("addr_labels");
     next!(p, 1, 1, Addr, Addr::Num(16));
     next!(p, 1, 3, Addr, Addr::Num(17));
-    next!(p, 1, 5, Addr, Addr::Num(Symbol::KBD.into()));
+    next!(p, 1, 5, Addr, Addr::Num(Sym::KBD.into()));
     next!(p, 1, 7, Addr, Addr::Num(18));
-    next!(p, 1, 9, Addr, Addr::Num(Symbol::LCL.into()));
+    next!(p, 1, 9, Addr, Addr::Num(Sym::LCL.into()));
     next!(p, 1, 11, Addr, Addr::Num(19));
-    next!(p, 1, 13, Addr, Addr::Num(Symbol::SCREEN.into()));
-    next!(p, 1, 15, Addr, Addr::Num(Symbol::SP.into()));
+    next!(p, 1, 13, Addr, Addr::Num(Sym::SCREEN.into()));
+    next!(p, 1, 15, Addr, Addr::Num(Sym::SP.into()));
     next!(p, 1, 17, Addr, Addr::Num(20));
-    next!(p, 1, 19, Addr, Addr::Num(Symbol::ARG.into()));
+    next!(p, 1, 19, Addr, Addr::Num(Sym::ARG.into()));
     next!(p, 1, 21, Addr, Addr::Num(21));
-    next!(p, 1, 23, Addr, Addr::Num(Symbol::THIS.into()));
-    next!(p, 1, 25, Addr, Addr::Num(Symbol::THAT.into()));
+    next!(p, 1, 23, Addr, Addr::Num(Sym::THIS.into()));
+    next!(p, 1, 25, Addr, Addr::Num(Sym::THAT.into()));
     next!(p, 1, 27, Addr, Addr::Num(22));
-    next!(p, 1, 29, Addr, Addr::Num(Symbol::R0.into()));
-    next!(p, 1, 31, Addr, Addr::Num(Symbol::R1.into()));
-    next!(p, 1, 33, Addr, Addr::Num(Symbol::R11.into()));
+    next!(p, 1, 29, Addr, Addr::Num(Sym::R0.into()));
+    next!(p, 1, 31, Addr, Addr::Num(Sym::R1.into()));
+    next!(p, 1, 33, Addr, Addr::Num(Sym::R11.into()));
     next!(p, 1, 35, Addr, Addr::Num(23));
     next!(p, 1, 37, Addr, Addr::Num(24));
     assert_eq!(p.next(), None);

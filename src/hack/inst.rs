@@ -1,63 +1,21 @@
-//! Structures related to HACK instructions.
-//!
-//! An [instruction](Inst) can represent different types of commands
-//! in the HACK assembly language.
+//! Instructions for the HACK assembly language.
 
 use crate::hack::Comp;
 use crate::hack::CompErr;
 use crate::hack::Dest;
 use crate::hack::Jump;
 use crate::hack::JumpErr;
-use crate::utils::buf::Buf;
-use crate::utils::parser;
-
-use std::convert::TryFrom;
-use std::fmt;
-
+use crate::parser;
+use crate::Buf;
 use derive_more::Display;
 use derive_more::From;
+use std::convert::TryFrom;
+use std::fmt;
 
 /// An instruction as defined by the HACK assembly reference.
 ///
 /// An instruction consists of a [destination](Dest), a
 /// [computation](Comp) and a [jump](Jump).
-///
-/// # impl `Into<u16>`
-///
-/// The binary representation is 16 bits wide where the three most
-/// significant bits are `1` and the remaining 12 bits are the binary
-/// representations of [Dest], [Comp] and [Jump] (from most
-/// significant to least significant).
-///
-/// ## Examples
-///
-/// ```
-/// use has::com::inst::Inst;
-/// use has::hack::Comp;
-/// use has::hack::Dest;
-/// use has::hack::Jump;
-///
-/// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap();
-/// assert_eq!(u16::from(inst), 0b111_0011111_010_000);
-///
-/// let inst = Inst::new(Dest::Null, Comp::DPlus1, Jump::JEQ).unwrap();
-/// assert_eq!(u16::from(inst), 0b111_0011111_000_010);
-///
-/// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::JEQ).unwrap();
-/// assert_eq!(u16::from(inst), 0b111_0011111_010_010);
-/// ```
-///
-/// # impl `Display`
-///
-/// ```
-/// use has::com::inst::Inst;
-/// use has::hack::Comp;
-/// use has::hack::Dest;
-/// use has::hack::Jump;
-///
-/// let inst = Inst::new(Dest::MD, Comp::DPlusA, Jump::JGT).unwrap();
-/// assert_eq!(format!("{}", inst), "MD=D+A;JGT");
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Inst {
   /// The destination field.
@@ -68,6 +26,19 @@ pub struct Inst {
   jump: Jump,
 }
 
+/// Serialize an instruction to text.
+///
+/// # Examples
+///
+/// ```
+/// use has::hack::Comp;
+/// use has::hack::Dest;
+/// use has::hack::Inst;
+/// use has::hack::Jump;
+///
+/// let inst = Inst::new(Dest::MD, Comp::DPlusA, Jump::JGT).unwrap();
+/// assert_eq!(format!("{}", inst), "MD=D+A;JGT");
+/// ```
 impl fmt::Display for Inst {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     if !self.dest.is_null() {
@@ -84,6 +55,31 @@ impl fmt::Display for Inst {
   }
 }
 
+/// Serialize an (instruction)[Inst] object to [u16].
+///
+/// The binary representation is 16 bits wide where the three most
+/// significant bits are `1` and the remaining 12 bits are the binary
+/// representations of (the computation)[Comp], (the
+/// destination)[Dest] and (the jump)[Jump] sections, from most to
+/// least significant.
+///
+/// # Examples
+///
+/// ```
+/// use has::hack::Inst;
+/// use has::hack::Comp;
+/// use has::hack::Dest;
+/// use has::hack::Jump;
+///
+/// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap();
+/// assert_eq!(u16::from(inst), 0b111_0011111_010_000);
+///
+/// let inst = Inst::new(Dest::Null, Comp::DPlus1, Jump::JEQ).unwrap();
+/// assert_eq!(u16::from(inst), 0b111_0011111_000_010);
+///
+/// let inst = Inst::new(Dest::D, Comp::DPlus1, Jump::JEQ).unwrap();
+/// assert_eq!(u16::from(inst), 0b111_0011111_010_010);
+/// ```
 impl From<Inst> for u16 {
   fn from(inst: Inst) -> Self {
     0b111 << 13
@@ -110,6 +106,32 @@ pub enum DecodeErr {
   InvalidJump(u16),
 }
 
+/// Deserialize an (instruction)[Inst] object from [u16].
+///
+/// The binary representation is 16 bits wide where the three most
+/// significant bits are `1` and the remaining 12 bits are the binary
+/// representations of (the computation)[Comp], (the
+/// destination)[Dest] and (the jump)[Jump] sections, from most to
+/// least significant.
+///
+/// # Examples
+///
+/// ```
+/// use has::hack::Inst;
+/// use has::hack::Comp;
+/// use has::hack::Dest;
+/// use has::hack::Jump;
+/// use std::convert::TryFrom;
+///
+/// let expected = Inst::new(Dest::D, Comp::DPlus1, Jump::Null).unwrap();
+/// assert_eq!(Inst::try_from(0b111_0011111_010_000).unwrap(), expected);
+///
+/// let expected = Inst::new(Dest::Null, Comp::DPlus1, Jump::JEQ).unwrap();
+/// assert_eq!(Inst::try_from(0b111_0011111_000_010).unwrap(), expected);
+///
+/// let expected = Inst::new(Dest::D, Comp::DPlus1, Jump::JEQ).unwrap();
+/// assert_eq!(Inst::try_from(0b111_0011111_010_010).unwrap(), expected);
+/// ```
 impl TryFrom<u16> for Inst {
   type Error = DecodeErr;
 
@@ -182,27 +204,27 @@ impl Inst {
   /// # Examples
   ///
   /// ```
-  /// use has::com::inst;
-  /// use has::com::inst::Inst;
+  /// use has::hack::InstErr;
+  /// use has::hack::Inst;
   /// use has::hack::CompErr;
   /// use has::hack::Comp;
   /// use has::hack::Jump;
   /// use has::hack::JumpErr;
   /// use has::hack::Dest;
   ///
-  /// let err = Err(inst::Err::InvalidComp(CompErr::Unknown(String::from(""))));
+  /// let err = Err(InstErr::InvalidComp(CompErr::Unknown(String::from(""))));
   /// assert_eq!(Inst::read_from("".as_bytes()), err);
   ///
-  /// let err = Err(inst::Err::InvalidComp(CompErr::Unknown(String::from(""))));
+  /// let err = Err(InstErr::InvalidComp(CompErr::Unknown(String::from(""))));
   /// assert_eq!(Inst::read_from("Foo".as_bytes()), err);
   ///
-  /// let err = Err(inst::Err::MissingDestJump);
+  /// let err = Err(InstErr::MissingDestJump);
   /// assert_eq!(Inst::read_from("D|A".as_bytes()), err);
   ///
-  /// let err = Err(inst::Err::InvalidJump(JumpErr::Unknown(String::from(""))));
+  /// let err = Err(InstErr::InvalidJump(JumpErr::Unknown(String::from(""))));
   /// assert_eq!(Inst::read_from("D|A;".as_bytes()), err);
   ///
-  /// let err = Err(inst::Err::InvalidJump(JumpErr::Unknown(String::from("JJJ"))));
+  /// let err = Err(InstErr::InvalidJump(JumpErr::Unknown(String::from("JJJ"))));
   /// assert_eq!(Inst::read_from("D|A;JJJ".as_bytes()), err);
   ///
   /// let inst = Inst::new(Dest::D, Comp::DPlusA, Jump::JGT).unwrap();

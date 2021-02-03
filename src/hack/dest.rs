@@ -10,9 +10,9 @@ use std::convert::TryFrom;
 ///
 /// The binary representation of a destination is 3 bits wide
 /// representing the bits `d1`, `d2` and `d3` in an
-/// [instruction](crate::com::inst::Inst).
+/// [instruction](crate::hack::Inst).
 ///
-/// A destination can be parsed from (byte buffers)(Buf) using
+/// A destination can be parsed from (byte buffers)[Buf] using
 /// [Dest::read_from].
 ///
 /// # Examples

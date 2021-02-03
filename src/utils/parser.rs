@@ -1,7 +1,7 @@
 //! Helpers for parsing byte buffers.
 
-use crate::utils::buf::Buf;
-use crate::utils::buf::Byte;
+use crate::Buf;
+use crate::Byte;
 
 /// Splits a buffer `buf` at the point when `pred` returns false for a
 /// byte.

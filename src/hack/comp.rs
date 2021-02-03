@@ -10,7 +10,7 @@ use std::convert::TryFrom;
 ///
 /// The binary representation is 7 bits wide representing the bits
 /// `a`, `c1`, `c2`, `c3`, `c4`, `c5` and `c6` in an
-/// [instruction](crate::com::inst::Inst).
+/// [instruction](crate::hack::Inst).
 ///
 /// A computation can be parsed from (byte buffers)(Buf) using
 /// [Comp::read_from].

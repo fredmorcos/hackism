@@ -5,18 +5,16 @@
 
 use crate::asm::parser;
 use crate::asm::parser::Parser;
-use crate::com::addr::Addr;
-use crate::com::inst::Inst;
-use crate::com::label::Label;
-use crate::utils::buf::Buf;
-use crate::utils::conv;
-use crate::utils::loc::Loc;
-
-use std::collections::HashMap as Map;
-use std::convert::TryFrom;
-
+use crate::conv;
+use crate::hack::Addr;
+use crate::hack::Inst;
+use crate::hack::Var;
+use crate::Buf;
+use crate::Loc;
 use derive_more::Display;
 use either::Either;
+use std::collections::HashMap as Map;
+use std::convert::TryFrom;
 
 /// A HACK assembly program.
 ///
@@ -29,7 +27,7 @@ use either::Either;
 /// [parses](Parser) the input buffer.
 pub struct Prog<'b> {
   /// The symbol table for forward declarations.
-  symtable: Map<Label<'b>, u16>,
+  symtable: Map<Var<'b>, u16>,
 
   /// List of collected instructions.
   instructions: Vec<Either<Addr<'b>, Inst>>,
@@ -64,10 +62,10 @@ impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
       let token_index = token.index();
 
       match token.kind() {
-        parser::TokenKind::Label(label) => {
+        parser::TokenKind::Var(label) => {
           if symtable.insert(label, index).is_some() {
             let token_loc = Loc::from_index(buf, token_index);
-            return Err(Err::DuplicateLabel(String::from(label.label()), token_loc));
+            return Err(Err::DuplicateLabel(String::from(label.name()), token_loc));
           }
         }
         parser::TokenKind::Addr(addr) => {
@@ -105,8 +103,8 @@ impl Iterator for BinEncoder<'_, '_> {
     let v = match inst {
       Either::Right(inst) => u16::from(*inst),
       Either::Left(Addr::Num(addr)) => *addr,
-      Either::Left(Addr::Symbol(symbol)) => u16::from(*symbol),
-      Either::Left(Addr::Label(label)) => {
+      Either::Left(Addr::Sym(sym)) => u16::from(*sym),
+      Either::Left(Addr::Var(label)) => {
         if let Some(v) = self.prog.symtable.get(label) {
           *v
         } else {
