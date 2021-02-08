@@ -6,6 +6,7 @@ pub mod comp;
 pub mod dest;
 pub mod inst;
 pub mod jump;
+pub mod prog;
 pub mod sym;
 pub mod var;
 
@@ -20,6 +21,8 @@ pub use inst::Err as InstErr;
 pub use inst::Inst;
 pub use jump::Err as JumpErr;
 pub use jump::Jump;
+pub use prog::Err as ProgErr;
+pub use prog::Prog;
 pub use sym::Sym;
 pub use var::Err as VarErr;
 pub use var::Var;

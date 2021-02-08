@@ -1,9 +1,11 @@
 #![warn(clippy::all)]
 
-use has::asm;
+use derive_more::Display;
+use derive_more::From;
 use has::dis;
-
-use std::convert::TryFrom;
+use has::HackProg;
+use has::HackProgErr;
+use log::{debug, info, trace};
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -12,10 +14,6 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-
-use derive_more::Display;
-use derive_more::From;
-use log::{debug, info, trace};
 use structopt::StructOpt;
 
 #[derive(From, Display)]
@@ -25,7 +23,7 @@ enum Err {
   Io(io::Error),
 
   #[display(fmt = "Assembler error: {}", _0)]
-  Asm(asm::prog::Err),
+  Asm(HackProgErr),
 
   #[display(fmt = "Disassembler error: {}", _0)]
   Dis(dis::prog::Err),
@@ -125,17 +123,17 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
   let buf = read_file(&file)?;
 
   info!("Parsing {}", file.display());
-  let mut prog = asm::prog::Prog::try_from(buf.as_slice())?;
+  let mut prog = HackProg::from_hack(buf.as_slice())?;
 
   let mut writer = create_outfile(&out)?;
 
   if text {
-    for inst in prog.text_encoder() {
+    for inst in prog.bintext_enc() {
       writer.write_all(&inst)?;
       writer.write_all(&[b'\n'])?;
     }
   } else {
-    for inst in prog.encoder() {
+    for inst in prog.enc() {
       writer.write_all(&inst)?;
     }
   }

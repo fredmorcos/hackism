@@ -16,6 +16,8 @@ pub mod dis;
 pub mod hack;
 pub mod utils;
 
+pub use hack::Prog as HackProg;
+pub use hack::ProgErr as HackProgErr;
 pub use utils::buf::Buf;
 pub use utils::buf::Byte;
 pub use utils::conv;

@@ -2,10 +2,8 @@
 
 #[cfg(test)]
 mod programs {
-  use has::asm;
   use has::dis;
-
-  use std::convert::TryFrom;
+  use has::HackProg;
   use std::fs;
   use std::fs::File;
   use std::io::BufWriter;
@@ -24,7 +22,7 @@ mod programs {
 
         let mut input = Vec::with_capacity(1024);
         File::open(&file_path).unwrap().read_to_end(&mut input).unwrap();
-        let mut prog = asm::prog::Prog::try_from(input.as_slice()).unwrap();
+        let mut prog = HackProg::from_hack(input.as_slice()).unwrap();
 
         file_path.set_extension("hack");
         let mut fixture = Vec::with_capacity(1024);
@@ -34,7 +32,7 @@ mod programs {
         {
           let mut writer = BufWriter::new(&mut output);
 
-          for inst in prog.text_encoder() {
+          for inst in prog.bintext_enc() {
             writer.write_all(&inst).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }

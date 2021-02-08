@@ -1,11 +1,13 @@
-//! Structures for dealing with HACK assembly programs.
+//! Structures related to HACK programs.
 //!
 //! [Prog] can be used to represent the (flat) parse tree of a HACK
-//! assembly program.
+//! assembly program. The program can be parsed from HACK assembly
+//! source code or disassembled from a compiled HACK binary or bintext
+//! file.
 
-use crate::asm::parser;
-use crate::asm::parser::Parser;
+use crate::asm;
 use crate::conv;
+use crate::dis;
 use crate::hack::Addr;
 use crate::hack::Inst;
 use crate::hack::Var;
@@ -14,17 +16,11 @@ use crate::Loc;
 use derive_more::Display;
 use either::Either;
 use std::collections::HashMap as Map;
-use std::convert::TryFrom;
 
 /// A HACK assembly program.
 ///
 /// Contains the symbol table for declared labels and the list (flat
 /// tree) of A- and C- instructions in the program.
-///
-/// # `impl TryFrom<Buf>`
-///
-/// A program can be created from an input buffer. This internally
-/// [parses](Parser) the input buffer.
 pub struct Prog<'b> {
   /// The symbol table for forward declarations.
   symtable: Map<Var<'b>, u16>,
@@ -37,9 +33,13 @@ pub struct Prog<'b> {
 #[derive(Display, Debug, Clone, PartialEq, Eq)]
 #[display(fmt = "Program error: {}")]
 pub enum Err {
-  /// Parse errors.
-  #[display(fmt = "Parser error: {}", _0)]
-  Parser(parser::Err),
+  /// Assembly parse errors.
+  #[display(fmt = "Assembly parsing error: {}", _0)]
+  AsmParser(asm::parser::Err),
+
+  /// Disassembly parse errors.
+  #[display(fmt = "Disassembly parsing error: {}", _0)]
+  DisParser(dis::parser::Err),
 
   /// A duplicate label was found.
   ///
@@ -48,31 +48,43 @@ pub enum Err {
   DuplicateLabel(String, Loc),
 }
 
-impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
-  type Error = Err;
-
-  fn try_from(buf: Buf<'b>) -> Result<Self, Self::Error> {
+impl<'b> Prog<'b> {
+  /// Create a program from a buffer containing HACK assembly code.
+  ///
+  /// This parses the input buffer and populates the symbol table.
+  ///
+  /// # Example
+  ///
+  /// ```
+  /// use has::hack::Prog;
+  ///
+  /// let buf = "@FOO\nD=A;JMP\n(FOO)".as_bytes();
+  /// let prog = Prog::from_hack(buf).unwrap();
+  /// assert_eq!(prog.symtable().len(), 1);
+  /// assert_eq!(prog.instructions().len(), 2);
+  /// ```
+  pub fn from_hack(buf: Buf<'b>) -> Result<Self, Err> {
     let mut symtable = Map::new();
     let mut instructions = Vec::new();
-    let parser = Parser::from(buf);
+    let parser = asm::parser::Parser::from(buf);
     let mut index = 0;
 
     for token in parser {
-      let token = token.map_err(Err::Parser)?;
+      let token = token.map_err(Err::AsmParser)?;
       let token_index = token.index();
 
       match token.kind() {
-        parser::TokenKind::Var(label) => {
+        asm::parser::TokenKind::Var(label) => {
           if symtable.insert(label, index).is_some() {
             let token_loc = Loc::from_index(buf, token_index);
             return Err(Err::DuplicateLabel(String::from(label.name()), token_loc));
           }
         }
-        parser::TokenKind::Addr(addr) => {
+        asm::parser::TokenKind::Addr(addr) => {
           instructions.push(Either::Left(addr));
           index += 1;
         }
-        parser::TokenKind::Inst(inst) => {
+        asm::parser::TokenKind::Inst(inst) => {
           instructions.push(Either::Right(inst));
           index += 1;
         }
@@ -81,10 +93,20 @@ impl<'b> TryFrom<Buf<'b>> for Prog<'b> {
 
     Ok(Self { symtable, instructions })
   }
+
+  /// Get the list of instructions in a program.
+  pub fn instructions(&self) -> &[Either<Addr<'b>, Inst>] {
+    &self.instructions
+  }
+
+  /// Get the symbol table in a program.
+  pub fn symtable(&self) -> &Map<Var<'b>, u16> {
+    &self.symtable
+  }
 }
 
 /// HACK program encoder that produces binary files.
-pub struct BinEncoder<'b, 'p> {
+pub struct BinEnc<'b, 'p> {
   /// The HACK program.
   prog: &'p mut Prog<'b>,
   /// The index of the current instruction being encoded.
@@ -93,7 +115,7 @@ pub struct BinEncoder<'b, 'p> {
   var_index: u16,
 }
 
-impl Iterator for BinEncoder<'_, '_> {
+impl Iterator for BinEnc<'_, '_> {
   type Item = [u8; 2];
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -104,11 +126,11 @@ impl Iterator for BinEncoder<'_, '_> {
       Either::Right(inst) => u16::from(*inst),
       Either::Left(Addr::Num(addr)) => *addr,
       Either::Left(Addr::Sym(sym)) => u16::from(*sym),
-      Either::Left(Addr::Var(label)) => {
-        if let Some(v) = self.prog.symtable.get(label) {
-          *v
+      Either::Left(Addr::Var(var)) => {
+        if let Some(&v) = self.prog.symtable.get(var) {
+          v
         } else {
-          self.prog.symtable.insert(*label, self.var_index);
+          self.prog.symtable.insert(*var, self.var_index);
           let current_var_index = self.var_index;
           self.var_index += 1;
           current_var_index
@@ -121,13 +143,12 @@ impl Iterator for BinEncoder<'_, '_> {
 }
 
 /// HACK program encoder that produces text files.
-pub struct TxtEncoder<'b, 'p> {
-  /// The binary encoder used to produce textual representations of
-  /// instructions from.
-  encoder: BinEncoder<'b, 'p>,
+pub struct TxtEnc<'b, 'p> {
+  /// The binary encoder used to produce instruction bintext from.
+  encoder: BinEnc<'b, 'p>,
 }
 
-impl Iterator for TxtEncoder<'_, '_> {
+impl Iterator for TxtEnc<'_, '_> {
   type Item = [u8; 16];
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -138,12 +159,12 @@ impl Iterator for TxtEncoder<'_, '_> {
 
 impl<'b> Prog<'b> {
   /// Create an encoder that will produce binary files.
-  pub fn encoder<'p>(&'p mut self) -> BinEncoder<'b, 'p> {
-    BinEncoder { prog: self, index: 0, var_index: 16 }
+  pub fn enc<'p>(&'p mut self) -> BinEnc<'b, 'p> {
+    BinEnc { prog: self, index: 0, var_index: 16 }
   }
 
   /// Create an encoder that will produce bintext files.
-  pub fn text_encoder<'p>(&'p mut self) -> TxtEncoder<'b, 'p> {
-    TxtEncoder { encoder: BinEncoder { prog: self, index: 0, var_index: 16 } }
+  pub fn bintext_enc<'p>(&'p mut self) -> TxtEnc<'b, 'p> {
+    TxtEnc { encoder: BinEnc { prog: self, index: 0, var_index: 16 } }
   }
 }
