@@ -5,11 +5,13 @@
 //! source code or disassembled from a compiled HACK binary or bintext
 //! file.
 
-use crate::asm;
 use crate::conv;
 use crate::dis;
 use crate::hack::Addr;
 use crate::hack::Inst;
+use crate::hack::Parser;
+use crate::hack::ParserErr;
+use crate::hack::TokenKind;
 use crate::hack::Var;
 use crate::Buf;
 use crate::Loc;
@@ -35,7 +37,7 @@ pub struct Prog<'b> {
 pub enum Err {
   /// Assembly parse errors.
   #[display(fmt = "Assembly parsing error: {}", _0)]
-  AsmParser(asm::parser::Err),
+  AsmParser(ParserErr),
 
   /// Disassembly parse errors.
   #[display(fmt = "Disassembly parsing error: {}", _0)]
@@ -66,7 +68,7 @@ impl<'b> Prog<'b> {
   pub fn from_hack(buf: Buf<'b>) -> Result<Self, Err> {
     let mut symtable = Map::new();
     let mut instructions = Vec::new();
-    let parser = asm::parser::Parser::from(buf);
+    let parser = Parser::from(buf);
     let mut index = 0;
 
     for token in parser {
@@ -74,17 +76,17 @@ impl<'b> Prog<'b> {
       let token_index = token.index();
 
       match token.kind() {
-        asm::parser::TokenKind::Var(label) => {
+        TokenKind::Var(label) => {
           if symtable.insert(label, index).is_some() {
             let token_loc = Loc::from_index(buf, token_index);
             return Err(Err::DuplicateLabel(String::from(label.name()), token_loc));
           }
         }
-        asm::parser::TokenKind::Addr(addr) => {
+        TokenKind::Addr(addr) => {
           instructions.push(Either::Left(addr));
           index += 1;
         }
-        asm::parser::TokenKind::Inst(inst) => {
+        TokenKind::Inst(inst) => {
           instructions.push(Either::Right(inst));
           index += 1;
         }

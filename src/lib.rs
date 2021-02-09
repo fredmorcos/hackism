@@ -11,7 +11,6 @@
 #[macro_use]
 extern crate derive_new;
 
-pub mod asm;
 pub mod dis;
 pub mod hack;
 pub mod utils;
