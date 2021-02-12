@@ -39,7 +39,7 @@ use std::convert::TryFrom;
 /// let var = Var::try_from("label".as_bytes()).unwrap();
 /// assert_eq!(Addr::from(var), Addr::Var(var));
 /// ```
-#[derive(Display, Debug, PartialEq, Eq, Clone, From)]
+#[derive(Display, Debug, PartialEq, Eq, Clone, Copy, From)]
 #[display(fmt = "@{}")]
 pub enum Addr<'b> {
   /// Numerical address.
