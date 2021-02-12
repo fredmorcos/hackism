@@ -10,6 +10,10 @@ use crate::Loc;
 
 use derive_more::Display;
 
+/// Shorthand for items returned by the (parser)(Parser)
+/// (iterator)[Iterator].
+pub type Res = Result<Token, Err>;
+
 /// A trait to represent different types of decoders that can be used
 /// by the disassembler.
 pub trait Impl {
@@ -25,7 +29,7 @@ pub trait Impl {
 pub struct BinDecoder;
 
 impl Impl for BinDecoder {
-  type Item = Result<Token, Err>;
+  type Item = Res;
 
   fn next<T: Impl>(parser: &mut Parser<T>) -> Option<Self::Item> {
     let &msb = parser.buf.get(0)?;
@@ -48,7 +52,7 @@ impl Impl for BinDecoder {
 pub struct TxtDecoder;
 
 impl Impl for TxtDecoder {
-  type Item = Result<Token, Err>;
+  type Item = Res;
 
   fn next<T: Impl>(parser: &mut Parser<T>) -> Option<Self::Item> {
     'MAIN: loop {

@@ -38,15 +38,11 @@ pub enum Err {
   Parser(parser::Err),
 }
 
-/// Shorthand for items returned by the (parser)(Parser)
-/// (iterator)[Iterator].
-type ParserResult = Result<parser::Token, parser::Err>;
-
 impl<'b> Prog<'b> {
   /// Create a program from a disassembler parser.
   fn new_parser(
     buf: Buf<'b>,
-    parser: &mut dyn Iterator<Item = ParserResult>,
+    parser: &mut dyn Iterator<Item = parser::Res>,
   ) -> Result<Self, Err> {
     let insts = parser.collect::<Result<_, _>>().map_err(Err::Parser)?;
     Ok(Self { orig: buf, instructions: insts })
