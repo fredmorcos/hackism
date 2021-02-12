@@ -3,6 +3,7 @@
 use derive_more::Display;
 use derive_more::From;
 use has::dis;
+use has::hack;
 use has::HackProg;
 use has::HackProgErr;
 use log::{debug, info, trace};
@@ -123,17 +124,17 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
   let buf = read_file(&file)?;
 
   info!("Parsing {}", file.display());
-  let mut prog = HackProg::from_hack(buf.as_slice())?;
+  let mut prog = HackProg::from_source(buf.as_slice())?;
 
   let mut writer = create_outfile(&out)?;
 
   if text {
-    for inst in prog.bintext_enc() {
+    for inst in hack::enc::BinText::from(&mut prog) {
       writer.write_all(&inst)?;
       writer.write_all(&[b'\n'])?;
     }
   } else {
-    for inst in prog.enc() {
+    for inst in hack::enc::Bin::from(&mut prog) {
       writer.write_all(&inst)?;
     }
   }

@@ -4,6 +4,7 @@
 pub mod addr;
 pub mod comp;
 pub mod dest;
+pub mod enc;
 pub mod inst;
 pub mod jump;
 pub mod parser;

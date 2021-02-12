@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod programs {
   use has::dis;
+  use has::hack;
   use has::HackProg;
   use std::fs;
   use std::fs::File;
@@ -18,11 +19,11 @@ mod programs {
       let file_ext = file_path.extension().unwrap().to_str().unwrap();
 
       if file_ext == "asm" {
-        println!("Testing fixture {}", file_path.display());
+        println!("Testing assembler with fixture {}", file_path.display());
 
         let mut input = Vec::with_capacity(1024);
         File::open(&file_path).unwrap().read_to_end(&mut input).unwrap();
-        let mut prog = HackProg::from_hack(input.as_slice()).unwrap();
+        let mut prog = HackProg::from_source(input.as_slice()).unwrap();
 
         file_path.set_extension("hack");
         let mut fixture = Vec::with_capacity(1024);
@@ -32,7 +33,7 @@ mod programs {
         {
           let mut writer = BufWriter::new(&mut output);
 
-          for inst in prog.bintext_enc() {
+          for inst in hack::enc::BinText::from(&mut prog) {
             writer.write_all(&inst).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }
@@ -51,7 +52,7 @@ mod programs {
       let file_ext = file_path.extension().unwrap().to_str().unwrap();
 
       if file_ext == "hack" {
-        println!("Testing fixture {}", file_path.display());
+        println!("Testing disassembler with fixture {}", file_path.display());
 
         let mut input = Vec::with_capacity(1024);
         File::open(&file_path).unwrap().read_to_end(&mut input).unwrap();

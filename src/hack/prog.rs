@@ -5,7 +5,6 @@
 //! source code or disassembled from a compiled HACK binary or bintext
 //! file.
 
-use crate::conv;
 use crate::dis;
 use crate::hack::Addr;
 use crate::hack::Inst;
@@ -19,16 +18,19 @@ use derive_more::Display;
 use either::Either;
 use std::collections::HashMap as Map;
 
+/// Symbol table.
+pub type Symtable<'b> = Map<Var<'b>, u16>;
+
 /// A HACK assembly program.
 ///
 /// Contains the symbol table for declared labels and the list (flat
 /// tree) of A- and C- instructions in the program.
 pub struct Prog<'b> {
   /// The symbol table for forward declarations.
-  symtable: Map<Var<'b>, u16>,
+  symtable: Symtable<'b>,
 
   /// List of collected instructions.
-  instructions: Vec<Either<Addr<'b>, Inst>>,
+  insts: Vec<Either<Addr<'b>, Inst>>,
 }
 
 /// Possible errors returned from loading a HACK assembly program.
@@ -61,11 +63,11 @@ impl<'b> Prog<'b> {
   /// use has::hack::Prog;
   ///
   /// let buf = "@FOO\nD=A;JMP\n(FOO)".as_bytes();
-  /// let prog = Prog::from_hack(buf).unwrap();
+  /// let prog = Prog::from_source(buf).unwrap();
   /// assert_eq!(prog.symtable().len(), 1);
-  /// assert_eq!(prog.instructions().len(), 2);
+  /// assert_eq!(prog.insts().len(), 2);
   /// ```
-  pub fn from_hack(buf: Buf<'b>) -> Result<Self, Err> {
+  pub fn from_source(buf: Buf<'b>) -> Result<Self, Err> {
     let mut symtable = Map::new();
     let mut instructions = Vec::new();
     let parser = Parser::from(buf);
@@ -93,80 +95,21 @@ impl<'b> Prog<'b> {
       }
     }
 
-    Ok(Self { symtable, instructions })
+    Ok(Self { symtable, insts: instructions })
   }
 
   /// Get the list of instructions in a program.
-  pub fn instructions(&self) -> &[Either<Addr<'b>, Inst>] {
-    &self.instructions
+  pub fn insts(&self) -> &[Either<Addr<'b>, Inst>] {
+    &self.insts
   }
 
   /// Get the symbol table in a program.
-  pub fn symtable(&self) -> &Map<Var<'b>, u16> {
+  pub fn symtable(&self) -> &Symtable<'b> {
     &self.symtable
   }
-}
 
-/// HACK program encoder that produces binary files.
-pub struct BinEnc<'b, 'p> {
-  /// The HACK program.
-  prog: &'p mut Prog<'b>,
-  /// The index of the current instruction being encoded.
-  index: usize,
-  /// The index of the most recently user-defined symbol.
-  var_index: u16,
-}
-
-impl Iterator for BinEnc<'_, '_> {
-  type Item = [u8; 2];
-
-  fn next(&mut self) -> Option<Self::Item> {
-    let inst = self.prog.instructions.get(self.index)?;
-    self.index += 1;
-
-    let v = match inst {
-      Either::Right(inst) => u16::from(*inst),
-      Either::Left(Addr::Num(addr)) => *addr,
-      Either::Left(Addr::Sym(sym)) => u16::from(*sym),
-      Either::Left(Addr::Var(var)) => {
-        if let Some(&v) = self.prog.symtable.get(var) {
-          v
-        } else {
-          self.prog.symtable.insert(*var, self.var_index);
-          let current_var_index = self.var_index;
-          self.var_index += 1;
-          current_var_index
-        }
-      }
-    };
-
-    Some([(v >> 8) as u8, v as u8])
-  }
-}
-
-/// HACK program encoder that produces text files.
-pub struct TxtEnc<'b, 'p> {
-  /// The binary encoder used to produce instruction bintext from.
-  encoder: BinEnc<'b, 'p>,
-}
-
-impl Iterator for TxtEnc<'_, '_> {
-  type Item = [u8; 16];
-
-  fn next(&mut self) -> Option<Self::Item> {
-    let val = self.encoder.next()?;
-    Some(conv::u16_bintext(u16::from(val[0]) << 8 | u16::from(val[1])))
-  }
-}
-
-impl<'b> Prog<'b> {
-  /// Create an encoder that will produce binary files.
-  pub fn enc<'p>(&'p mut self) -> BinEnc<'b, 'p> {
-    BinEnc { prog: self, index: 0, var_index: 16 }
-  }
-
-  /// Create an encoder that will produce bintext files.
-  pub fn bintext_enc<'p>(&'p mut self) -> TxtEnc<'b, 'p> {
-    TxtEnc { encoder: BinEnc { prog: self, index: 0, var_index: 16 } }
+  /// Get a mutable reference to the symbol table in a program.
+  pub fn symtable_mut(&mut self) -> &mut Symtable<'b> {
+    &mut self.symtable
   }
 }
