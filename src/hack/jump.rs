@@ -287,15 +287,6 @@ impl Jump {
   /// assert!(!Jump::JGT.is_null());
   /// ```
   pub fn is_null(&self) -> bool {
-    match self {
-      Jump::Null => true,
-      Jump::JGT
-      | Jump::JEQ
-      | Jump::JGE
-      | Jump::JLT
-      | Jump::JNE
-      | Jump::JLE
-      | Jump::JMP => false,
-    }
+    matches!(self, Jump::Null)
   }
 }

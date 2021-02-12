@@ -286,9 +286,6 @@ impl Dest {
   /// assert!(!Dest::D.is_null());
   /// ```
   pub fn is_null(&self) -> bool {
-    match self {
-      Dest::Null => true,
-      Dest::M | Dest::D | Dest::MD | Dest::A | Dest::AM | Dest::AD | Dest::AMD => false,
-    }
+    matches!(self, Dest::Null)
   }
 }
