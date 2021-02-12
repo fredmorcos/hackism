@@ -56,9 +56,9 @@ struct Opt {
 enum Command {
   /// Assemble a HACK file.
   Asm {
-    /// Output a text instead of binary file.
+    /// Output a bintext instead of binary file.
     #[structopt(short, long)]
-    text: bool,
+    bintext: bool,
 
     /// Output file (must not exist).
     #[structopt(short, long, name = "OUT", parse(from_os_str))]
@@ -71,9 +71,9 @@ enum Command {
 
   /// Disassemble a HACK file.
   Dis {
-    /// The input is a text instead of a binary file.
+    /// The input is a bintext instead of a binary file.
     #[structopt(short, long)]
-    text: bool,
+    bintext: bool,
 
     /// Output file (must not exist).
     #[structopt(short, long, name = "OUT", parse(from_os_str))]
@@ -88,8 +88,8 @@ enum Command {
 impl Command {
   fn exec(self) -> Result<(), Err> {
     match self {
-      Command::Asm { text, out, file } => exec_asm(text, out, file),
-      Command::Dis { text, out, file } => exec_dis(text, out, file),
+      Command::Asm { bintext, out, file } => exec_asm(bintext, out, file),
+      Command::Dis { bintext, out, file } => exec_dis(bintext, out, file),
     }
   }
 }
