@@ -3,7 +3,6 @@
 #[cfg(test)]
 mod programs {
   use has::dis;
-  use has::hack;
   use has::HackProg;
   use std::fs;
   use std::fs::File;
@@ -33,7 +32,7 @@ mod programs {
         {
           let mut writer = BufWriter::new(&mut output);
 
-          for inst in hack::enc::BinText::from(&mut prog) {
+          for inst in prog.bintext_enc() {
             writer.write_all(&inst).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }

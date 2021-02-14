@@ -3,7 +3,7 @@
 use derive_more::Display;
 use derive_more::From;
 use has::dis;
-use has::hack;
+use has::hack::dec;
 use has::HackProg;
 use has::HackProgErr;
 use log::{debug, info, trace};
@@ -30,7 +30,7 @@ enum Err {
   Dis(dis::prog::Err),
 
   #[display(fmt = "Decoding error: {}", _0)]
-  Decode(dis::prog::DecodeErr),
+  Decode(dec::DecodeErr),
 }
 
 impl fmt::Debug for Err {
@@ -125,16 +125,15 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
 
   info!("Parsing {}", file.display());
   let mut prog = HackProg::from_source(buf.as_slice())?;
-
   let mut writer = create_outfile(&out)?;
 
   if text {
-    for inst in hack::enc::BinText::from(&mut prog) {
+    for inst in prog.bintext_enc() {
       writer.write_all(&inst)?;
       writer.write_all(&[b'\n'])?;
     }
   } else {
-    for inst in hack::enc::Bin::from(&mut prog) {
+    for inst in prog.bin_enc() {
       writer.write_all(&inst)?;
     }
   }

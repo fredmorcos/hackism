@@ -3,6 +3,7 @@
 
 pub mod addr;
 pub mod comp;
+pub mod dec;
 pub mod dest;
 pub mod enc;
 pub mod inst;

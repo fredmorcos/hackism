@@ -5,7 +5,8 @@
 //! source code or disassembled from a compiled HACK binary or bintext
 //! file.
 
-use crate::dis;
+use crate::hack::dec;
+use crate::hack::enc;
 use crate::hack::Addr;
 use crate::hack::Inst;
 use crate::hack::Parser;
@@ -23,8 +24,8 @@ pub type Symtable<'b> = Map<Var<'b>, u16>;
 
 /// A HACK assembly program.
 ///
-/// Contains the symbol table for declared labels and the list (flat
-/// tree) of A- and C- instructions in the program.
+/// Contains the symbol table for declared labels and the list of A-
+/// and C- instructions in the program.
 pub struct Prog<'b> {
   /// The symbol table for forward declarations.
   symtable: Symtable<'b>,
@@ -37,13 +38,13 @@ pub struct Prog<'b> {
 #[derive(Display, Debug, Clone, PartialEq, Eq)]
 #[display(fmt = "Program error: {}")]
 pub enum Err {
-  /// Assembly parse errors.
-  #[display(fmt = "Assembly parsing error: {}", _0)]
-  AsmParser(ParserErr),
+  /// Assembly errors.
+  #[display(fmt = "Assembly error: {}", _0)]
+  Asm(ParserErr),
 
-  /// Disassembly parse errors.
-  #[display(fmt = "Disassembly parsing error: {}", _0)]
-  DisParser(dis::parser::Err),
+  /// Disassembly errors.
+  #[display(fmt = "Disassembly error: {}", _0)]
+  Dis(dec::Err),
 
   /// A duplicate label was found.
   ///
@@ -74,7 +75,7 @@ impl<'b> Prog<'b> {
     let mut index = 0;
 
     for token in parser {
-      let token = token.map_err(Err::AsmParser)?;
+      let token = token.map_err(Err::Asm)?;
       let token_index = token.index();
 
       match token.kind() {
@@ -98,6 +99,12 @@ impl<'b> Prog<'b> {
     Ok(Self { symtable, insts: instructions })
   }
 
+  // pub fn from_bin(buf: Buf<'b>) -> Result<Self, Err> {
+  //   let mut parser: dec::Parser<dec::Bin> = dec::Parser::from(buf);
+  //   let insts = parser.collect::<Result<_, _>>().map_err(Err::Dis)?;
+  //   Ok(Self { symtable: Symtable::new(), insts })
+  // }
+
   /// Get the list of instructions in a program.
   pub fn insts(&self) -> &[Either<Addr<'b>, Inst>] {
     &self.insts
@@ -111,5 +118,15 @@ impl<'b> Prog<'b> {
   /// Get a mutable reference to the symbol table in a program.
   pub fn symtable_mut(&mut self) -> &mut Symtable<'b> {
     &mut self.symtable
+  }
+
+  /// Create and return a bintext encoder to encode this program.
+  pub fn bintext_enc<'p>(&'p mut self) -> enc::BinText<'p, 'b> {
+    enc::BinText::from(self)
+  }
+
+  /// Create and return a binary encoder to encode this program.
+  pub fn bin_enc<'p>(&'p mut self) -> enc::Bin<'p, 'b> {
+    enc::Bin::from(self)
   }
 }
