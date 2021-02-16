@@ -100,9 +100,11 @@ impl<'b> Prog<'b> {
   }
 
   // pub fn from_bin(buf: Buf<'b>) -> Result<Self, Err> {
-  //   let mut parser: dec::Parser<dec::Bin> = dec::Parser::from(buf);
-  //   let insts = parser.collect::<Result<_, _>>().map_err(Err::Dis)?;
-  //   Ok(Self { symtable: Symtable::new(), insts })
+  //   let mut parser: dec::Parser<dec::BinParser> = dec::Parser::from(buf);
+  //   let enc_insts: Vec<dec::Token> =
+  //     parser.collect::<Result<_, _>>().map_err(Err::Dis)?;
+  //   // let insts = parser.collect::<Result<_, _>>().map_err(Err::Dis)?;
+  //   // Ok(Self { symtable: Symtable::new(), insts })
   // }
 
   /// Get the list of instructions in a program.
