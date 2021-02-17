@@ -1,7 +1,6 @@
 //! Parser for disassembling HACK programs from binary and bintext
 //! files.
 
-use crate::dis;
 use crate::hack::Addr;
 use crate::hack::AddrErr;
 use crate::hack::Inst;
@@ -11,6 +10,7 @@ use crate::Buf;
 use crate::Index;
 use crate::Loc;
 use derive_more::Display;
+use either::Either;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 
@@ -190,6 +190,31 @@ pub struct Token {
   value: u16,
 }
 
+/// Errors when decoding programs from their compiled form.
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[display(fmt = "Disassembler decoding error: {}")]
+pub enum DecodeErr {
+  /// Invalid instruction.
+  #[display(fmt = "Invalid instruction at {}: {}", _0, _1)]
+  InvalidInst(Loc, InstDecodeErr),
+
+  /// Invalid address.
+  #[display(fmt = "Invalid address instruction {}: {}", _0, _1)]
+  InvalidAddr(Loc, AddrErr),
+}
+
+impl DecodeErr {
+  /// Create a `DecodeErr::InvalidInst` variant.
+  pub fn invalid_inst(orig: Buf, tok: &Token, err: InstDecodeErr) -> Self {
+    Self::InvalidInst(Loc::from_index(orig, tok.index()), err)
+  }
+
+  /// Create a `DecodeErr::InvalidAddr` variant.
+  pub fn invalid_addr(orig: Buf, tok: &Token, err: AddrErr) -> Self {
+    Self::InvalidAddr(Loc::from_index(orig, tok.index()), err)
+  }
+}
+
 impl Token {
   /// Create a new token.
   ///
@@ -210,6 +235,27 @@ impl Token {
   /// Returns the instruction.
   pub fn value(&self) -> u16 {
     self.value
+  }
+
+  pub fn decode<'b, 'n>(
+    &self,
+    orig: Buf<'b>,
+  ) -> Result<Either<Addr<'n>, Inst>, DecodeErr> {
+    if self.value & 0b1000_0000_0000_0000 == 0 {
+      // A-instruction
+      let inst = self.value & 0b0111_1111_1111_1111;
+      match Addr::try_from(inst) {
+        Ok(decoded) => Ok(Either::Left(decoded)),
+        Err(e) => Err(DecodeErr::invalid_addr(orig, self, e)),
+      }
+    } else {
+      // C-instruction
+      let inst = self.value & 0b0001_1111_1111_1111;
+      match Inst::try_from(inst) {
+        Ok(decoded) => Ok(Either::Right(decoded)),
+        Err(e) => Err(DecodeErr::invalid_inst(orig, self, e)),
+      }
+    }
   }
 }
 
@@ -268,77 +314,6 @@ impl<'b, T: Impl<Item = Result<Token, Err>>> Iterator for Parser<'b, T> {
 
   fn next(&mut self) -> Option<Self::Item> {
     T::next(self)
-  }
-}
-
-/// Errors when decoding programs from their compiled form.
-#[derive(Display, Debug, Clone, PartialEq, Eq)]
-#[display(fmt = "Disassembler decoding error: {}")]
-pub enum DecodeErr {
-  /// Invalid instruction.
-  #[display(fmt = "Invalid instruction at {}: {}", _0, _1)]
-  InvalidInst(Loc, InstDecodeErr),
-
-  /// Invalid address.
-  #[display(fmt = "Invalid address instruction {}: {}", _0, _1)]
-  InvalidAddr(Loc, AddrErr),
-}
-
-impl DecodeErr {
-  /// Create a `DecodeErr::InvalidInst` variant.
-  pub fn invalid_inst(dec: &Decoder, tok: &Token, err: InstDecodeErr) -> Self {
-    Self::InvalidInst(Loc::from_index(dec.prog.orig(), tok.index()), err)
-  }
-
-  /// Create a `DecodeErr::InvalidAddr` variant.
-  pub fn invalid_addr(dec: &Decoder, tok: &Token, err: AddrErr) -> Self {
-    Self::InvalidAddr(Loc::from_index(dec.prog.orig(), tok.index()), err)
-  }
-}
-
-/// HACK program decoder used for disassembly.
-pub struct Decoder<'b, 'p> {
-  /// The program object to decode from.
-  prog: &'p mut dis::prog::Prog<'b>,
-
-  /// The index of the currently decoded instruction.
-  index: usize,
-}
-
-impl<'b, 'p> Decoder<'b, 'p> {
-  /// Create a new decoder from a parsed program.
-  pub fn new(prog: &'p mut dis::prog::Prog<'b>) -> Self {
-    Self { prog, index: 0 }
-  }
-}
-
-impl Iterator for Decoder<'_, '_> {
-  type Item = Result<String, DecodeErr>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    let token = self.prog.insts().get(self.index)?;
-    let inst = token.value();
-    self.index += 1;
-
-    if inst & 0b1000_0000_0000_0000 == 0 {
-      // A-instruction
-      let inst = inst & 0b0111_1111_1111_1111;
-      let decoded = match Addr::try_from(inst) {
-        Ok(decoded) => decoded,
-        Err(e) => return Some(Err(DecodeErr::invalid_addr(self, token, e))),
-      };
-
-      Some(Ok(format!("{}", decoded)))
-    } else {
-      // C-instruction
-      let inst = inst & 0b0001_1111_1111_1111;
-      let decoded = match Inst::try_from(inst) {
-        Ok(decoded) => decoded,
-        Err(e) => return Some(Err(DecodeErr::invalid_inst(self, token, e))),
-      };
-
-      Some(Ok(format!("{}", decoded)))
-    }
   }
 }
 

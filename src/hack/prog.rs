@@ -16,6 +16,7 @@ use crate::hack::Var;
 use crate::Buf;
 use crate::Loc;
 use derive_more::Display;
+use derive_more::From;
 use either::Either;
 use std::collections::HashMap as Map;
 
@@ -35,7 +36,7 @@ pub struct Prog<'b> {
 }
 
 /// Possible errors returned from loading a HACK assembly program.
-#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq, From)]
 #[display(fmt = "Program error: {}")]
 pub enum Err {
   /// Assembly errors.
@@ -50,7 +51,12 @@ pub enum Err {
   ///
   /// Contains the name and index of the label.
   #[display(fmt = "Duplicate label `{}` at `{}`", _0, _1)]
+  #[from(ignore)]
   DuplicateLabel(String, Loc),
+
+  /// Instruction decoding error.
+  #[display(fmt = "Decoding error: {}", _0)]
+  Decode(dec::DecodeErr),
 }
 
 impl<'b> Prog<'b> {
@@ -70,7 +76,7 @@ impl<'b> Prog<'b> {
   /// ```
   pub fn from_source(buf: Buf<'b>) -> Result<Self, Err> {
     let mut symtable = Map::new();
-    let mut instructions = Vec::new();
+    let mut insts = Vec::new();
     let parser = Parser::from(buf);
     let mut index = 0;
 
@@ -86,26 +92,40 @@ impl<'b> Prog<'b> {
           }
         }
         TokenKind::Addr(addr) => {
-          instructions.push(Either::Left(addr));
+          insts.push(Either::Left(addr));
           index += 1;
         }
         TokenKind::Inst(inst) => {
-          instructions.push(Either::Right(inst));
+          insts.push(Either::Right(inst));
           index += 1;
         }
       }
     }
 
-    Ok(Self { symtable, insts: instructions })
+    Ok(Self { symtable, insts })
   }
 
-  // pub fn from_bin(buf: Buf<'b>) -> Result<Self, Err> {
-  //   let mut parser: dec::Parser<dec::BinParser> = dec::Parser::from(buf);
-  //   let enc_insts: Vec<dec::Token> =
-  //     parser.collect::<Result<_, _>>().map_err(Err::Dis)?;
-  //   // let insts = parser.collect::<Result<_, _>>().map_err(Err::Dis)?;
-  //   // Ok(Self { symtable: Symtable::new(), insts })
-  // }
+  fn from_parser(
+    buf: Buf,
+    parser: &mut dyn Iterator<Item = Result<dec::Token, dec::Err>>,
+  ) -> Result<Self, Err> {
+    let insts = parser
+      .collect::<Result<Vec<dec::Token>, _>>()?
+      .into_iter()
+      .map(|t| t.decode(buf))
+      .collect::<Result<Vec<_>, _>>()?;
+    Ok(Self { symtable: Symtable::new(), insts })
+  }
+
+  pub fn from_bin(buf: Buf<'b>) -> Result<Self, Err> {
+    let mut parser: dec::Parser<dec::BinParser> = dec::Parser::from(buf);
+    Self::from_parser(buf, &mut parser)
+  }
+
+  pub fn from_bintext(buf: Buf<'b>) -> Result<Self, Err> {
+    let mut parser: dec::Parser<dec::BinTextParser> = dec::Parser::from(buf);
+    Self::from_parser(buf, &mut parser)
+  }
 
   /// Get the list of instructions in a program.
   pub fn insts(&self) -> &[Either<Addr<'b>, Inst>] {
