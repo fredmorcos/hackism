@@ -2,7 +2,6 @@
 
 #[cfg(test)]
 mod programs {
-  use has::dis;
   use has::HackProg;
   use std::fs;
   use std::fs::File;
@@ -32,7 +31,7 @@ mod programs {
         {
           let mut writer = BufWriter::new(&mut output);
 
-          for inst in prog.bintext_enc() {
+          for inst in prog.to_bintext() {
             writer.write_all(&inst).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }
@@ -55,7 +54,7 @@ mod programs {
 
         let mut input = Vec::with_capacity(1024);
         File::open(&file_path).unwrap().read_to_end(&mut input).unwrap();
-        let mut prog = dis::prog::Prog::new_text(input.as_slice()).unwrap();
+        let prog = HackProg::from_bintext(input.as_slice()).unwrap();
 
         file_path.set_extension("dis");
         let mut fixture = Vec::with_capacity(1024);
@@ -65,8 +64,7 @@ mod programs {
         {
           let mut writer = BufWriter::new(&mut output);
 
-          for inst in prog.decoder() {
-            let inst = &inst.unwrap();
+          for inst in prog.to_source() {
             writer.write_all(inst.as_bytes()).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }
@@ -89,7 +87,7 @@ mod programs {
 
         let mut input = Vec::with_capacity(1024);
         File::open(&file_path).unwrap().read_to_end(&mut input).unwrap();
-        let mut prog = dis::prog::Prog::new(input.as_slice()).unwrap();
+        let prog = HackProg::from_bin(input.as_slice()).unwrap();
 
         file_path.set_extension("dis");
         let mut fixture = Vec::with_capacity(1024);
@@ -99,8 +97,7 @@ mod programs {
         {
           let mut writer = BufWriter::new(&mut output);
 
-          for inst in prog.decoder() {
-            let inst = &inst.unwrap();
+          for inst in prog.to_source() {
             writer.write_all(inst.as_bytes()).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }

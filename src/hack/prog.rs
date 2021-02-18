@@ -105,10 +105,8 @@ impl<'b> Prog<'b> {
     Ok(Self { symtable, insts })
   }
 
-  fn from_parser(
-    buf: Buf,
-    parser: &mut dyn Iterator<Item = Result<dec::Token, dec::Err>>,
-  ) -> Result<Self, Err> {
+  pub fn from_bin(buf: Buf<'b>) -> Result<Self, Err> {
+    let parser: dec::Parser<dec::BinParser> = dec::Parser::from(buf);
     let insts = parser
       .collect::<Result<Vec<dec::Token>, _>>()?
       .into_iter()
@@ -117,14 +115,14 @@ impl<'b> Prog<'b> {
     Ok(Self { symtable: Symtable::new(), insts })
   }
 
-  pub fn from_bin(buf: Buf<'b>) -> Result<Self, Err> {
-    let mut parser: dec::Parser<dec::BinParser> = dec::Parser::from(buf);
-    Self::from_parser(buf, &mut parser)
-  }
-
   pub fn from_bintext(buf: Buf<'b>) -> Result<Self, Err> {
-    let mut parser: dec::Parser<dec::BinTextParser> = dec::Parser::from(buf);
-    Self::from_parser(buf, &mut parser)
+    let parser: dec::Parser<dec::BinTextParser> = dec::Parser::from(buf);
+    let insts = parser
+      .collect::<Result<Vec<dec::Token>, _>>()?
+      .into_iter()
+      .map(|t| t.decode(buf))
+      .collect::<Result<Vec<_>, _>>()?;
+    Ok(Self { symtable: Symtable::new(), insts })
   }
 
   /// Get the list of instructions in a program.
@@ -143,12 +141,16 @@ impl<'b> Prog<'b> {
   }
 
   /// Create and return a bintext encoder to encode this program.
-  pub fn bintext_enc<'p>(&'p mut self) -> enc::BinText<'p, 'b> {
+  pub fn to_bintext<'p>(&'p mut self) -> enc::BinText<'p, 'b> {
     enc::BinText::from(self)
   }
 
   /// Create and return a binary encoder to encode this program.
-  pub fn bin_enc<'p>(&'p mut self) -> enc::Bin<'p, 'b> {
+  pub fn to_bin<'p>(&'p mut self) -> enc::Bin<'p, 'b> {
     enc::Bin::from(self)
+  }
+
+  pub fn to_source(&self) -> impl Iterator<Item = String> + '_ {
+    self.insts.iter().map(|i| format!("{}", i))
   }
 }

@@ -215,6 +215,8 @@ impl DecodeErr {
   }
 }
 
+type Cmd<'b> = Either<Addr<'b>, Inst>;
+
 impl Token {
   /// Create a new token.
   ///
@@ -237,10 +239,7 @@ impl Token {
     self.value
   }
 
-  pub fn decode<'b, 'n>(
-    &self,
-    orig: Buf<'b>,
-  ) -> Result<Either<Addr<'n>, Inst>, DecodeErr> {
+  pub fn decode<'b, 'n>(&self, orig: Buf<'b>) -> Result<Cmd<'n>, DecodeErr> {
     if self.value & 0b1000_0000_0000_0000 == 0 {
       // A-instruction
       let inst = self.value & 0b0111_1111_1111_1111;

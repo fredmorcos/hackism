@@ -2,7 +2,6 @@
 
 use derive_more::Display;
 use derive_more::From;
-use has::dis;
 use has::hack::dec;
 use has::HackProg;
 use has::HackProgErr;
@@ -27,7 +26,7 @@ enum Err {
   Asm(HackProgErr),
 
   #[display(fmt = "Disassembler error: {}", _0)]
-  Dis(dis::prog::Err),
+  Dis(dec::Err),
 
   #[display(fmt = "Decoding error: {}", _0)]
   Decode(dec::DecodeErr),
@@ -128,12 +127,12 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
   let mut writer = create_outfile(&out)?;
 
   if text {
-    for inst in prog.bintext_enc() {
+    for inst in prog.to_bintext() {
       writer.write_all(&inst)?;
       writer.write_all(&[b'\n'])?;
     }
   } else {
-    for inst in prog.bin_enc() {
+    for inst in prog.to_bin() {
       writer.write_all(&inst)?;
     }
   }
@@ -146,13 +145,11 @@ fn exec_dis(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
   let buf = read_file(&file)?;
 
   info!("Parsing {}", file.display());
-  let mut prog =
-    if text { dis::prog::Prog::new_text(&buf)? } else { dis::prog::Prog::new(&buf)? };
+  let prog = if text { HackProg::from_bintext(&buf)? } else { HackProg::from_bin(&buf)? };
 
   let mut writer = create_outfile(&out)?;
 
-  for inst in prog.decoder() {
-    let inst = inst?;
+  for inst in prog.to_source() {
     writer.write_all(inst.as_bytes())?;
     writer.write_all(&[b'\n'])?;
   }
