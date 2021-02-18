@@ -21,7 +21,7 @@ mod programs {
 
         let mut input = Vec::with_capacity(1024);
         File::open(&file_path).unwrap().read_to_end(&mut input).unwrap();
-        let mut prog = HackProg::from_source(input.as_slice()).unwrap();
+        let prog = HackProg::from_source(input.as_slice()).unwrap();
 
         file_path.set_extension("hack");
         let mut fixture = Vec::with_capacity(1024);
@@ -32,6 +32,7 @@ mod programs {
           let mut writer = BufWriter::new(&mut output);
 
           for inst in prog.to_bintext() {
+            let inst = inst.unwrap();
             writer.write_all(&inst).unwrap();
             writer.write_all(&[b'\n']).unwrap();
           }

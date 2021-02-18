@@ -123,16 +123,18 @@ fn exec_asm(text: bool, out: PathBuf, file: PathBuf) -> Result<(), Err> {
   let buf = read_file(&file)?;
 
   info!("Parsing {}", file.display());
-  let mut prog = HackProg::from_source(buf.as_slice())?;
+  let prog = HackProg::from_source(buf.as_slice())?;
   let mut writer = create_outfile(&out)?;
 
   if text {
     for inst in prog.to_bintext() {
+      let inst = inst?;
       writer.write_all(&inst)?;
       writer.write_all(&[b'\n'])?;
     }
   } else {
     for inst in prog.to_bin() {
+      let inst = inst?;
       writer.write_all(&inst)?;
     }
   }

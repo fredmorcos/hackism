@@ -5,8 +5,8 @@
 //! source code or disassembled from a compiled HACK binary or bintext
 //! file.
 
+use crate::conv;
 use crate::hack::dec;
-use crate::hack::enc;
 use crate::hack::Addr;
 use crate::hack::Inst;
 use crate::hack::Label;
@@ -53,6 +53,10 @@ pub enum Err {
   #[display(fmt = "Duplicate label `{}` at `{}`", _0, _1)]
   #[from(ignore)]
   DuplicateLabel(String, Loc),
+
+  /// Label or user-defined variable not found.
+  #[display(fmt = "Label or variable `{}` not found", _0)]
+  LabelNotFound(String),
 
   /// Instruction decoding error.
   #[display(fmt = "Decoding error: {}", _0)]
@@ -102,6 +106,18 @@ impl<'b> Prog<'b> {
       }
     }
 
+    let mut var_index = 16;
+
+    for inst in &insts {
+      if let Either::Left(Addr::Label(label)) = inst {
+        symtable.entry(*label).or_insert_with(|| {
+          let current_var_index = var_index;
+          var_index += 1;
+          current_var_index
+        });
+      }
+    }
+
     Ok(Self { symtable, insts })
   }
 
@@ -141,13 +157,31 @@ impl<'b> Prog<'b> {
   }
 
   /// Create and return a bintext encoder to encode this program.
-  pub fn to_bintext<'p>(&'p mut self) -> enc::BinText<'p, 'b> {
-    enc::BinText::from(self)
+  pub fn to_bintext(&self) -> impl Iterator<Item = Result<[u8; 16], Err>> + '_ {
+    self.to_bin().map(|res| match res {
+      Ok(val) => Ok(conv::u16_bintext(u16::from(val[0]) << 8 | u16::from(val[1]))),
+      Err(e) => Err(e),
+    })
   }
 
   /// Create and return a binary encoder to encode this program.
-  pub fn to_bin<'p>(&'p mut self) -> enc::Bin<'p, 'b> {
-    enc::Bin::from(self)
+  pub fn to_bin(&self) -> impl Iterator<Item = Result<[u8; 2], Err>> + '_ {
+    self.insts.iter().copied().map(move |i| {
+      let addr = match i {
+        Either::Right(inst) => u16::from(inst),
+        Either::Left(Addr::Num(addr)) => addr,
+        Either::Left(Addr::Sym(sym)) => u16::from(sym),
+        Either::Left(Addr::Label(label)) => {
+          if let Some(&addr) = self.symtable.get(&label) {
+            addr
+          } else {
+            return Err(Err::LabelNotFound(String::from(label.name())));
+          }
+        }
+      };
+
+      Ok([(addr >> 8) as u8, addr as u8])
+    })
   }
 
   pub fn to_source(&self) -> impl Iterator<Item = String> + '_ {
