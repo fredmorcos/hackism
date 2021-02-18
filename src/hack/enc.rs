@@ -32,7 +32,7 @@ impl Iterator for Bin<'_, '_> {
       Either::Right(inst) => u16::from(inst),
       Either::Left(Addr::Num(addr)) => addr,
       Either::Left(Addr::Sym(sym)) => u16::from(sym),
-      Either::Left(Addr::Var(var)) => {
+      Either::Left(Addr::Label(var)) => {
         if let Some(&v) = self.prog.symtable().get(&var) {
           v
         } else {

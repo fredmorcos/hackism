@@ -1,7 +1,7 @@
 //! Numerical and named addresses for the HACK assembly language.
 
+use crate::hack::Label;
 use crate::hack::Sym;
-use crate::hack::Var;
 use crate::parser;
 use crate::Buf;
 use crate::Byte;
@@ -19,7 +19,7 @@ use std::convert::TryFrom;
 /// remaining 15 bits.
 ///
 /// Numerical address objects can be created from [u16] values and
-/// named address objects from (variables)[Var] or (symbols)[Sym].
+/// named address objects from (labels)[Label] or (symbols)[Sym].
 ///
 /// # Examples
 ///
@@ -27,7 +27,7 @@ use std::convert::TryFrom;
 /// use has::hack::Addr;
 /// use has::hack::AddrErr;
 /// use has::hack::Sym;
-/// use has::hack::Var;
+/// use has::hack::Label;
 /// use std::convert::TryFrom;
 ///
 /// let num = 25;
@@ -36,8 +36,8 @@ use std::convert::TryFrom;
 /// let sym = Sym::LCL;
 /// assert_eq!(Addr::from(sym), Addr::Sym(sym));
 ///
-/// let var = Var::try_from("label".as_bytes()).unwrap();
-/// assert_eq!(Addr::from(var), Addr::Var(var));
+/// let label = Label::try_from("label".as_bytes()).unwrap();
+/// assert_eq!(Addr::from(label), Addr::Label(label));
 /// ```
 #[derive(Display, Debug, PartialEq, Eq, Clone, Copy, From)]
 #[display(fmt = "@{}")]
@@ -49,7 +49,7 @@ pub enum Addr<'b> {
 
   /// User-defined label address.
   #[display(fmt = "{}", _0)]
-  Var(Var<'b>),
+  Label(Label<'b>),
 
   /// Predefined symbol address.
   #[display(fmt = "{}", _0)]
@@ -135,7 +135,7 @@ impl<'b> Addr<'b> {
   /// ```
   /// use has::hack::AddrErr;
   /// use has::hack::Addr;
-  /// use has::hack::Var;
+  /// use has::hack::Label;
   /// use has::hack::Sym;
   /// use std::convert::TryFrom;
   ///
@@ -151,16 +151,16 @@ impl<'b> Addr<'b> {
   /// let expected = (Addr::Num(123), "".as_bytes(), 3);
   /// assert_eq!(Addr::read_from("123".as_bytes()), Ok(expected));
   ///
-  /// let var = Var::try_from("Foo".as_bytes()).unwrap();
-  /// let expected = (Addr::Var(var), "".as_bytes(), 3);
+  /// let label = Label::try_from("Foo".as_bytes()).unwrap();
+  /// let expected = (Addr::Label(label), "".as_bytes(), 3);
   /// assert_eq!(Addr::read_from("Foo".as_bytes()), Ok(expected));
   ///
-  /// let var = Var::try_from("F_B".as_bytes()).unwrap();
-  /// let expected = (Addr::Var(var), "".as_bytes(), 3);
+  /// let label = Label::try_from("F_B".as_bytes()).unwrap();
+  /// let expected = (Addr::Label(label), "".as_bytes(), 3);
   /// assert_eq!(Addr::read_from("F_B".as_bytes()), Ok(expected));
   ///
-  /// let var = Var::try_from("_FB".as_bytes()).unwrap();
-  /// let expected = (Addr::Var(var), "".as_bytes(), 3);
+  /// let label = Label::try_from("_FB".as_bytes()).unwrap();
+  /// let expected = (Addr::Label(label), "".as_bytes(), 3);
   /// assert_eq!(Addr::read_from("_FB".as_bytes()), Ok(expected));
   ///
   /// let sym = Sym::try_from("LCL".as_bytes()).unwrap();
@@ -190,7 +190,7 @@ impl<'b> Addr<'b> {
       return Ok((Self::from(sym), rem, txt.len()));
     }
 
-    if let Ok(label) = Var::try_from(txt) {
+    if let Ok(label) = Label::try_from(txt) {
       return Ok((Self::from(label), rem, txt.len()));
     }
 

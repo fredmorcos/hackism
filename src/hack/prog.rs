@@ -9,10 +9,10 @@ use crate::hack::dec;
 use crate::hack::enc;
 use crate::hack::Addr;
 use crate::hack::Inst;
+use crate::hack::Label;
 use crate::hack::Parser;
 use crate::hack::ParserErr;
 use crate::hack::TokenKind;
-use crate::hack::Var;
 use crate::Buf;
 use crate::Loc;
 use derive_more::Display;
@@ -21,7 +21,7 @@ use either::Either;
 use std::collections::HashMap as Map;
 
 /// Symbol table.
-pub type Symtable<'b> = Map<Var<'b>, u16>;
+pub type Symtable<'b> = Map<Label<'b>, u16>;
 
 /// A HACK assembly program.
 ///
@@ -85,7 +85,7 @@ impl<'b> Prog<'b> {
       let token_index = token.index();
 
       match token.kind() {
-        TokenKind::Var(label) => {
+        TokenKind::Label(label) => {
           if symtable.insert(label, index).is_some() {
             let token_loc = Loc::from_index(buf, token_index);
             return Err(Err::DuplicateLabel(String::from(label.name()), token_loc));
