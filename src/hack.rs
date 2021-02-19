@@ -2,6 +2,7 @@
 //! language.
 
 pub mod addr;
+pub mod cmd;
 pub mod comp;
 pub mod dec;
 pub mod dest;
@@ -14,6 +15,8 @@ pub mod sym;
 
 pub use addr::Addr;
 pub use addr::Err as AddrErr;
+pub use cmd::Cmd;
+pub use cmd::Err as CmdErr;
 pub use comp::Comp;
 pub use comp::Err as CompErr;
 pub use dest::Dest;

@@ -8,7 +8,8 @@
 use crate::conv;
 use crate::hack::dec;
 use crate::hack::Addr;
-use crate::hack::Inst;
+use crate::hack::Cmd;
+use crate::hack::CmdErr;
 use crate::hack::Label;
 use crate::hack::Parser;
 use crate::hack::ParserErr;
@@ -17,7 +18,6 @@ use crate::Buf;
 use crate::Loc;
 use derive_more::Display;
 use derive_more::From;
-use either::Either;
 use std::collections::HashMap as Map;
 
 /// Symbol table.
@@ -32,7 +32,7 @@ pub struct Prog<'b> {
   symtable: Symtable<'b>,
 
   /// List of collected instructions.
-  insts: Vec<Either<Addr<'b>, Inst>>,
+  insts: Vec<Cmd<'b>>,
 }
 
 /// Possible errors returned from loading a HACK assembly program.
@@ -60,7 +60,7 @@ pub enum Err {
 
   /// Instruction decoding error.
   #[display(fmt = "Decoding error: {}", _0)]
-  Decode(dec::DecodeErr),
+  Decode(CmdErr),
 }
 
 impl<'b> Prog<'b> {
@@ -96,11 +96,11 @@ impl<'b> Prog<'b> {
           }
         }
         TokenKind::Addr(addr) => {
-          insts.push(Either::Left(addr));
+          insts.push(Cmd::Addr(addr));
           index += 1;
         }
         TokenKind::Inst(inst) => {
-          insts.push(Either::Right(inst));
+          insts.push(Cmd::Inst(inst));
           index += 1;
         }
       }
@@ -109,7 +109,7 @@ impl<'b> Prog<'b> {
     let mut var_index = 16;
 
     for inst in &insts {
-      if let Either::Left(Addr::Label(label)) = inst {
+      if let Cmd::Addr(Addr::Label(label)) = inst {
         symtable.entry(*label).or_insert_with(|| {
           let current_var_index = var_index;
           var_index += 1;
@@ -121,28 +121,34 @@ impl<'b> Prog<'b> {
     Ok(Self { symtable, insts })
   }
 
+  /// Create a program from a buffer containing HACK binary code.
+  ///
+  /// This parses the input buffer and populates an empty symbol table.
   pub fn from_bin(buf: Buf<'b>) -> Result<Self, Err> {
     let parser: dec::Parser<dec::BinParser> = dec::Parser::from(buf);
     let insts = parser
       .collect::<Result<Vec<dec::Token>, _>>()?
       .into_iter()
-      .map(|t| t.decode(buf))
+      .map(|t| Cmd::new(t.value(), t.index(), buf))
       .collect::<Result<Vec<_>, _>>()?;
     Ok(Self { symtable: Symtable::new(), insts })
   }
 
+  /// Create a program from a buffer containing HACK bintext code.
+  ///
+  /// This parses the input buffer and populates an empty symbol table.
   pub fn from_bintext(buf: Buf<'b>) -> Result<Self, Err> {
     let parser: dec::Parser<dec::BinTextParser> = dec::Parser::from(buf);
     let insts = parser
       .collect::<Result<Vec<dec::Token>, _>>()?
       .into_iter()
-      .map(|t| t.decode(buf))
+      .map(|t| Cmd::new(t.value(), t.index(), buf))
       .collect::<Result<Vec<_>, _>>()?;
     Ok(Self { symtable: Symtable::new(), insts })
   }
 
   /// Get the list of instructions in a program.
-  pub fn insts(&self) -> &[Either<Addr<'b>, Inst>] {
+  pub fn insts(&self) -> &[Cmd<'b>] {
     &self.insts
   }
 
@@ -168,10 +174,10 @@ impl<'b> Prog<'b> {
   pub fn to_bin(&self) -> impl Iterator<Item = Result<[u8; 2], Err>> + '_ {
     self.insts.iter().copied().map(move |i| {
       let addr = match i {
-        Either::Right(inst) => u16::from(inst),
-        Either::Left(Addr::Num(addr)) => addr,
-        Either::Left(Addr::Sym(sym)) => u16::from(sym),
-        Either::Left(Addr::Label(label)) => {
+        Cmd::Inst(inst) => u16::from(inst),
+        Cmd::Addr(Addr::Num(addr)) => addr,
+        Cmd::Addr(Addr::Sym(sym)) => u16::from(sym),
+        Cmd::Addr(Addr::Label(label)) => {
           if let Some(&addr) = self.symtable.get(&label) {
             addr
           } else {
@@ -184,6 +190,7 @@ impl<'b> Prog<'b> {
     })
   }
 
+  /// Produce HACK assembly out of the instructions in a program.
   pub fn to_source(&self) -> impl Iterator<Item = String> + '_ {
     self.insts.iter().map(|i| format!("{}", i))
   }

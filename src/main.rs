@@ -2,6 +2,7 @@
 
 use derive_more::Display;
 use derive_more::From;
+use has::hack;
 use has::hack::dec;
 use has::HackProg;
 use has::HackProgErr;
@@ -29,7 +30,7 @@ enum Err {
   Dis(dec::Err),
 
   #[display(fmt = "Decoding error: {}", _0)]
-  Decode(dec::DecodeErr),
+  Decode(hack::CmdErr),
 }
 
 impl fmt::Debug for Err {

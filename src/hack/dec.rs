@@ -1,17 +1,11 @@
 //! Parser for disassembling HACK programs from binary and bintext
 //! files.
 
-use crate::hack::Addr;
-use crate::hack::AddrErr;
-use crate::hack::Inst;
-use crate::hack::InstDecodeErr;
 use crate::parser;
 use crate::Buf;
 use crate::Index;
 use crate::Loc;
 use derive_more::Display;
-use either::Either;
-use std::convert::TryFrom;
 use std::marker::PhantomData;
 
 /// Shorthand for items returned by the (parser)(Parser)
@@ -190,33 +184,6 @@ pub struct Token {
   value: u16,
 }
 
-/// Errors when decoding programs from their compiled form.
-#[derive(Display, Debug, Clone, PartialEq, Eq)]
-#[display(fmt = "Disassembler decoding error: {}")]
-pub enum DecodeErr {
-  /// Invalid instruction.
-  #[display(fmt = "Invalid instruction at {}: {}", _0, _1)]
-  InvalidInst(Loc, InstDecodeErr),
-
-  /// Invalid address.
-  #[display(fmt = "Invalid address instruction {}: {}", _0, _1)]
-  InvalidAddr(Loc, AddrErr),
-}
-
-impl DecodeErr {
-  /// Create a `DecodeErr::InvalidInst` variant.
-  pub fn invalid_inst(orig: Buf, tok: &Token, err: InstDecodeErr) -> Self {
-    Self::InvalidInst(Loc::from_index(orig, tok.index()), err)
-  }
-
-  /// Create a `DecodeErr::InvalidAddr` variant.
-  pub fn invalid_addr(orig: Buf, tok: &Token, err: AddrErr) -> Self {
-    Self::InvalidAddr(Loc::from_index(orig, tok.index()), err)
-  }
-}
-
-type Cmd<'b> = Either<Addr<'b>, Inst>;
-
 impl Token {
   /// Create a new token.
   ///
@@ -237,24 +204,6 @@ impl Token {
   /// Returns the instruction.
   pub fn value(&self) -> u16 {
     self.value
-  }
-
-  pub fn decode<'b, 'n>(&self, orig: Buf<'b>) -> Result<Cmd<'n>, DecodeErr> {
-    if self.value & 0b1000_0000_0000_0000 == 0 {
-      // A-instruction
-      let inst = self.value & 0b0111_1111_1111_1111;
-      match Addr::try_from(inst) {
-        Ok(decoded) => Ok(Either::Left(decoded)),
-        Err(e) => Err(DecodeErr::invalid_addr(orig, self, e)),
-      }
-    } else {
-      // C-instruction
-      let inst = self.value & 0b0001_1111_1111_1111;
-      match Inst::try_from(inst) {
-        Ok(decoded) => Ok(Either::Right(decoded)),
-        Err(e) => Err(DecodeErr::invalid_inst(orig, self, e)),
-      }
-    }
   }
 }
 
