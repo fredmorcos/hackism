@@ -1,22 +1,19 @@
 [package]
-name = "has"
+name = "hackism"
 version = "0.3.0"
-description = "HACK Application Suite"
+description = "A HACK & JACK Application Suite"
 edition = "2018"
 authors = ["Fred Morcos <fm@fredmorcos.com>"]
 license = "MIT"
-homepage = "https://github.com/fredmorcos/has"
-repository = "https://github.com/fredmorcos/has"
+homepage = "https://github.com/fredmorcos/hackism"
+repository = "https://github.com/fredmorcos/hackism"
 readme = "README.md"
 # documentation =
 keywords = ["HACK", "JACK", "assembler", "emulator", "compiler"]
 categories = ["command-line-utilities", "emulators", "parser-implementations"]
 
 [lib]
-name = "has"
-
-[[bin]]
-name = "has"
+name = "hackism"
 
 [dependencies]
 structopt = "0.3"

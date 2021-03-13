@@ -1,24 +1,28 @@
-# `HAS`: The HACK Application Suite
+# `Hackism`: A HACK & JACK Application Suite
 
-[![License](https://img.shields.io/github/license/fredmorcos/has?style=for-the-badge)](https://github.com/fredmorcos/has/blob/master/LICENSE)
-[![Release (latest SemVer)](https://img.shields.io/github/v/release/fredmorcos/has?sort=semver&style=for-the-badge)](https://github.com/fredmorcos/has/releases)
-[![Release](https://img.shields.io/github/workflow/status/fredmorcos/has/Release?label=Release&style=for-the-badge)](https://github.com/fredmorcos/has/releases)
-[![CI](https://img.shields.io/github/workflow/status/fredmorcos/has/CI?label=Master&style=for-the-badge)](https://github.com/fredmorcos/has/actions)
+[![License](https://img.shields.io/github/license/fredmorcos/hackism?style=for-the-badge)](https://github.com/fredmorcos/hackism/blob/master/LICENSE)
+[![Release (latest SemVer)](https://img.shields.io/github/v/release/fredmorcos/hackism?sort=semver&style=for-the-badge)](https://github.com/fredmorcos/hackism/releases)
+[![Release](https://img.shields.io/github/workflow/status/fredmorcos/hackism/Release?label=Release&style=for-the-badge)](https://github.com/fredmorcos/hackism/releases)
+[![CI](https://img.shields.io/github/workflow/status/fredmorcos/hackism/CI?label=Master&style=for-the-badge)](https://github.com/fredmorcos/hackism/actions)
 
-https://github.com/fredmorcos/has
+https://github.com/fredmorcos/hackism
 
-`HAS` is MIT licensed (see the `LICENSE` file) unless otherwise stated
-at the top of a file.
+The `Hackism` project is MIT licensed (see the `LICENSE` file). Some
+test files are licensed differently and such is stated at the top of
+the file.
 
 ## About
 
-The HACK Application Suite is a library and a program for handling
-various tasks related to the HACK CPU and instruction set as well as
-the JACK programming language. HAS currently consists of the
-following:
+The `Hackism` project is a suite of applications related to the HACK
+machine and JACK programming language and VM taught by the
+[`Nand2Tetris`](https://www.nand2tetris.org/) course. The application
+suite is a library and set of programs for handling various tasks
+related to the HACK CPU, micro-architecture and instruction set as
+well as the JACK programming language and virtual machine. `Hackism`
+currently consists of the following:
 
-- [x] HACK assembler
-- [x] HACK disassembler
+- [x] Library for parsing HACK assembly
+- [x] HACK assembler and disassembler
 - [ ] HACK interpreter
 - [ ] HACK CPU emulator
 - [ ] JACK virtual machine
@@ -26,88 +30,41 @@ following:
 
 ## Usage
 
-`HAS` makes use of subcommands.
+`Hackism` executables can be run using `cargo run --bin <NAME>` in the
+project directory or as standalone executables such as
+`hackism-NAME`. The `--help` flag is available on all `Hackism`
+executables and can be used to discover more information about each
+command. The `--verbose` flag is also available on all `Hackism`
+programs for more verbose output.
 
-`cargo run -- --help` or `has --help`:
+### Examples
 
-```
-has 0.3.0
-The HACK Application Suite
+To assemble a `.asm` HACK file with logging enabled: `hackism-asm -vvv
+infile.asm -o outfile.hack`.
 
-USAGE:
-    has [FLAGS] <SUBCOMMAND>
+To disassemble a `.hack` file: `hackism-dis infile.hack -o
+outfile.asm`.
 
-FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-    -v, --verbose    Verbose output (can be specified multiple times)
+## `Bin` and `Bintext`
 
-SUBCOMMANDS:
-    asm     Assemble a HACK file
-    dis     Disassemble a HACK file
-    help    Prints this message or the help of the given subcommand(s)
-```
+The tools provided by the `Nand2Tetris` course primarily deal with
+what I call `bintext`: A textual representation of values in binary
+form. This is generally awkward but a good way to teach the concepts
+without having to teach how to deal with binary data.
 
-### Assembler
+The predecessor of `hackism` dealt with both types of data (e.g. by
+passing a `--bintext` flag when `bintext` was involved or
+desired). However, I decided that continuing to do so was not worth
+the abstraction hassles. Hence, `hackism` only deals with `bintext`.
 
-The assembler can only build a single file at a time. The output file
-must not already exist.
+## Building and Installation
 
-`has asm --help`:
+Cargo can be used to build and install `hackism` programs into
+`~/.cargo/bin` using `cargo install --path .` (note the `dot` at the
+end of the command). The program names are all prefixed with
+`hackism-` (e.g. `hackism-asm`, `hackism-dis`, etc...).
 
-```
-has-asm 0.3.0
-Assemble a HACK file
+## Testing
 
-USAGE:
-    has asm [FLAGS] <FILE> --out <OUT>
-
-FLAGS:
-    -b, --bintext    Output a bintext instead of binary file
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-OPTIONS:
-    -o, --out <OUT>    Output file (must not exist)
-
-ARGS:
-    <FILE>    Hack assembly file to compile
-```
-
-### Disassembler
-
-The disassembler can only disassemble a single file at a time. The
-output file must not already exist.
-
-`has dis --help`:
-
-```
-has-dis 0.3.0
-Disassemble a HACK file
-
-USAGE:
-    has dis [FLAGS] <FILE> --out <OUT>
-
-FLAGS:
-    -b, --bintext    The input is a bintext instead of a binary file
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-
-OPTIONS:
-    -o, --out <OUT>    Output file (must not exist)
-
-ARGS:
-    <FILE>    Hack file to disassemble
-```
-
-## Examples
-
-Assemble a `.asm` file with logging enabled: `has -vvv asm infile.asm -o outfile.hack`
-
-## Installation
-
-Cargo can be used to install `HAS` into `~/.cargo/bin`: `cargo install --path .`
-
-## Tests
-
-To test the `HAS` library, execute `cargo test` in the top-level directory.
+To test the `hackism` library, execute `cargo test` in the top-level
+directory of the project.

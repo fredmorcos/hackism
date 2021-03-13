@@ -1,0 +1,6 @@
+* Rename project to `hackism`.
+
+* Rework most of the project structure, primarily the parser and
+  tests.
+
+* Each individual tool is now a separate executable.
