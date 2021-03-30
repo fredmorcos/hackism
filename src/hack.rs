@@ -1,37 +1,62 @@
-//! Submodule for common structures related to the HACK assembly
-//! language.
+//! Structures for handling `HACK` source code and programs.
+//!
+//! [Lexer] and [Parser] can be used to read in `HACK` assembly
+//! programs.
+//!
+//! [Destination], [Computation] and [Jump] can be used to construct
+//! `HACK` instructions.
 
-pub mod addr;
-pub mod cmd;
-pub mod comp;
-pub mod dec;
-pub mod dest;
-pub mod inst;
+// pub mod address;
+pub mod computation;
+pub mod destination;
+// pub mod instruction;
 pub mod jump;
-pub mod label;
-pub mod parser;
-pub mod prog;
-pub mod sym;
+// pub mod lexer;
+// pub mod parser;
+// pub mod predefined;
+// pub mod tokens;
 
-pub use addr::Addr;
-pub use addr::Err as AddrErr;
-pub use cmd::Cmd;
-pub use cmd::Err as CmdErr;
-pub use comp::Comp;
-pub use comp::Err as CompErr;
-pub use dest::Dest;
-pub use dest::Err as DestErr;
-pub use inst::DecodeErr as InstDecodeErr;
-pub use inst::Err as InstErr;
-pub use inst::Inst;
-pub use jump::Err as JumpErr;
-pub use jump::Jump;
-pub use label::Err as LabelErr;
-pub use label::Label;
-pub use parser::Err as ParserErr;
-pub use parser::Parser;
-pub use parser::Token;
-pub use parser::TokenKind;
-pub use prog::Err as ProgErr;
-pub use prog::Prog;
-pub use sym::Sym;
+// pub use address::Address;
+// pub use address::Address as HackAddress;
+// pub use computation::Computation;
+// pub use computation::Computation as HackComputation;
+// pub use destination::Destination;
+// pub use destination::Destination as HackDestination;
+// pub use instruction::Instruction;
+// pub use instruction::Instruction as HackInstruction;
+// pub use jump::Jump;
+// pub use jump::Jump as HackJump;
+// pub use lexer::Error as LexerError;
+// pub use lexer::Error as HackLexerError;
+// pub use lexer::Lexer;
+// pub use lexer::Lexer as HackLexer;
+// pub use parser::Parser;
+// pub use parser::Parser as HackParser;
+// pub use predefined::PredefinedAddress;
+// pub use predefined::PredefinedAddress as HackPredefinedAddress;
+// pub use tokens::CommentToken;
+// pub use tokens::CommentToken as HackCommentToken;
+// pub use tokens::ComputationToken;
+// pub use tokens::ComputationToken as HackComputationToken;
+// pub use tokens::DestinationToken;
+// pub use tokens::DestinationToken as HackDestinationToken;
+// pub use tokens::EqualToken;
+// pub use tokens::EqualToken as HackEqualToken;
+// pub use tokens::JumpToken;
+// pub use tokens::JumpToken as HackJumpToken;
+// pub use tokens::LabelToken;
+// pub use tokens::LabelToken as HackLabelToken;
+// pub use tokens::NamedAddressToken;
+// pub use tokens::NamedAddressToken as HackNamedAddressToken;
+// pub use tokens::NewlinesToken;
+// pub use tokens::NewlinesToken as HackNewlinesToken;
+// pub use tokens::NumericAddressToken;
+// pub use tokens::NumericAddressToken as HackNumericAddressToken;
+// pub use tokens::PredefinedAddressToken;
+// pub use tokens::PredefinedAddressToken as HackPredefinedAddressToken;
+// pub use tokens::SemicolonToken;
+// pub use tokens::SemicolonToken as HackSemicolonToken;
+// pub use tokens::Token;
+// pub use tokens::Token as HackToken;
+// pub use tokens::WhitespaceToken;
+// pub use tokens::WhitespaceToken as HackWhitespaceToken;
