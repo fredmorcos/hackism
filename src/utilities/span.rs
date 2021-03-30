@@ -54,11 +54,12 @@ impl Span {
 ///
 /// # Variants
 ///
-/// * `(start_index, start_line, start_column, end_index, end_line,
-/// end_column)` - Creates two [`Location`] objects out of the
-/// `$start_` and `$end_` arguments, then creates the [`Span`] object.
+/// * `($start_index, $start_line, $start_column, $end_index,
+/// $end_line, $end_column)` - Creates two [`Location`] objects out of
+/// the `$start_` and `$end_` arguments, then creates the [`Span`]
+/// object.
 ///
-/// * `(start, end)` - Creates two [`Location`] objects using
+/// * `($start, $end)` - Creates two [`Location`] objects using
 /// [`Location::from`], then creates the [`Span`] object. This means
 /// that location triples and location objects can be passed to this
 /// variant.

@@ -1,10 +1,13 @@
 //! Structures for handling `HACK` source code and programs.
 //!
-//! [Lexer] and [Parser] can be used to read in `HACK` assembly
+//! [`Lexer`] and [`Parser`] can be used to read in `HACK` assembly
 //! programs.
 //!
-//! [Destination], [Computation] and [Jump] can be used to construct
+//! [`Destination`], [`Computation`], [`Jump`] and [`Instruction`] can be used to construct
 //! `HACK` instructions.
+//!
+//! [`Address`] and related structs can be used to construct `HACK`
+//! address instructions.
 
 // pub mod address;
 pub mod computation;

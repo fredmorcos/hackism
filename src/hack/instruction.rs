@@ -2,9 +2,8 @@
 
 use super::Computation;
 use super::Destination;
-use super::EqualToken;
 use super::Jump;
-use super::SemicolonToken;
+use crate::utilities::Span;
 use derive_more::Display;
 
 /// An instruction as defined by the HACK assembly reference.
@@ -21,6 +20,9 @@ pub enum Instruction {
 
     /// Assignment computation.
     computation: Computation,
+
+    /// Span.
+    span: Option<Span>,
   },
 
   /// An instruction without a destination section.
@@ -31,6 +33,9 @@ pub enum Instruction {
 
     /// Branch jump.
     jump: Jump,
+
+    /// Span.
+    span: Option<Span>,
   },
 
   /// An instruction with all sections used.
@@ -44,11 +49,24 @@ pub enum Instruction {
 
     /// Instruction jump.
     jump: Jump,
+
+    /// Span.
+    span: Option<Span>,
   },
 }
 
 impl Instruction {
-  /// Create a new instruction.
+  /// Create a `HACK` instruction.
+  ///
+  /// # Arguments
+  ///
+  /// * `destination` - An optional [`Destination`] component.
+  ///
+  /// * `computation` - The [`Computation`] component.
+  ///
+  /// * `jump` - An optional [`Jump`] component.
+  ///
+  /// # Returns
   ///
   /// [Option::None] if both the `destination` and the `jump` are
   /// [Option::None].
@@ -57,34 +75,103 @@ impl Instruction {
     computation: Computation,
     jump: Option<Jump>,
   ) -> Option<Self> {
+    Self::new_with_span(destination, computation, jump, None)
+  }
+
+  /// Create a `HACK` instruction.
+  ///
+  /// # Arguments
+  ///
+  /// * `destination` - An optional [`Destination`] component.
+  ///
+  /// * `computation` - The [`Computation`] component.
+  ///
+  /// * `jump` - An optional [`Jump`] component.
+  ///
+  /// * `span` - The [`Span`] of the instruction.
+  ///
+  /// # Returns
+  ///
+  /// [Option::None] if both the `destination` and the `jump` are
+  /// [Option::None].
+  pub fn new_with_source(
+    destination: Option<Destination>,
+    computation: Computation,
+    jump: Option<Jump>,
+    span: Span,
+  ) -> Option<Self> {
+    Self::new_with_span(destination, computation, jump, Some(span))
+  }
+
+  /// Create a `HACK` instruction.
+  ///
+  /// # Arguments
+  ///
+  /// * `destination` - An optional [`Destination`] component.
+  ///
+  /// * `computation` - The [`Computation`] component.
+  ///
+  /// * `jump` - An optional [`Jump`] component.
+  ///
+  /// # Returns
+  ///
+  /// [Option::None] if both the `destination` and the `jump` are
+  /// [Option::None].
+  fn new_with_span(
+    destination: Option<Destination>,
+    computation: Computation,
+    jump: Option<Jump>,
+    span: Option<Span>,
+  ) -> Option<Self> {
     match (destination, jump) {
       (Some(destination), Some(jump)) => {
-        Some(Self::Instruction { d: destination, computation, j: jump })
+        Some(Self::Instruction { destination, computation, jump, span })
       }
-      (Some(destination), None) => Some(Self::Assignment { destination, computation }),
-      (None, Some(jump)) => Some(Self::Branch { computation, jump }),
+      (Some(destination), None) => {
+        Some(Self::Assignment { destination, computation, span })
+      }
+      (None, Some(jump)) => Some(Self::Branch { computation, jump, span }),
       (None, None) => None,
     }
   }
 }
 
-/// Shorthand for creating specific instructions.
+/// Shorthand for creating specific [`Instruction`] objects.
+///
+/// See [`Instruction::new`].
+///
+/// # Variants
+///
+/// * `($destination = $computation)` - Creates an
+/// [`Instruction::Assignment`] object.
+///
+/// * `($computation, $jump)` - Creates an [`Instruction::Branch`]
+/// object.
+///
+/// * `($destination = $computation, $jump)` - Creates an
+/// [`Instruction::Instruction`] object.
 #[macro_export]
 macro_rules! instruction {
-  ($destination:ident=$computation:ident) => {
+  ($destination:ident = $computation:ident) => {
     Instruction::Assignment {
-      destination: Destination::$destination,
-      computation: Computation::$computation,
+      destination: Destination::$destination { span: None },
+      computation: Computation::$computation { span: None },
+      span: None,
     }
   };
-  ($computation:ident,$jump:ident) => {
-    Instruction::Branch { computation: Computation::$computation, jump: Jump::$jump }
+  ($computation:ident, $jump:ident) => {
+    Instruction::Branch {
+      computation: Computation::$computation { span: None },
+      jump: Jump::$jump { span: None },
+      span: None,
+    }
   };
   ($destination:ident=$computation:ident, $jump:ident) => {
     Instruction::Instruction {
-      destination: Destination::$destination,
-      computation: Computation::$computation,
-      jump: Jump::$jump,
+      destination: Destination::$destination { span: None },
+      computation: Computation::$computation { span: None },
+      jump: Jump::$jump { span: None },
+      span: None,
     }
   };
 }
@@ -92,10 +179,10 @@ macro_rules! instruction {
 #[cfg(test)]
 mod tests {
   use super::Instruction;
+  use crate::assert_format;
   use crate::hack::Computation;
   use crate::hack::Destination;
   use crate::hack::Jump;
-  use crate::utilities::tests;
 
   #[test]
   fn display() {
@@ -104,5 +191,46 @@ mod tests {
     assert_format!(instruction!(AMD = APlus1), "AMD=A+1");
     assert_format!(instruction!(MMinus1, JEQ), "M-1;JEQ");
     assert_format!(instruction!(AM = DOrA, JNE), "AM=D|A;JNE");
+  }
+
+  #[test]
+  fn new() {
+    macro_rules! assert_instruction {
+      ($destination:ident = $computation:ident, $instruction:expr) => {
+        assert_eq!(
+          Instruction::new(
+            Some(Destination::$destination { span: None }),
+            Computation::$computation { span: None },
+            None
+          ),
+          Some($instruction)
+        )
+      };
+      ($computation:ident, $jump:ident, $instruction:expr) => {
+        assert_eq!(
+          Instruction::new(
+            None,
+            Computation::$computation { span: None },
+            Some(Jump::$jump { span: None }),
+          ),
+          Some($instruction)
+        )
+      };
+      ($destination:ident = $computation:ident, $jump:ident, $instruction:expr) => {
+        assert_eq!(
+          Instruction::new(
+            Some(Destination::$destination { span: None }),
+            Computation::$computation { span: None },
+            Some(Jump::$jump { span: None }),
+          ),
+          Some($instruction)
+        )
+      };
+    }
+
+    assert_instruction!(A = MMinus1, instruction!(A = MMinus1));
+    assert_instruction!(MMinus1, JEQ, instruction!(MMinus1, JEQ));
+    assert_instruction!(AM = DOrA, JNE, instruction!(AM = DOrA, JNE));
+    assert_eq!(Instruction::new(None, Computation::new_d_or_a(), None), None);
   }
 }

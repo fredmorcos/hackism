@@ -3,12 +3,13 @@
 use crate::utilities::Span;
 use derive_more::Display;
 
-/// A destination as defined by the HACK assembly reference.
+/// A destination as defined by the `HACK` assembly reference.
 ///
 /// The binary representation of a destination is 3 bits wide
 /// representing the bits `d1`, `d2` and `d3` in an instruction.
 ///
-/// A destination can be parsed from byte buffers using a [Lexer].
+/// A destination can be scanned from byte buffers using a
+/// [`super::Lexer`].
 #[derive(new, Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Destination {
   /// Memory register.
