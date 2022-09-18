@@ -8,8 +8,7 @@ use derive_more::Display;
 /// The binary representation of a destination is 3 bits wide
 /// representing the bits `d1`, `d2` and `d3` in an instruction.
 ///
-/// A destination can be scanned from byte buffers using a
-/// [`super::Lexer`].
+/// A destination can be scanned from byte buffers using a \[`super::Lexer`\].
 #[derive(new, Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Destination {
   /// Memory register.

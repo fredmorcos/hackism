@@ -8,7 +8,7 @@ use derive_more::Display;
 /// The binary representation of a jump is 3 bits wide representing
 /// the bits `j1`, `j2` and `j3` in an instruction.
 ///
-/// A jump can be parsed from byte buffers using a [Lexer].
+/// A jump can be parsed from byte buffers using a \[Lexer\].
 #[derive(new, Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Jump {
   /// Jump on greater than.

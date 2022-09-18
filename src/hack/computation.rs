@@ -8,7 +8,7 @@ use derive_more::Display;
 /// The binary representation is 7 bits wide representing the bits
 /// `a`, `c1`, `c2`, `c3`, `c4`, `c5` and `c6` in an instruction.
 ///
-/// A computation can be parsed from byte buffers using a [Lexer].
+/// A computation can be parsed from byte buffers using a \[Lexer\].
 #[derive(new, Display, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Computation {
   /// Integer literal `0`.
