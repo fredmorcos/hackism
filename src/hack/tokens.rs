@@ -139,6 +139,7 @@ pub enum Token {
   /// Computation.
   #[display(fmt = "{}", _0)]
   Computation(ComputationToken),
+
   /// Semicolon.
   #[display(fmt = "{}", _0)]
   Semicolon(SemicolonToken),
