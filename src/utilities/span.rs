@@ -13,7 +13,7 @@ pub struct Span {
   end: Location,
 }
 
-/// Display "from <start> to <end> (<N> bytes)" for a [`Span`].
+/// Display "from `<start>` to `<end>` (`<N>` bytes)" for a [`Span`].
 impl fmt::Display for Span {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "from {} to {} ({} bytes)", self.start, self.end, self.length())
